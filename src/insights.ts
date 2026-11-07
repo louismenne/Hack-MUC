@@ -39,6 +39,8 @@ export interface InfoGap { field: Field; kind: 'absent' | 'blank' }
 export interface InsightCase {
   decision: Pick<Decision, 'recommendation' | 'ruleId' | 'supportingFacts' | 'missingFields'> & { caseId: string };
   quote: number | null;
+  /** Quote limit of the policy that decided this case; defaults to the limit passed to computeInsights. */
+  quoteLimit?: number | null;
   /** Effective recommendation after reviewer actions; equals the engine's when nobody acted. */
   effective: Recommendation;
   reviewStatus: 'pending' | 'reviewed' | 'overridden';
@@ -127,8 +129,9 @@ export function computeInsights(cases: InsightCase[], limit: number | null = POL
 
     if (item.quote === null) unknownQuotes += 1;
     else {
-      if (limit !== null) {
-        const index = quoteBandIndex(item.quote, limit);
+      const caseLimit = item.quoteLimit !== undefined ? item.quoteLimit : limit;
+      if (caseLimit !== null) {
+        const index = quoteBandIndex(item.quote, caseLimit);
         bandCounts[index] += 1;
         if (index === 2) nearLimitBelow += 1;
         if (index === 3) nearLimitAbove += 1;

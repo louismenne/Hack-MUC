@@ -53,13 +53,23 @@ export function QualityView({ dataset, states }: { dataset: Dataset; states: Map
   const { history } = usePolicySource();
   // The active policy's quote limit; null when the policy has no single unconditional threshold.
   const limit = reviewQuoteLimit(history.active.rules);
+  const previousLimit = reviewQuoteLimit(history.previous.rules);
+  // History is never rewritten: a claim shows the decision that applied when it arrived.
+  // Claims received before the policy change keep their earlier decision here; whether they
+  // need another look under the new policy is shown separately (needsRecheck).
+  const changeDate = new Date(V2_PERIOD_START);
+  const decidedBeforeChange = (item: CaseItem) => !!item.received && item.received.at < changeDate;
+  const atArrival = (item: CaseItem) => (decidedBeforeChange(item) ? item.baseline : item.decision);
+  const recheck = open.filter(item => item.needsRecheck);
 
   const toInsight = (item: CaseItem) => {
     const state = states.get(item.decision.caseId)!;
     return {
-      decision: item.decision,
+      decision: atArrival(item),
       quote: parseNumber(item.row.quote_eur),
-      effective: state.effective,
+      quoteLimit: decidedBeforeChange(item) ? previousLimit : limit,
+      // Without a reviewer action the outcome is the decision at arrival.
+      effective: state.status === 'pending' ? atArrival(item).recommendation : state.effective,
       reviewStatus: state.status,
     };
   };
@@ -84,7 +94,7 @@ export function QualityView({ dataset, states }: { dataset: Dataset; states: Map
   const engine = qualityReport(labelled.map(item => ({ expected: item.label!, predicted: item.decision.recommendation })));
   const reviewed = qualityReport(labelled.map(item => ({ expected: item.label!, predicted: states.get(item.decision.caseId)!.effective })));
   const actions = suggestedActions(insights, labelled.length ? engine : undefined, gapLabel);
-  const series = hasDates ? receivedSeries(dated.map(item => ({ at: item.received!.at, recommendation: item.decision.recommendation })), window) : [];
+  const series = hasDates ? receivedSeries(dated.filter(item => !item.frozen).map(item => ({ at: item.received!.at, recommendation: atArrival(item).recommendation })), window) : [];
   const priorRate = (rec: Recommendation) => (prior && prior.total ? prior.rates[rec] : null);
   const smallSample = prior !== null && prior.total > 0 && prior.total < 5 ? ` (only ${prior.total} before)` : '';
   const vs = range === 'all' ? '' : range === '1d' ? `vs yesterday${smallSample}` : `vs previous ${rangeLabels[range].toLowerCase()}${smallSample}`;
@@ -110,7 +120,7 @@ export function QualityView({ dataset, states }: { dataset: Dataset; states: Map
         </ToggleGroup>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)]">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
         <Kpi label="Claims received" value={insights.total} change={delta(insights.total, prior?.total ?? null, 'count')} better="neutral" vs={vs} />
         <MixCard
           insights={insights}
@@ -121,6 +131,10 @@ export function QualityView({ dataset, states }: { dataset: Dataset; states: Map
           label="Review backlog now" value={backlog.length} better="neutral" vs=""
           hint={oldestWaiting ? `Oldest waiting ${daysOpen(oldestWaiting, now)} days` : 'Nobody waiting'}
           alert={!!oldestWaiting && daysOpen(oldestWaiting, now) > 14}
+        />
+        <Kpi
+          label="Needs recheck after policy change" value={recheck.length} better="neutral" vs=""
+          hint={recheck.length ? `${recheck.map(item => item.decision.caseId).join(', ')} · open, result changes under ${history.active.label}` : 'No open claim changes outcome'}
         />
       </div>
 
