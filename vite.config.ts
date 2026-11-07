@@ -7,6 +7,6 @@ export default defineConfig({
   root: 'web',
   plugins: [react(), tailwindcss()],
   resolve: { alias: { '@': fileURLToPath(new URL('./web/src', import.meta.url)) } },
-  server: { port: 5173 },
+  server: { port: 5173, proxy: { '/api': 'http://127.0.0.1:3002' } },
   build: { outDir: '../dist', emptyOutDir: true },
 });
