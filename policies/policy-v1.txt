@@ -1,0 +1,41 @@
+Fictional motor claims policy · v1
+
+Participant material · thinc! Munich hackathon · release at case presentation
+
+Purpose and scope
+
+This is an invented policy for a hackathon. It is not legal advice, an insurer policy, or a Taktile customer workflow. Your system recommends the next handling step; it never approves or pays a claim.
+
+The input is one claim record. The claim_summary is descriptive text; the structured fields are the exercise’s source of truth. The three outputs are routine_processing, request_information, and human_review.
+
+Policy v1: decision order
+
+Apply these rules in order. A known reason for human review takes priority over a missing document. Record which policy version and rule produced each recommendation.
+
+1. Send to human_review if the policy was not active on the incident date; claim_type is not motor_own_damage; injury_reported, liability_disputed, duplicate_flag or evidence_conflict is true; or quote_eur is greater than €1,500.
+
+2. Otherwise, send to request_information if incident_report_present or itemized_quote_present is false.
+
+3. Otherwise, send to routine_processing. This means the case may enter the insurer’s normal downstream process. It does not mean payment is approved.
+
+Field definitions
+
+case_status is open or closed. Open claims are still in process; closed claims have been completed. claim_type identifies the kind of claim. repair_type distinguishes standard repair from ev_high_voltage_battery work. quote_eur is the itemized repair estimate in euros. The remaining Boolean fields indicate whether evidence is present or a review trigger is known.
+
+If an input field is absent or unreadable, do not invent a value. Request information unless another known fact already requires human review. Some development and evaluation cases have blank fields; treat a blank as an absent fact.
+
+Participant datasets
+
+Labelled development cases (14): https://drive.google.com/file/d/1T0_dwhKPmdhtZrh97FsBaAjuAmfp8akd/view
+
+Unlabelled practice cases (12): https://drive.google.com/file/d/1TBMn1IWqMeheCaL9fzXPMKwnhb7f-MBj/view
+
+Use the labelled cases to test and improve your system. The practice cases are for your own predictions. A separate evaluation set will be used for judging.
+
+Your prototype must read a CSV in this format and write a results CSV with the columns case_id, recommendation_v1, recommendation_v2, needs_recheck, rule_v1, rule_v2 and explanation. Judges run every team on the same hidden cases in this format.
+
+Quality to report
+
+Report total correct next-step recommendations, incorrect routine_processing recommendations, and unnecessary human_review recommendations. After a policy change, report the changed cases separately and identify any open cases whose recommendation must be revisited. The supplied data contains no reviewer corrections, so show how your system records an override rather than reporting a rate. Explain what you would monitor after deployment when reviewer corrections and final outcomes arrive later.
+
+

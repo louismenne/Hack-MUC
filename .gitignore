@@ -1,0 +1,5 @@
+node_modules/
+results*.csv
+coverage/
+.env*
+.DS_Store
