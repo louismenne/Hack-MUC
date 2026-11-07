@@ -71,6 +71,25 @@ The pure evaluator in `src/triage.ts` and the batch rules in `src/claims.ts` are
 
 Tests cover reviewer override, revert, and confirmation rules, the quality metrics, all 14 labelled development cases, threshold boundaries, missing and unreadable fields, rule precedence, narrative isolation, output serialization, and batch input failures. The 12 unlabelled practice cases are checked for successful processing, not claimed as measured accuracy. Passing this small development set does not establish hidden-set or production performance.
 
+## Policy workspace (rules as JSON in Supabase)
+
+The **Policy** tab now stores policy versions in Supabase and works the same locally and on Vercel. Rules are **data**: one JSON document per version (`policies/policy-v1.rules.json` is v1; format in `docs/policy-rules-schema.md`). The generic engine in `src/policy-engine/` evaluates them deterministically; it does not change when a policy changes. `src/triage.ts` and the CLI are unchanged and need no database.
+
+- **Overview**: active version, rules in priority order as plain text, rendered from the JSON (no AI).
+- **History**: every version with status, source, creator, date and change summary; any version can be opened, and two versions can be compared in plain language.
+- **Change a draft** manually (numbers, yes/no, lists) or with Claude: upload a policy document (txt, md, pdf), or give an instruction for one rule. Claude only **proposes** rule JSON; it is validated against the schema (one retry) and saved as a **draft**. Nothing becomes active without a human.
+- **Review and activate**: diff to the active version, plus an impact analysis over the participant CSV cases: which **open** cases change their recommendation (`needs_recheck`), with old/new result and rule. Closed cases stay frozen. Activation archives the previous version atomically (`activate_policy_version`). Active and archived versions are immutable.
+
+Setup: run `supabase/migrations/20261107120000_policy_versions.sql` once in the Supabase SQL Editor. Server-side env vars (never `VITE_`-prefixed, never in the browser): `SUPABASE_URL`, `SUPABASE_SECRET_KEY` (the `sb_secret_…` key), optional `ANTHROPIC_API_KEY` (and `ANTHROPIC_MODEL`, default `claude-sonnet-5-5`). Without `ANTHROPIC_API_KEY` the AI buttons show "KI nicht verfügbar, bitte manuell bearbeiten." and everything else works.
+
+Run locally with `npm run dev`: a Vite middleware serves the same functions that Vercel runs (`GET/POST /api/policy`, `POST /api/policy-ai`), reading `.env.local`.
+
+**Vercel Functions are plain JavaScript on purpose.** Vercel's TypeScript compiler for functions needs `ts.sys`, which TypeScript 7 (this repo) no longer provides, so TypeScript files in `api/` fail to build. The functions are written in `src/policy-api/functions/` and compiled by esbuild to `api/*.js` (`npm run build:api`, also run by `npm run build`). The generated files are committed; `tests/api-bundle.test.ts` fails if they are stale. Preview and Production deployments need the env vars above set for their environments.
+
+There is **no authentication**: anyone who can open the deployed URL can create drafts, activate versions and (with an API key) trigger AI calls. Names are labels only.
+
+> The section below describes the earlier local SQLite prototype (`src/server/`). The Policy tab no longer uses it; it is kept until the team agrees to remove it.
+
 ## Local policy management
 
 Requires Node.js **22.13+** (built-in SQLite). Run `npm run dev` to start the Vite UI and the local policy API together. Open the printed Vite URL and select **Policy**. The API binds only to `127.0.0.1:3002`; Vite proxies `/api` to it.
