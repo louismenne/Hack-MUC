@@ -1,3 +1,5 @@
+import { saveReview, useReviewAudit } from '@/lib/audit';
+import { ActivityLog } from '@/components/activity-log';
 import { permissions, roleOf, roleLabels } from '../../src/roles';
 import { Team } from '@/components/team';
 import { useAuthUser, SignOutButton } from '@/lib/auth';
@@ -29,8 +31,6 @@ const isString = (value: unknown): value is string => typeof value === 'string';
 const isRecord = (value: unknown): value is Record<string, string> => typeof value === 'object' && value !== null && !Array.isArray(value);
 const isUpload = (value: unknown): value is StoredUpload | null =>
   value === null || (isRecord(value) && typeof value.name === 'string' && typeof value.csv === 'string');
-const isEvents = (value: unknown): value is ReviewEvent[] => Array.isArray(value) && value.every(event =>
-  isRecord(event) && typeof event.id === 'string' && typeof event.caseId === 'string' && typeof event.datasetId === 'string' && isRecommendation(event.next));
 const isFilters = (value: unknown): value is ListFilters => isRecord(value) && typeof value.query === 'string';
 
 const maxUploadBytes = 2_000_000;
@@ -72,7 +72,7 @@ function AppContent() {
   const builtinDatasets = useMemo(() => buildBuiltinDatasets(history), [history]);
   const [datasetId, setDatasetId] = usePersistentState('dataset', 'development', isString);
   const [upload, setUpload] = usePersistentState<StoredUpload | null>('upload', null, isUpload);
-  const [events, setEvents] = usePersistentState<ReviewEvent[]>('audit', [], isEvents);
+  const savingReview = useRef(false);
   const reviewer = user.email ?? user.id;
   const [selection, setSelection] = usePersistentState<Record<string, string>>('selection', {}, isRecord);
   const [tab, setTab] = usePersistentState('tab', 'queue', isString);
@@ -92,7 +92,11 @@ function AppContent() {
   const datasets = uploaded ? [...builtinDatasets, uploaded] : builtinDatasets;
   const dataset = datasets.find(item => item.id === datasetId) ?? datasets[0];
 
-  const datasetEvents = useMemo(() => events.filter(event => event.datasetId === dataset.id), [events, dataset.id]);
+  const audit = useReviewAudit(dataset.id.startsWith('upload:') ? `upload:${user.id}:${dataset.id.slice(7)}` : dataset.id);
+  const { events, setEvents } = audit;
+  const currentDataset = useRef(dataset.id);
+  currentDataset.current = dataset.id;
+  const datasetEvents = useMemo(() => events.map(event => ({ ...event, datasetId: dataset.id })), [events, dataset.id]);
   const states = useMemo(() => {
     const byCase = new Map<string, ReviewEvent[]>();
     for (const event of datasetEvents) byCase.set(event.caseId, [...(byCase.get(event.caseId) ?? []), event]);
@@ -131,12 +135,16 @@ function AppContent() {
     return () => window.removeEventListener('keydown', onKey);
   }, [tab, dialog, visible, selectedId, dataset.id, setSelection, pageOpen, openCase]);
 
-  const record = (input: ReviewInput) => {
+  const record = async (input: ReviewInput) => {
+    if (savingReview.current) return;
+    savingReview.current = true;
     try {
+      if (audit.loading || audit.error) throw new Error('Refresh the audit log before reviewing.');
       if (!access.review) throw new Error('Reviewer or Admin role required.');
       if (selected.claim.case_status === 'closed') throw new Error('Closed claims are historical and cannot be reviewed.');
-      const event = createReviewEvent({ ...input, reviewer }, { id: crypto.randomUUID(), at: new Date().toISOString() });
-      setEvents(previous => [...previous, event]);
+      const proposal = createReviewEvent({ ...input, reviewer }, { id: crypto.randomUUID(), at: new Date().toISOString() });
+      const event = await saveReview({ ...proposal, datasetId: dataset.id.startsWith('upload:') ? `upload:${user.id}:${dataset.id.slice(7)}` : dataset.id });
+      if (currentDataset.current === dataset.id) setEvents(previous => [...previous, event]);
 
       setDialog(null);
       const message = event.action === 'overridden'
@@ -145,7 +153,8 @@ function AppContent() {
       toast.success(`${event.caseId} · ${message}`, { description: 'Saved to the audit history. The automated decision is unchanged.' });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error));
-    }
+      void audit.refresh();
+    } finally { savingReview.current = false; }
   };
 
   const onUpload = async (file: File | undefined) => {
@@ -275,7 +284,7 @@ function AppContent() {
                   </Button>
                 </div>
               </div>
-              <ClaimDetail item={selected} state={selectedState} onAction={action => { if (access.review) setDialog(action); }} canReview={access.review} />
+              <ClaimDetail item={selected} state={selectedState} onAction={action => { if (access.review) setDialog(action); }} canReview={access.review && !audit.loading && !audit.error} />
             </div>
           ) : (
             <div className="mx-auto max-w-5xl">
@@ -300,17 +309,15 @@ function AppContent() {
         </TabsContent>
 
         <TabsContent value="audit">
+          <ActivityLog />
+          {audit.error && <p role="alert" className="text-destructive">Could not load review history: {audit.error}</p>}
+          <Button variant="outline" disabled={audit.loading} onClick={() => void audit.refresh()}>Refresh review history</Button>
           <AuditLog
             events={datasetEvents}
             datasetName={dataset.name}
             onOpenCase={caseId => { setFilters({ ...defaultFilters, recommendation: 'all' }); setTab('queue'); showCase(caseId); }}
             onExport={() => downloadFile(`audit-${slug}.csv`, auditCsv(datasetEvents))}
-            canClear={access.review}
-            onClear={() => {
-              if (!access.review) return;
-              setEvents(previous => previous.filter(event => event.datasetId !== dataset.id));
-              toast.success(`Cleared the audit log for ${dataset.name.toLowerCase()}`);
-            }}
+
           />
         </TabsContent>
       </Tabs>

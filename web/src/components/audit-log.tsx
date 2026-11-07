@@ -1,10 +1,6 @@
-import { DownloadIcon, ScrollTextIcon, Trash2Icon } from 'lucide-react';
+import { DownloadIcon, ScrollTextIcon } from 'lucide-react';
 import { RecommendationBadge } from '@/components/recommendation-badge';
 import { timeFormat } from '@/components/claim-detail';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
-  AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,11 +15,9 @@ interface AuditLogProps {
   datasetName: string;
   onOpenCase: (caseId: string) => void;
   onExport: () => void;
-  canClear: boolean;
-  onClear: () => void;
 }
 
-export function AuditLog({ events, datasetName, onOpenCase, onExport, onClear, canClear }: AuditLogProps) {
+export function AuditLog({ events, datasetName, onOpenCase, onExport }: AuditLogProps) {
   const ordered = [...events].reverse();
   return (
     <Card>
@@ -34,25 +28,7 @@ export function AuditLog({ events, datasetName, onOpenCase, onExport, onClear, c
           <Button variant="outline" onClick={onExport} disabled={!events.length}>
             <DownloadIcon data-icon="inline-start" /> Export CSV
           </Button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" disabled={!canClear || !events.length}>
-                <Trash2Icon data-icon="inline-start" /> Reset
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete {events.length} audit {events.length === 1 ? 'entry' : 'entries'}?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This clears reviewer actions for {datasetName.toLowerCase()} from this browser so the demo can start fresh. Export first if you need a record. It cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction variant="destructive" onClick={onClear}>Delete entries</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+
         </CardAction>
       </CardHeader>
       <CardContent>
