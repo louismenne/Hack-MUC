@@ -4,6 +4,8 @@ import {
 import { cn } from '@/lib/utils';
 import { describeFact, euro, fieldGroups, fieldLabels, recommendationMeta, ruleMeta, triggeringFields } from '@/lib/policy';
 import type { CaseItem } from '@/lib/datasets';
+import { fullDate } from '@/components/claims-list';
+import { daysOpen } from '../../../src/received-at';
 import { RecommendationBadge, toneSurface } from '@/components/recommendation-badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -45,6 +47,13 @@ export function ClaimDetail({ item, state, onAction }: ClaimDetailProps) {
             <span className="font-mono text-sm font-semibold">{decision.caseId}</span>
             {claim.case_status && <Badge variant="secondary" className="capitalize">{String(claim.case_status)}</Badge>}
             <Badge variant="outline" className="font-mono">policy {decision.policyVersion}</Badge>
+            {item.received && (
+              <span className="text-xs text-muted-foreground" title={item.received.simulated ? 'Simulated arrival date for the demo; the case CSV has no timestamps.' : undefined}>
+                Received {fullDate.format(item.received.at)}
+                {claim.case_status === 'open' && ` · open ${daysOpen(item.received.at)} day${daysOpen(item.received.at) === 1 ? '' : 's'}`}
+                {item.received.simulated && ' · simulated'}
+              </span>
+            )}
           </div>
           <CardTitle className="mt-1 flex gap-2 text-base leading-snug font-medium text-balance">
             <QuoteIcon className="mt-1 size-3.5 shrink-0 text-muted-foreground" aria-hidden />

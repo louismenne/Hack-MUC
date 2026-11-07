@@ -3,12 +3,15 @@ import { stringify } from 'csv-stringify/browser/esm/sync';
 import { normalizeHeaders, outputColumns, toOutputRecord, triageRows, type TriagedCase } from '../../../src/claims';
 import { isRecommendation, type ReviewState } from '../../../src/review';
 import type { Recommendation } from '../../../src/triage';
+import { receivedAt, type ReceivedAt } from '../../../src/received-at';
 import developmentCsv from '../../../data/labelled_development_cases.csv?raw';
 import practiceCsv from '../../../data/unlabelled_practice_cases.csv?raw';
 
 export interface CaseItem extends TriagedCase {
   /** Development label, used only for quality reporting, never as a decision input. */
   label: Recommendation | null;
+  /** When the claim arrived. Simulated for the participant cases (see src/received-at.ts); never a decision input. */
+  received: ReceivedAt | null;
 }
 
 export interface Dataset {
@@ -24,7 +27,7 @@ export function loadDataset(meta: Omit<Dataset, 'cases' | 'labelled'>, csv: stri
   const rows = parse(csv, { bom: true, skip_empty_lines: true, columns: normalizeHeaders }) as Record<string, string>[];
   const cases = triageRows(rows).map(item => {
     const label = item.row.expected_v1?.trim();
-    return { ...item, label: isRecommendation(label) ? label : null };
+    return { ...item, label: isRecommendation(label) ? label : null, received: receivedAt(item.decision.caseId, item.row.received_at) };
   });
   return { ...meta, cases, labelled: cases.some(item => item.label !== null) };
 }
