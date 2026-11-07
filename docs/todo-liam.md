@@ -37,6 +37,9 @@ Detail-Backlog zur Reviewer-UI: [backlog-reviewer-ui.md](backlog-reviewer-ui.md)
 - [ ] Edge Cases: leere/unlesbare Felder, Betrag genau am Limit, mehrere Auslöser, geschlossene Fälle nach Policy-Wechsel
 - [ ] Input-Arten je UI (CSV-Upload, Formular, Reviewer-Entscheidung, Policy-Änderung)
 
+## 6a. Reject (b) für die Reviewer-Entscheidung
+- [ ] Maxi: im gespeicherten Review-Modell (Supabase `record_review`) ein Ergebnis „rejected“ ergänzen; dann den deaktivierten „Reject claim“-Knopf in `claim-detail.tsx` freischalten
+
 ## 6b. Mit Maxi klären
 - [ ] Reviewer-Aktionen (Audit Log) in Supabase speichern statt nur im Browser, damit der Owner im Dashboard die Aktionen aller Reviewer sieht
 
