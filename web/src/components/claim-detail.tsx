@@ -62,7 +62,7 @@ export function ClaimDetail({ item, state, onAction }: ClaimDetailProps) {
             {String(claim.claim_summary ?? 'No claim summary supplied.')}
           </CardTitle>
           {claim.case_status === 'closed' && <p className="text-sm text-muted-foreground">Historical closed claim · v1 retained · no action required.</p>}
-          {item.needsRecheck && <Badge variant="outline">Changed under v2 · needs recheck</Badge>}
+          {item.needsRecheck && <Badge variant="outline">Changed under {decision.policyVersion} · needs recheck</Badge>}
           <CardDescription>The summary is descriptive only. Decisions use the structured fields below.</CardDescription>
           <CardAction className="flex flex-wrap justify-end gap-2 max-sm:col-start-1 max-sm:row-span-1 max-sm:row-start-auto max-sm:mt-2 max-sm:justify-self-start">
             {overridden && (
