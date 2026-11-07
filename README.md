@@ -18,6 +18,22 @@ npm run triage -- --input data/unlabelled_practice_cases.csv --output results-pr
 
 The CLI refuses to overwrite an existing output file or the input file. Choose a new output path for another run. Errors produce a nonzero exit code.
 
+## Review UI
+
+```bash
+npm run dev      # http://localhost:5173
+npm run build    # static site in dist/
+```
+
+A React + Tailwind + shadcn/ui reviewer screen in `web/`. It runs the same `src/triage.ts` evaluator in the browser, so recommendations match the CLI exactly.
+
+- **Review queue**: the supplied datasets or an uploaded CSV, filterable by recommendation, review status, and text. Each claim shows the automated recommendation, the rule and its policy text, the supporting facts, highlighted triggering fields, and missing or unreadable inputs. Use `j`/`k` or arrow keys to move through the list.
+- **Confirm, override, revert**: an override needs a new recommendation, a reason (at least 10 characters), and a reviewer name. The automated decision is never changed; every action is appended to the audit history with the rule and policy version the reviewer saw.
+- **Quality**: correct recommendations, incorrect `routine_processing`, unnecessary `human_review`, and a confusion matrix on labelled cases, shown for the engine and after reviewer overrides. Unlabelled sets are not scored.
+- **Audit log**: all reviewer actions, exportable as CSV. **Export results** writes the CLI columns plus `effective_recommendation` and `review_status`.
+
+Reviewer actions persist in the browser's `localStorage` (`hackmuc.*` keys). That keeps the demo dependency-free; it is per browser, not shared, and not a production audit store.
+
 ## Policy and evidence
 
 The original participant policy is in `policies/policy-v1.docx`; `policies/policy-v1.txt` is its extracted text. Both CSVs in `data/` are copied unchanged from the participant materials. Development labels are test expectations, never decision inputs. Practice cases have no supplied labels.
@@ -45,8 +61,8 @@ case_id,policy_version,recommendation_v1,rule_v1,supporting_facts,missing_fields
 
 This is **not yet the final seven-column judging format**. Once v2 is supplied, add version comparison, affected-open-claim detection, and the required submission exporter. Closed claims must retain their recorded v1 recommendation with `needs_recheck=False`; the current runner only evaluates v1 and does not modify stored claims or implement rechecks.
 
-The pure evaluator in `src/triage.ts` is shared infrastructure for a future review UI and optional eve tools. Reviewer overrides, persistence, the quality dashboard, and the business case remain future work. The existing `index.html` is preserved.
+The pure evaluator in `src/triage.ts` and the batch rules in `src/claims.ts` are shared by the CLI and the review UI, and can back optional eve tools. Review state (`src/review.ts`) and quality metrics (`src/quality.ts`) are pure and tested. A shared server-side audit store and the business case remain future work. The original placeholder `index.html` at the repo root is preserved; the app lives in `web/`.
 
 ## Verification
 
-Tests cover all 14 labelled development cases, threshold boundaries, missing and unreadable fields, rule precedence, narrative isolation, output serialization, and batch input failures. The 12 unlabelled practice cases are checked for successful processing, not claimed as measured accuracy. Passing this small development set does not establish hidden-set or production performance.
+Tests cover reviewer override, revert, and confirmation rules, the quality metrics, all 14 labelled development cases, threshold boundaries, missing and unreadable fields, rule precedence, narrative isolation, output serialization, and batch input failures. The 12 unlabelled practice cases are checked for successful processing, not claimed as measured accuracy. Passing this small development set does not establish hidden-set or production performance.
