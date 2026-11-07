@@ -16,6 +16,8 @@ import { isDryRun, submitClaim, type SubmitResult } from './adapter.js';
 import { extractFromFiles } from './extract.js';
 import { FieldControl } from './FieldControl.js';
 import { FileDropzone } from './FileDropzone.js';
+import { missingInformation, type MissingItem } from './completeness.js';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { engineColumns, fields, sections, type ColumnValue } from './fields.js';
 import { permissions } from '../roles.js';
 import { formatSize, sortNewFiles } from './files.js';
@@ -82,6 +84,9 @@ export function ClaimPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [result, setResult] = useState<SubmitResult | null>(null);
   const [voiceDone, setVoiceDone] = useState(false);
+  // Completeness check before sending: a short "checking" step, then a nudge if something is missing.
+  const [checking, setChecking] = useState(false);
+  const [missing, setMissing] = useState<MissingItem[] | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const demo = useMemo(() => new URLSearchParams(window.location.search).has('demo'), []);
 
@@ -110,7 +115,7 @@ export function ClaimPage() {
 
   const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!canSubmit || submitting) return;
+    if (!canSubmit || submitting || checking) return;
     const found = validate(form.values);
     setErrors(found);
     setSubmitError(null);
@@ -119,6 +124,19 @@ export function ClaimPage() {
       focusField(firstInvalid.key);
       return;
     }
+    setChecking(true);
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setChecking(false);
+    const gaps = missingInformation(form.values, files.length);
+    if (gaps.length) {
+      setMissing(gaps);
+      return;
+    }
+    await send();
+  };
+
+  /** Sends the claim as it is. Used directly, or after the claimant chose "Send anyway". */
+  const send = async () => {
     setSubmitting(true);
     try {
       const saved = await submitClaim(buildPayload(form.values, { isTest: isDryRun() }), files);
@@ -224,7 +242,7 @@ export function ClaimPage() {
             <CardDescription>Incident report, repair quote, photos. Up to 10 files, 10 MB each. Files are stored privately with your claim. Automatic document extraction is not enabled yet.</CardDescription>
           </CardHeader>
           <CardContent>
-            <FileDropzone files={files} reading={reading > 0} notice={notice} onAdd={addFiles} onRemove={index => setFiles(current => current.filter((_, i) => i !== index))} />
+            <div data-field="documents"><FileDropzone files={files} reading={reading > 0} notice={notice} onAdd={addFiles} onRemove={index => setFiles(current => current.filter((_, i) => i !== index))} /></div>
           </CardContent>
         </Card>
 
@@ -260,6 +278,50 @@ export function ClaimPage() {
           </div>
         </div>
       </form>
+
+      {checking && (
+        <div role="status" className="fixed inset-0 z-50 grid place-items-center bg-background/70 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3 text-sm text-muted-foreground">
+            <Spinner className="size-6" />
+            Checking your claim…
+          </div>
+        </div>
+      )}
+
+      <Dialog open={missing !== null} onOpenChange={open => !open && setMissing(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Some information is missing</DialogTitle>
+            <DialogDescription>Adding it now saves you a follow-up from us.</DialogDescription>
+          </DialogHeader>
+          <ul className="flex flex-col gap-1.5 text-sm">
+            {missing?.map(item => (
+              <li key={item.key} className="flex items-center gap-2">
+                <CircleAlertIcon className="size-3.5 shrink-0 text-rec-info-foreground" aria-hidden /> {item.label}
+              </li>
+            ))}
+          </ul>
+          <div className="flex flex-col items-center gap-2 pt-2">
+            <Button
+              className="w-full"
+              onClick={() => {
+                const first = missing?.[0]?.key;
+                setMissing(null);
+                if (first) setTimeout(() => focusField(first), 50);
+              }}
+            >
+              Continue filling out
+            </Button>
+            <button
+              type="button"
+              className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+              onClick={() => { setMissing(null); void send(); }}
+            >
+              Send anyway
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Shell>
   );
 }

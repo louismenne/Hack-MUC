@@ -16,6 +16,8 @@
     --color-rec-info-foreground: var(--rec-info-foreground);
     --color-rec-review: var(--rec-review);
     --color-rec-review-foreground: var(--rec-review-foreground);
+    --color-recheck: var(--recheck);
+    --color-recheck-foreground: var(--recheck-foreground);
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -92,6 +94,8 @@
     --rec-info-foreground: oklch(0.5 0.11 62);
     --rec-review: oklch(0.62 0.19 27);
     --rec-review-foreground: oklch(0.5 0.17 27);
+    --recheck: oklch(0.52 0.22 275);            /* indigo: only ever means "recheck after a policy change" */
+    --recheck-foreground: oklch(0.45 0.2 275);
     --sidebar: oklch(0.973 0.0013 17);
     --sidebar-foreground: oklch(0.183 0 0);
     --sidebar-primary: oklch(0.183 0 0);
@@ -132,6 +136,8 @@
     --rec-info-foreground: oklch(0.87 0.1 80);
     --rec-review: oklch(0.7 0.18 27);
     --rec-review-foreground: oklch(0.82 0.11 27);
+    --recheck: oklch(0.66 0.18 275);
+    --recheck-foreground: oklch(0.8 0.12 275);
     --sidebar: oklch(0.183 0 0);
     --sidebar-foreground: oklch(0.993 0.0013 17);
     --sidebar-primary: oklch(0.62 0.2 275);

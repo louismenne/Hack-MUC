@@ -154,7 +154,7 @@ export function QualityView({ dataset, states, events, renderLog }: QualityViewP
           alert={!!oldestWaiting && daysOpen(oldestWaiting, now) > 14}
         />
         <Kpi
-          label="Needs recheck after policy change" value={recheck.length} better="neutral" vs=""
+          label="Needs recheck after policy change" value={recheck.length} better="neutral" vs="" accent="text-recheck"
           hint={recheck.length ? `${recheck.map(item => shortId(item.decision.caseId)).join(', ')} · open, result changes under ${history.active.label}` : 'No open claim changes outcome'}
         />
       </div>
@@ -575,8 +575,8 @@ function MixCard({ insights, changes, vs }: { insights: Insights; changes: Recor
   );
 }
 
-function Kpi({ label, value, change, better, vs, hint, dot, alert = false }: {
-  label: string; value: string | number; change?: Delta | null; better: Better; vs: string; hint?: string; dot?: Recommendation; alert?: boolean;
+function Kpi({ label, value, change, better, vs, hint, dot, alert = false, accent }: {
+  label: string; value: string | number; change?: Delta | null; better: Better; vs: string; hint?: string; dot?: Recommendation; alert?: boolean; accent?: string;
 }) {
   return (
     <Card size="sm">
@@ -585,7 +585,7 @@ function Kpi({ label, value, change, better, vs, hint, dot, alert = false }: {
           {dot && <span aria-hidden className={cn('size-1.5 rounded-full', dotClasses[dot])} />}
           {label}
         </CardDescription>
-        <div className={cn('text-3xl font-semibold tracking-tight tabular-nums', alert && 'text-destructive')}>{value}</div>
+        <div className={cn('text-3xl font-semibold tracking-tight tabular-nums', alert && 'text-destructive', accent)}>{value}</div>
       </CardHeader>
       <CardContent className="text-xs text-muted-foreground">
         {hint ?? (change ? (

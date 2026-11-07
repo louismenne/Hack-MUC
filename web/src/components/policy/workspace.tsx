@@ -101,7 +101,7 @@ export function PolicyWorkspace() {
   if (!versions || !active) return <p className="text-sm text-muted-foreground">{versions ? 'Es gibt keine aktive Policy-Version.' : 'Lade Policy-Versionen …'}</p>;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
+    <div className="mx-auto w-full max-w-[1600px] space-y-4">
       <Card>
         <CardContent className="flex flex-wrap items-end gap-4">
           <label className="space-y-1 text-sm">

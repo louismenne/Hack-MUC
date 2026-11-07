@@ -52,7 +52,7 @@ export function Team() {
     finally { setBusy(false); }
   }
   return (
-    <Card className="mx-auto max-w-3xl">
+    <Card className="mx-auto w-full max-w-[1600px]">
       <CardHeader>
         <CardTitle>Team roles</CardTitle>
         <CardDescription>Unassigned accounts are read only. Your own role cannot be changed here.</CardDescription>

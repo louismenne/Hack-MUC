@@ -1,48 +1,43 @@
-# To-do Liam — Hackathon Taktile (Stand: Sa, 7. Nov 2026, abends)
+# To-do Liam — Hackathon Taktile (Stand: Sa, 7. Nov 2026, spätabends)
 
 Detail-Backlog zur Reviewer-UI: [backlog-reviewer-ui.md](backlog-reviewer-ui.md)
 
-## 1. Reviewer-Entscheidung end-to-end (vom Taktile-Mentor bestätigt)
-- [ ] Platzhalter „Coming soon“ durch echte Entscheidung ersetzen:
-  - a) Approve → weiter in Routine processing
-  - b) Reject → Claim ablehnen
-  - c) Contact claimant → um genauere Infos bitten (Freitext)
-  - d) Return: missing info → fehlende Dokumente anhaken und zurückschicken
-    (nötig, weil ein Review-Grund Vorrang vor fehlenden Dokumenten hat, z. B. DEV-014)
-- [ ] Jede Entscheidung speichert Reviewer, Begründung, Policy-Version, Zeitstempel (= Jury-Live-Override)
-- [ ] Mit Maxi abstimmen: Datenmodell `src/review.ts` erweitern, nicht umbauen
+## Offen
 
-## 2. Claimant-UI (vom Mentor bestätigt: alle UIs bauen)
-- [ ] Klären, wer sie baut (Liam / Louis / Maxi)
-- [ ] Formular „Claim einreichen“ mit den CSV-Feldern + Dokumente → läuft sofort durch die Engine → erscheint in der Inbox
-- [ ] Ansicht „Infos nachreichen“ für Fälle aus c) / d)
+### 1. Reject (b) freischalten
+- [ ] Maxi: Ergebnis „rejected“ im gespeicherten Review-Modell (Supabase `record_review`) ergänzen
+- [ ] Danach den deaktivierten „Reject claim“-Knopf in `claim-detail.tsx` freischalten
 
-## 3. Cost-Cutting-Funktionen (Feedback Mentor) — Details klären
-- [ ] Was genau gemeint ist: Kosten pro Claim/Review sichtbar machen? Einsparung durch Automation? Kosten einer Policy-Änderung?
-- [ ] Abstimmen mit Louis' Business Case (25 % der Bewertung)
+### 2. Savings-Karte überarbeiten
+- [ ] „€… saved in total“ entfernen (mischt zwei Schätzungen)
+- [ ] Hauptzahl: „−X % manual reviews“ (aus Daten), darunter „≈ Y staff hours“ als Schätzung
+- [ ] Kosten eines falsch bezahlten Claims nicht erfinden: = Betrag des Claims (`quote_eur`, max. Limit) → „€ claim value processed automatically · Fehlerquote auf Testfällen“
+- [ ] Annahmen mit Louis' Business Case abgleichen (25 % der Bewertung)
 
-## 4. Owner-Dashboard fertigstellen
-- [ ] PR für `liam/quality-dashboard` erstellen + mergen lassen
-- [ ] Reviewer-Bereich neu: Graph „Eingang vs. erledigt“ pro Woche mit % Veränderung (echte Audit-Daten)
-- [ ] Decision Quality → eigener Tab „Quality report“ (v1 vs. v2, geänderte Fälle separat); im Dashboard nur „Wrongly sent to routine“
-- [ ] Audit Log ins Dashboard integrieren: Owner sieht, was der/die Reviewer gemacht haben
-      (wer hat wann welchen Fall wie entschieden, mit Begründung + Policy-Version; filterbar nach Reviewer)
-- [ ] UI-Feinschliff später (erst Sinn, dann schön)
+### 3. Claimant-Seite: Infos nachreichen
+- [ ] Ansicht, in der der Claimant nach c) / d) fehlende Infos/Dokumente ergänzt (Formular `/claim` existiert, von Louis)
 
-## 5. Quality Report als laufender Prozess
-- [ ] Kreislauf zeigen: messen → Fehler zeigen → Regel anpassen → alte Fälle neu rechnen → freigeben
-- [ ] Wie Overrides und spätere echte Ergebnisse einfließen (im Betrieb gibt es keine Labels)
+### 4. Dashboard-Feinschliff
+- [ ] Decision Quality / Vorher-Nachher: klären, ob im Dashboard oder im Tab „Example quality“ (Maxi)
+- [ ] Quality Report als Kreislauf zeigen: messen → Fehler zeigen → Regel anpassen → alte Fälle neu rechnen → freigeben
+- [ ] UI-Feinschliff zum Schluss
 
-## 6. Mit dem Taktile-Mentor klären
+### 5. Mit dem Taktile-Mentor klären
 - [ ] Edge Cases: leere/unlesbare Felder, Betrag genau am Limit, mehrere Auslöser, geschlossene Fälle nach Policy-Wechsel
-- [ ] Input-Arten je UI (CSV-Upload, Formular, Reviewer-Entscheidung, Policy-Änderung)
+- [ ] Cost-Cutting: was genau gemeint ist (Kosten pro Review, Einsparung, Kosten einer Policy-Änderung)
 
-## 6a. Reject (b) für die Reviewer-Entscheidung
-- [ ] Maxi: im gespeicherten Review-Modell (Supabase `record_review`) ein Ergebnis „rejected“ ergänzen; dann den deaktivierten „Reject claim“-Knopf in `claim-detail.tsx` freischalten
+### 6. Organisatorisch
+- [ ] Louis: Vercel-Zugang für `lj-comstruct` (sonst werden deine Deployments blockiert)
+- [ ] Nach dem Hackathon: Supabase-Secret-Key rotieren, eigenes Passwort ändern (beides stand im Chat)
 
-## 6b. Mit Maxi klären
-- [ ] Reviewer-Aktionen (Audit Log) in Supabase speichern statt nur im Browser, damit der Owner im Dashboard die Aktionen aller Reviewer sieht
-
-## 7. Organisatorisch
-- [ ] Louis: Vercel-Zugang für `lj-comstruct`
-- [ ] Optional: `.env.local` (Supabase) von Louis privat, nur für den Policy-Tab nötig
+## Erledigt
+- [x] Reviewer-Inbox: nur Review-Fälle, älteste zuerst (nach Eingangsdatum), Warteschlangen-Position
+- [x] Fallseite mit Zurück/Vor/Weiter
+- [x] Reviewer-Entscheidung a) Approve, c) Contact claimant, d) Return missing info, Keep in review — gespeichert in Supabase (Jury-Override)
+- [x] Mock-Eingangsdaten (received_at) für DEV-001–014; 14 Testfälle in Supabase eingespielt
+- [x] Dashboard: Zeitfilter, Kreisdiagramm, Wochen-Chart, Where to act, Reasons, Most missing info, Quote vs. Limit (versionsunabhängig)
+- [x] Dashboard: Vergangenheit bleibt (Entscheidung zum Eingang) + „Needs recheck after policy change“
+- [x] Dashboard: Reviewer activity mit Audit Log, Reviewer-Filter, Graph „New vs. completed reviews“
+- [x] Savings-Karte (erste Version, siehe Offen #2)
+- [x] Taktile-Design app-weit
+- [x] Claimant-Formular `/claim` (Louis), Reviewer-Aktionen in Supabase (Maxi), Supabase-Login eingerichtet

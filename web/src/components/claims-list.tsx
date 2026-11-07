@@ -1,4 +1,4 @@
-import { CircleCheckIcon, PencilLineIcon, SearchIcon, SearchXIcon } from 'lucide-react';
+import { CircleCheckIcon, PencilLineIcon, RefreshCwIcon, SearchIcon, SearchXIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { euro, recommendationMeta } from '@/lib/policy';
 import type { CaseItem } from '@/lib/datasets';
@@ -81,15 +81,17 @@ interface ClaimsListProps {
   onFiltersChange: (filters: ListFilters) => void;
   selectedId: string | null;
   onSelect: (caseId: string) => void;
+  /** Narrow Gmail-style list for the split view: one dense row per claim, no columns. */
+  compact?: boolean;
 }
 
-export function ClaimsList({ cases, visible, states, filters, onFiltersChange, selectedId, onSelect }: ClaimsListProps) {
+export function ClaimsList({ cases, visible, states, filters, onFiltersChange, selectedId, onSelect, compact = false }: ClaimsListProps) {
   const counts = Object.fromEntries(recommendations.map(rec => [rec, cases.filter(item => states.get(item.decision.caseId)?.effective === rec).length]));
   const positions = queuePositions(cases, states);
   return (
     <Card className="gap-0 overflow-hidden py-0 lg:sticky lg:top-[7.25rem] lg:max-h-[calc(100svh-8.5rem)]">
       <div className="flex shrink-0 flex-col gap-2.5 border-b p-3">
-        <div className="flex gap-2">
+        <div className={cn('flex gap-2', compact && 'flex-col')}>
           <div className="relative flex-1">
             <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -101,7 +103,7 @@ export function ClaimsList({ cases, visible, states, filters, onFiltersChange, s
             />
           </div>
           <Select value={filters.status} onValueChange={status => onFiltersChange({ ...filters, status: status as StatusFilter })}>
-            <SelectTrigger className="w-32" aria-label="Review status">
+            <SelectTrigger className={compact ? 'h-8 w-full' : 'w-32'} aria-label="Review status">
               <SelectValue />
             </SelectTrigger>
             <SelectContent align="end">
@@ -128,7 +130,7 @@ export function ClaimsList({ cases, visible, states, filters, onFiltersChange, s
           {(['human_review', 'request_information', 'routine_processing'] as const).map(rec => (
             <ToggleGroupItem key={rec} value={rec} className="flex-1" aria-label={recommendationMeta[rec].label}>
               <span aria-hidden className={cn('size-1.5 rounded-full', dotClasses[rec])} />
-              <span className="hidden sm:inline">{recommendationMeta[rec].short.replace('Request info', 'Info').replace('Human review', 'Review')}</span>
+              <span className={compact ? 'sr-only' : 'hidden sm:inline'}>{recommendationMeta[rec].short.replace('Request info', 'Info').replace('Human review', 'Review')}</span>
               <span className="text-muted-foreground tabular-nums">{counts[rec]}</span>
             </ToggleGroupItem>
           ))}
@@ -145,6 +147,46 @@ export function ClaimsList({ cases, visible, states, filters, onFiltersChange, s
             <EmptyDescription>Clear the search or pick another filter.</EmptyDescription>
           </EmptyHeader>
         </Empty>
+      ) : compact ? (
+        <ul className="min-h-0 flex-1 divide-y overflow-auto" aria-label="Claims list">
+          {visible.map(item => {
+            const id = item.decision.caseId;
+            const state = states.get(id)!;
+            const selected = id === selectedId;
+            return (
+              <li key={id}>
+                <button
+                  type="button"
+                  aria-current={selected ? 'true' : undefined}
+                  onClick={() => onSelect(id)}
+                  className={cn(
+                    'flex w-full flex-col gap-0.5 border-l-2 border-transparent px-3 py-2 text-left outline-none hover:bg-muted/50 focus-visible:bg-muted/60',
+                    selected && 'border-foreground bg-muted',
+                  )}
+                  title={`${id} · ${recommendationMeta[state.effective].label}`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span aria-hidden className={cn('size-2 shrink-0 rounded-full', dotClasses[state.effective])} />
+                    <span className={cn('min-w-0 flex-1 truncate text-sm', state.status === 'pending' && state.effective === 'human_review' ? 'font-semibold' : 'text-muted-foreground')}>
+                      {String(item.claim.claim_summary ?? 'No summary')}
+                    </span>
+                    <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">{receivedLabel(item.received)}</span>
+                  </span>
+                  {/* Fixed slots so every row has the same shape: position · amount ... status icons. */}
+                  <span className="grid grid-cols-[2rem_1fr_auto] items-center gap-1.5 pl-4 text-[11px] text-muted-foreground">
+                    <span className="font-mono tabular-nums">{positions.has(id) ? `#${positions.get(id)}` : ''}</span>
+                    <span className="tabular-nums">{typeof item.claim.quote_eur === 'number' ? euro.format(item.claim.quote_eur) : '—'}</span>
+                    <span className="flex w-9 items-center justify-end gap-1">
+                      {item.needsRecheck && <RefreshCwIcon className="size-3 text-recheck" aria-label={`Recheck: result changed under ${item.decision.policyVersion}`} />}
+                      {state.status === 'overridden' && <PencilLineIcon className="size-3" aria-label="Overridden by reviewer" />}
+                      {state.status === 'reviewed' && <CircleCheckIcon className="size-3" aria-label="Reviewed" />}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
       ) : (
         <div className="min-h-0 flex-1 overflow-auto" role="region" aria-label="Claims list" tabIndex={0}>
           <Table>
@@ -181,7 +223,7 @@ export function ClaimsList({ cases, visible, states, filters, onFiltersChange, s
                         <span className="truncate font-mono text-xs font-medium" title={id}>{id}</span>
                         {item.claim.case_status === 'closed' && <span className="shrink-0 text-xs text-muted-foreground">Historical · {item.decision.policyVersion}</span>}
                         {item.needsRecheck && (
-                          <span className="shrink-0 rounded border border-rec-info/50 bg-rec-info/10 px-1 text-[10px] font-medium text-rec-info-foreground" title={`The recommendation changed under ${item.decision.policyVersion}; this open claim needs another look.`}>
+                          <span className="shrink-0 rounded border border-recheck/40 bg-recheck/10 px-1 text-[10px] font-medium text-recheck-foreground" title={`The recommendation changed under ${item.decision.policyVersion}; this open claim needs another look.`}>
                             Changed in {item.decision.policyVersion}
                           </span>
                         )}

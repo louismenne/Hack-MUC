@@ -174,7 +174,7 @@ function AppContent() {
 
       <main className="mx-auto flex max-w-[1600px] flex-col gap-4 px-4 py-4">
         {(tab === 'examples' || tab === 'example-quality') && (
-          <div className={`flex w-full flex-wrap items-center justify-between gap-3 ${tab === 'examples' ? 'mx-auto max-w-5xl' : ''}`}>
+          <div className={`flex w-full flex-wrap items-center justify-between gap-3 ${tab === 'examples' ? 'mx-auto max-w-[1600px]' : ''}`}>
             <p className="text-sm text-muted-foreground">{dataset.description}. Read-only examples; submitted claims are reviewed in the Review queue.</p>
             <div className="flex flex-wrap items-center gap-2">
               <Select value={dataset.id} onValueChange={value => { setDatasetId(value); setFilters(defaultFilters); }}>
@@ -213,7 +213,7 @@ function AppContent() {
         {tab === 'queue' && <StoredClaims />}
         {tab === 'examples' && <section>
           {pageOpen ? (
-            <div className="mx-auto flex max-w-5xl flex-col gap-4">
+            <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <Button variant="ghost" onClick={() => openCase(null)}>
                   <ArrowLeftIcon data-icon="inline-start" /> Back to inbox
@@ -233,7 +233,7 @@ function AppContent() {
               <ClaimDetail item={selected} state={selectedState} onAction={() => {}} canReview={false} />
             </div>
           ) : (
-            <div className="mx-auto max-w-5xl">
+            <div className="mx-auto w-full max-w-[1600px]">
               <ClaimsList
                 cases={dataset.cases}
                 visible={visible}

@@ -2,14 +2,15 @@ import { navigate, pageHref, useRoute } from '@/lib/navigation';
 import { cacheScope, cacheEpoch, readCache, writeCache, clearReloadCache } from '@/lib/reload-cache';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, CircleAlertIcon, DownloadIcon, FileTextIcon, ImageIcon, InboxIcon, PlusIcon, RefreshCwIcon,
+  ChevronLeftIcon, ChevronRightIcon, CircleAlertIcon, DownloadIcon, FileTextIcon, ImageIcon, InboxIcon, PlusIcon, RefreshCwIcon,
+  XIcon, MousePointerClickIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { authenticatedFetch, supabase } from '@/lib/supabase';
 import { useAuthUser } from '@/lib/auth';
 import { useReviewAudit } from '@/lib/audit';
 import { POLICY_CHANGED_EVENT } from '@/lib/policy-source';
-import { permissions } from '../../../src/roles';
+import { permissions, roleOf } from '../../../src/roles';
 import { parseClaim, type Decision, type Recommendation } from '../../../src/triage';
 import { receivedAt } from '../../../src/received-at';
 import { reviewState, type ReviewAction, type ReviewInput } from '../../../src/review';
@@ -54,6 +55,8 @@ const isImage = (name: string) => /\.(png|jpe?g|gif|webp|heic|heif|bmp|tiff?)$/i
 export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
   const user = useAuthUser();
   const access = permissions(user);
+  // "File a claim" belongs to claimants only; reviewers, policy owners and admins work the queue.
+  const isClaimant = roleOf(user) === 'claims_handler';
   const scope = cacheScope(user);
   type Snapshot = { items: StoredQueueItem[]; total: number; policy: string };
   const cacheKey = (offset: number) => dashboard ? 'claims:dashboard' : `claims:page:${offset}`;
@@ -75,6 +78,39 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
   const [verified, setVerified] = useState(false);
   const [error, setError] = useState('');
   const selectedId = dashboard ? '' : route.caseId ?? '';
+  // Gmail-style split view: one claim is always open on the right unless the reviewer closes it (Esc).
+  const [dismissed, setDismissed] = useState(false);
+  // Resizable list column (Apple Mail style). null = default quarter of the width. Remembered per browser.
+  const splitRef = useRef<HTMLDivElement>(null);
+  const [listWidth, setListWidth] = useState<number | null>(() => {
+    try { const v = Number(localStorage.getItem('hackmuc.listWidth')); return Number.isFinite(v) && v > 0 ? v : null; } catch { return null; }
+  });
+  const clampWidth = (px: number) => {
+    const total = splitRef.current?.getBoundingClientRect().width ?? 1200;
+    return Math.round(Math.min(Math.max(px, 220), total * 0.5));
+  };
+  const saveListWidth = (px: number | null) => {
+    setListWidth(px);
+    try { if (px === null) localStorage.removeItem('hackmuc.listWidth'); else localStorage.setItem('hackmuc.listWidth', String(px)); } catch { /* storage unavailable */ }
+  };
+  const startResize = (event: React.PointerEvent<HTMLDivElement>) => {
+    const grid = splitRef.current;
+    if (!grid) return;
+    event.preventDefault();
+    const left = grid.getBoundingClientRect().left;
+    const move = (e: PointerEvent) => setListWidth(clampWidth(e.clientX - left));
+    const up = (e: PointerEvent) => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      document.body.style.removeProperty('cursor');
+      document.body.style.removeProperty('user-select');
+      saveListWidth(clampWidth(e.clientX - left));
+    };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
   const [action, setAction] = useState<ReviewAction | null>(null);
   const [preset, setPreset] = useState<{ next?: Recommendation; title?: string }>({});
   const [filters, setFilters] = useState<ListFilters>({ query: '', recommendation: 'all', status: 'any' });
@@ -310,11 +346,29 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
     );
 
   const index = selected ? visible.findIndex((c) => c.decision.caseId === selectedId) : -1;
+  useEffect(() => {
+    if (dashboard || selectedId || dismissed || !visible.length) return;
+    openClaim(visible[0].decision.caseId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dashboard, selectedId, dismissed, visible.length]);
+  useEffect(() => {
+    if (dashboard) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || action || !selectedId) return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest('input, textarea, [role="dialog"], [role="listbox"]')) return;
+      setDismissed(true);
+      openClaim('');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dashboard, action, selectedId]);
   const previousCase = index > 0 ? visible[index - 1] : null;
   const nextCase = index >= 0 && index < visible.length - 1 ? visible[index + 1] : null;
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-4">
+    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1">
           <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
@@ -329,7 +383,7 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
         </div>
         <div className="flex items-center gap-2">
           {refreshButton}
-          {access.upload && (
+          {isClaimant && (
             <Button asChild>
               <a href="/claim">
                 <PlusIcon data-icon="inline-start" /> File a claim
@@ -352,11 +406,84 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
         </p>
       )}
 
-      {selected && stored && state ? (
-        <>
+      {loading && !items.length ? (
+        <LoadingState label="Loading submitted claims…" />
+      ) : !error && items.length === 0 ? (
+        <Card>
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon"><InboxIcon /></EmptyMedia>
+              <EmptyTitle>No submitted claims yet</EmptyTitle>
+              <EmptyDescription>Claims filed through the claim form appear here with the engine’s recommendation.</EmptyDescription>
+            </EmptyHeader>
+            {isClaimant && (
+              <EmptyContent>
+                <Button asChild>
+                  <a href="/claim"><PlusIcon data-icon="inline-start" /> File a claim</a>
+                </Button>
+              </EmptyContent>
+            )}
+          </Empty>
+        </Card>
+      ) : (
+        <div
+          ref={splitRef}
+          className="grid items-start gap-5 lg:grid-cols-(--split)"
+          style={{ '--split': listWidth ? `${listWidth}px minmax(0,1fr)` : 'minmax(240px,1fr) minmax(0,3fr)' } as React.CSSProperties}
+        >
+          <div className="relative flex min-w-0 flex-col gap-3">
+            {/* Apple-Mail-style divider: drag to resize the list, double-click to reset to a quarter. */}
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize claim list"
+              aria-valuenow={listWidth ?? undefined}
+              tabIndex={0}
+              onPointerDown={startResize}
+              onDoubleClick={() => saveListWidth(null)}
+              onKeyDown={event => {
+                if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+                event.preventDefault();
+                const current = listWidth ?? (splitRef.current ? splitRef.current.getBoundingClientRect().width / 4 : 300);
+                saveListWidth(clampWidth(current + (event.key === 'ArrowRight' ? 24 : -24)));
+              }}
+              className="group absolute inset-y-0 -right-3.5 z-20 hidden w-3 cursor-col-resize touch-none items-center justify-center outline-none lg:flex"
+            >
+              <span className="h-10 w-1 rounded-full bg-border transition-colors group-hover:bg-foreground/40 group-focus-visible:bg-ring group-active:bg-foreground/60" />
+            </div>
+          <ClaimsList
+            cases={cases}
+            visible={visible}
+            states={states}
+            filters={filters}
+            onFiltersChange={setFilters}
+            selectedId={selectedId}
+            onSelect={(caseId) => { setDismissed(false); openClaim(caseId); }}
+            compact
+          />
+          {total > pageSize && (
+            <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+              <span>Filters and counts apply to this page of {pageSize} claims.</span>
+              <div className="flex items-center gap-1">
+                <span className="mr-2 tabular-nums">
+                  {offset + 1}–{Math.min(offset + pageSize, total)} of {total}
+                </span>
+                <Button variant="outline" size="icon" disabled={offset === 0 || loading} onClick={() => setOffset(Math.max(0, offset - pageSize))} aria-label="Previous page">
+                  <ChevronLeftIcon />
+                </Button>
+                <Button variant="outline" size="icon" disabled={offset + pageSize >= total || loading} onClick={() => setOffset(offset + pageSize)} aria-label="Next page">
+                  <ChevronRightIcon />
+                </Button>
+              </div>
+            </div>
+          )}
+          </div>
+          <div data-claim-pane className="flex min-w-0 flex-col gap-3">
+            {selected && stored && state ? (
+              <>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <Button variant="ghost" onClick={() => openClaim('')}>
-              <ArrowLeftIcon data-icon="inline-start" /> Back to queue
+            <Button variant="ghost" size="sm" onClick={() => { setDismissed(true); openClaim(''); }} aria-label="Close claim (Esc)">
+              <XIcon data-icon="inline-start" /> Close <kbd className="ml-1 rounded border px-1 font-mono text-[10px] text-muted-foreground">Esc</kbd>
             </Button>
             <div className="flex items-center gap-1">
               {index >= 0 && (
@@ -417,54 +544,20 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
             presetNext={preset.next}
             presetTitle={preset.title}
           />
-        </>
-      ) : loading && !items.length ? (
-        <LoadingState label="Loading submitted claims…" />
-      ) : !error && items.length === 0 ? (
-        <Card>
-          <Empty>
-            <EmptyHeader>
-              <EmptyMedia variant="icon"><InboxIcon /></EmptyMedia>
-              <EmptyTitle>No submitted claims yet</EmptyTitle>
-              <EmptyDescription>Claims filed through the claim form appear here with the engine’s recommendation.</EmptyDescription>
-            </EmptyHeader>
-            {access.upload && (
-              <EmptyContent>
-                <Button asChild>
-                  <a href="/claim"><PlusIcon data-icon="inline-start" /> File a claim</a>
-                </Button>
-              </EmptyContent>
+              </>
+            ) : (
+              <Card>
+                <Empty>
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon"><MousePointerClickIcon /></EmptyMedia>
+                    <EmptyTitle>No claim open</EmptyTitle>
+                    <EmptyDescription>Pick a claim from the list to review it.</EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              </Card>
             )}
-          </Empty>
-        </Card>
-      ) : (
-        <>
-          <ClaimsList
-            cases={cases}
-            visible={visible}
-            states={states}
-            filters={filters}
-            onFiltersChange={setFilters}
-            selectedId=""
-            onSelect={openClaim}
-          />
-          {total > pageSize && (
-            <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
-              <span>Filters and counts apply to this page of {pageSize} claims.</span>
-              <div className="flex items-center gap-1">
-                <span className="mr-2 tabular-nums">
-                  {offset + 1}–{Math.min(offset + pageSize, total)} of {total}
-                </span>
-                <Button variant="outline" size="icon" disabled={offset === 0 || loading} onClick={() => setOffset(Math.max(0, offset - pageSize))} aria-label="Previous page">
-                  <ChevronLeftIcon />
-                </Button>
-                <Button variant="outline" size="icon" disabled={offset + pageSize >= total || loading} onClick={() => setOffset(offset + pageSize)} aria-label="Next page">
-                  <ChevronRightIcon />
-                </Button>
-              </div>
-            </div>
-          )}
-        </>
+          </div>
+        </div>
       )}
     </div>
   );
