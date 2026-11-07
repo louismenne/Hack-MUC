@@ -23,3 +23,7 @@ Apply `20261107220000_claim_decisions.sql` after the audit migration. SQL and br
 Database integration checks: `supabase db query --remote --file tests/sql/claims-rls.sql --yes`. Fixtures run in a rolled-back transaction and cover allowed insert/read, ownership isolation, forged system fields, future dates, unauthorized mutations, role demotion and anonymous access.
 
 Live verification used a temporary authenticated Claims Handler account: submitted a claim with a PDF, checked generated ownership and protected coverage fields, read the row and private document, then verified demotion blocked further writes. All test records, files and the temporary account were removed.
+
+## Reload cache
+
+The browser keeps policy history, submitted-claim queue/dashboard snapshots and review history in `sessionStorage` for up to five minutes, scoped by user ID and role. This survives reloads within the same tab; it is not offline authorization or a durable copy. Auth verifies the current user before restoring protected snapshots. Cached results render during background refresh; review controls remain disabled until both claims and review history have refreshed successfully. Claim submission, review changes, policy activation and sign-out invalidate snapshots. In-flight requests started before invalidation cannot repopulate the cache. Storage failures fall back to normal loading. Documents and tokens are not added to this data cache.

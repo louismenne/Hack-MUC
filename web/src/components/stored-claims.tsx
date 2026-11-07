@@ -1,3 +1,4 @@
+import { cacheScope, cacheEpoch, readCache, writeCache, clearReloadCache } from '@/lib/reload-cache';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { authenticatedFetch, supabase } from '@/lib/supabase';
 import { useAuthUser } from '@/lib/auth';
@@ -38,10 +39,18 @@ function caseItem(item: StoredQueueItem): CaseItem {
 export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
   const user = useAuthUser();
   const access = permissions(user);
-  const [items, setItems] = useState<StoredQueueItem[]>([]);
+  const scope = cacheScope(user);
+  type Snapshot = { items: StoredQueueItem[]; total: number; policy: string };
+  const cacheKey = (offset: number) => dashboard ? 'claims:dashboard' : `claims:page:${offset}`;
+  const cached = (offset: number) => readCache<Snapshot>(scope, cacheKey(offset), value => {
+    const snapshot = value as Snapshot | null;
+    return !!snapshot && typeof snapshot.total === 'number' && typeof snapshot.policy === 'string' && Array.isArray(snapshot.items) && snapshot.items.every(item => item?.claim && typeof item.claim.case_id === 'string' && item.saved?.decision && Array.isArray(item.saved.decision.supportingFacts) && Array.isArray(item.saved.decision.missingFields));
+  });
+  const [initial] = useState(() => cached(0));
+  const [items, setItems] = useState<StoredQueueItem[]>(initial?.items ?? []);
   const [offset, setOffset] = useState(0);
-  const [total, setTotal] = useState(0);
-  const [policy, setPolicy] = useState('');
+  const [total, setTotal] = useState(initial?.total ?? 0);
+  const [policy, setPolicy] = useState(initial?.policy ?? '');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedId, setSelectedId] = useState('');
@@ -52,6 +61,7 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
   const audit = useReviewAudit('stored');
   const refresh = useCallback(async () => {
     const request = ++revision.current;
+    const epoch = cacheEpoch();
     setLoading(true);
     try {
       const collected: StoredQueueItem[] = [];
@@ -75,6 +85,7 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
         next += 50;
       } while (dashboard && next < total);
       if (request === revision.current) {
+        writeCache(scope, cacheKey(offset), { items: collected, total, policy: activePolicy }, epoch);
         setItems(collected);
         setTotal(total);
         setPolicy(activePolicy);
@@ -85,8 +96,10 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
     } finally {
       if (request === revision.current) setLoading(false);
     }
-  }, [offset, dashboard]);
+  }, [offset, dashboard, scope]);
   useEffect(() => {
+    const snapshot = cached(offset);
+    setItems(snapshot?.items ?? []); setTotal(snapshot?.total ?? 0); setPolicy(snapshot?.policy ?? '');
     void refresh();
     const changed = () => {
       setAction(null);
@@ -133,6 +146,7 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
         },
       });
       if (error) throw new Error(error.message);
+      clearReloadCache();
       setAction(null);
       toast.success('Review saved.');
     } catch (e) {
@@ -180,7 +194,8 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
             {error || audit.error}
           </p>
         )}
-        {loading ? (
+        {loading && items.length > 0 && <p role="status">Showing cached results while refreshing…</p>}
+        {loading && !items.length ? (
           <p role="status">Loading all submitted claims…</p>
         ) : error ? null : (
           <QualityView
@@ -268,7 +283,7 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
           {error || audit.error} Reviews are disabled until refresh succeeds.
         </p>
       )}
-      {loading && <p role="status">Loading and evaluating claims…</p>}
+      {loading && <p role="status">Checking current claims and policy… Cached results are read-only until this finishes.</p>}
       {!loading && !error && items.length === 0 && <p>No submitted claims yet.</p>}
       {selected && stored && state ? (
         <>

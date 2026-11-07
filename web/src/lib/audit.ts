@@ -1,3 +1,5 @@
+import { useAuthUser } from './auth';
+import { cacheScope, cacheEpoch, readCache, writeCache } from './reload-cache';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from './supabase';
 import type { ReviewEvent } from '../../../src/review';
@@ -11,12 +13,16 @@ export async function saveReview(event: ReviewEvent) {
   return reviewFromRow(data as AuditRow);
 }
 export function useReviewAudit(datasetId: string) {
-  const [events, setEvents] = useState<ReviewEvent[]>([]);
+  const scope = cacheScope(useAuthUser());
+  const key = `audit:${datasetId}`;
+  const cached = () => readCache<ReviewEvent[]>(scope, key, value => Array.isArray(value) && value.every(e => e && typeof e.id === 'string' && typeof e.caseId === 'string' && typeof e.at === 'string'));
+  const [events, setEvents] = useState<ReviewEvent[]>(() => cached() ?? []);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const revision = useRef(0);
   const refresh = useCallback(async () => {
     const current = ++revision.current;
+    const epoch = cacheEpoch();
     setLoading(true);
     try {
       const rows: AuditRow[] = [];
@@ -26,10 +32,10 @@ export function useReviewAudit(datasetId: string) {
         rows.push(...data as AuditRow[]);
         if (data.length < 1000) break;
       }
-      if (current === revision.current) { setEvents(rows.map(reviewFromRow)); setError(''); }
+      if (current === revision.current) { const events = rows.map(reviewFromRow); writeCache(scope, key, events, epoch); setEvents(events); setError(''); }
     } catch (e) { if (current === revision.current) setError(e instanceof Error ? e.message : String(e)); }
     finally { if (current === revision.current) setLoading(false); }
-  }, [datasetId]);
-  useEffect(() => { setEvents([]); void refresh(); const focus = () => void refresh(); window.addEventListener('focus', focus); return () => { revision.current++; window.removeEventListener('focus', focus); }; }, [refresh]);
+  }, [datasetId, scope, key]);
+  useEffect(() => { setEvents(cached() ?? []); void refresh(); const focus = () => void refresh(); window.addEventListener('focus', focus); return () => { revision.current++; window.removeEventListener('focus', focus); }; }, [refresh]);
   return { events, setEvents, error, loading, refresh };
 }

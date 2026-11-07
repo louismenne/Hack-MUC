@@ -1,3 +1,4 @@
+import { clearReloadCache } from './reload-cache';
 import { createContext, useContext, useEffect, useState, type ReactNode, type FormEvent } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { AUTH_REJECTED_EVENT, authRedirectError, passwordSetupRequested, supabase } from './supabase';
@@ -22,22 +23,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let alive = true;
     let revision = 0;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      revision++;
+      if (event !== 'INITIAL_SESSION') revision++;
       if (!alive) return;
       setUser(session?.user ?? null);
-      setLoading(false);
+      if (event !== 'INITIAL_SESSION') setLoading(false);
       if (event === 'PASSWORD_RECOVERY') setRecovery(true);
-      if (event === 'SIGNED_OUT') setRecovery(false);
+      if (event === 'SIGNED_OUT') { clearReloadCache(); setRecovery(false); }
       if (event === 'SIGNED_IN') setError('');
     });
     const initialRevision = revision;
-    void supabase.auth.getSession().then(({ data, error }) => {
+    void supabase.auth.getSession().then(async ({ data, error }) => {
       if (!alive || revision !== initialRevision) return;
-      setUser(data.session?.user ?? null);
+      // Verify current roles before restoring any cached claim data on reload.
+      const verified = data.session ? await supabase.auth.getUser() : null;
+      if (!alive || revision !== initialRevision) return;
+      if (verified?.error) clearReloadCache();
+      setUser(verified?.data.user ?? null);
       setLoading(false);
       if (error) setError('Unable to restore your session. Please sign in again.');
     }).catch(() => {
       if (!alive || revision !== initialRevision) return;
+      clearReloadCache();
+      setUser(null);
       setLoading(false);
       setError('Unable to restore your session. Please sign in again.');
     });
@@ -49,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.addEventListener('focus', refreshUser);
     const rejected = (event: Event) => {
       setError((event as CustomEvent).detail === 403 ? 'Your account does not have team access.' : 'Your session expired. Please sign in again.');
+      clearReloadCache();
       setUser(null);
       // Local sign-out also clears persisted session state, without blocking the UI.
       void supabase.auth.signOut({ scope: 'local' });
@@ -62,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   if (recovery) return <SetPassword onComplete={() => setRecovery(false)} />;
   const invited = !user.is_anonymous && !!user.email_confirmed_at && (!!user.invited_at || user.app_metadata.hack_muc_access === true);
   if (!invited) return <AuthCard title="Team access required" description="Ask a project administrator to invite your account."><SignOutButton /></AuthCard>;
-  return <Context.Provider value={user}><div key={user.id}>{children}</div></Context.Provider>;
+  return <Context.Provider value={user}><div key={`${user.id}:${String(user.app_metadata.hack_muc_role)}`}>{children}</div></Context.Provider>;
 }
 
 function AuthCard({ title, description, children }: { title: string; description: string; children: ReactNode }) {

@@ -1,3 +1,5 @@
+import { useAuthUser } from './auth';
+import { cacheScope, cacheEpoch, readCache, writeCache, clearReloadCache } from './reload-cache';
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { policyApi } from '@/components/policy/api';
 import { bundledHistory } from '../../../src/policy-engine/bundled';
@@ -13,6 +15,7 @@ export interface PolicySource {
   origin: 'supabase' | 'bundled';
   /** Why the bundled copy is used, or why the last refresh failed. */
   problem?: string;
+  refreshing?: boolean;
 }
 
 /** Fired after a version was activated in the Policy tab, so the review queue re-evaluates immediately. */
@@ -36,21 +39,31 @@ async function fetchHistory(): Promise<PolicyHistory> {
 }
 
 export function PolicySourceProvider({ children }: { children: ReactNode }) {
-  const [source, setSource] = useState<PolicySource | null>(null);
+  const scope = cacheScope(useAuthUser());
+  const [source, setSource] = useState<PolicySource | null>(() => {
+    const history = readCache<PolicyHistory>(scope, 'policy', value => {
+      const h = value as PolicyHistory | null;
+      return !!h && [h.active, h.previous, h.original].every(p => p && typeof p.label === 'string' && validatePolicy(p.rules).ok);
+    });
+    return history ? { history, origin: 'supabase', refreshing: true } : null;
+  });
 
   const load = useCallback(async () => {
+    const epoch = cacheEpoch();
     try {
-      setSource({ history: await fetchHistory(), origin: 'supabase' });
+      const history = await fetchHistory();
+      writeCache(scope, 'policy', history, epoch);
+      setSource({ history, origin: 'supabase' });
     } catch (error) {
       const problem = error instanceof Error ? error.message : String(error);
       // First load: use the bundled copy. Later refresh: keep what we had and report the problem.
-      setSource(previous => (previous ? { ...previous, problem } : { history: bundledHistory, origin: 'bundled', problem }));
+      setSource(previous => (previous ? { ...previous, problem, refreshing: false } : { history: bundledHistory, origin: 'bundled', problem }));
     }
-  }, []);
+  }, [scope]);
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
-    const onChanged = () => { void load(); };
+    const onChanged = () => { clearReloadCache(); void load(); };
     window.addEventListener(POLICY_CHANGED_EVENT, onChanged);
     return () => window.removeEventListener(POLICY_CHANGED_EVENT, onChanged);
   }, [load]);

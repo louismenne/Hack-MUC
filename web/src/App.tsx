@@ -156,7 +156,7 @@ function AppContent() {
           </div>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Badge variant="outline" className="font-mono">policy {history.active.label}</Badge>
+              <Badge variant="outline" className="font-mono">policy {history.active.label}{source.refreshing ? ' · checking…' : ''}</Badge>
             </TooltipTrigger>
             <TooltipContent>
               {source.origin === 'supabase' ? 'Active policy version from Supabase.' : 'Bundled copy of the policy files (Supabase not reachable).'} CSV examples use these rules. Submitted claims use saved server decisions.

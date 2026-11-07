@@ -1,3 +1,4 @@
+import { clearReloadCache } from '../../web/src/lib/reload-cache';
 import { Fragment, useMemo, useRef, useState, type ReactNode } from 'react';
 import { CarIcon, CircleAlertIcon, CircleCheckIcon, FileTextIcon, FlaskConicalIcon, ImageIcon, LockIcon, RotateCcwIcon, SendIcon, SparklesIcon } from 'lucide-react';
 import { SignOutButton, useAuthUser } from '@/lib/auth';
@@ -118,7 +119,9 @@ export function ClaimPage() {
     }
     setSubmitting(true);
     try {
-      setResult(await submitClaim(buildPayload(form.values, { isTest: isDryRun() }), files));
+      const saved = await submitClaim(buildPayload(form.values, { isTest: isDryRun() }), files);
+      clearReloadCache();
+      setResult(saved);
       window.scrollTo({ top: 0 });
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : String(error));
