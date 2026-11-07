@@ -1,0 +1,146 @@
+import { createContext, useContext, useEffect, useState, type ReactNode, type FormEvent } from 'react';
+import type { User } from '@supabase/supabase-js';
+import { AUTH_REJECTED_EVENT, passwordSetupRequested, supabase } from './supabase';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
+const Context = createContext<User | null>(null);
+export function useAuthUser(): User {
+  const user = useContext(Context);
+  if (!user) throw new Error('Sign in is required.');
+  return user;
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [recovery, setRecovery] = useState(passwordSetupRequested);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let alive = true;
+    let revision = 0;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      revision++;
+      if (!alive) return;
+      setUser(session?.user ?? null);
+      setLoading(false);
+      if (event === 'PASSWORD_RECOVERY') setRecovery(true);
+      if (event === 'SIGNED_OUT') setRecovery(false);
+      if (event === 'SIGNED_IN') setError('');
+    });
+    const initialRevision = revision;
+    void supabase.auth.getSession().then(({ data, error }) => {
+      if (!alive || revision !== initialRevision) return;
+      setUser(data.session?.user ?? null);
+      setLoading(false);
+      if (error) setError('Unable to restore your session. Please sign in again.');
+    }).catch(() => {
+      if (!alive || revision !== initialRevision) return;
+      setLoading(false);
+      setError('Unable to restore your session. Please sign in again.');
+    });
+    // Refresh role display on focus; backend always checks fresh metadata independently.
+    const refreshUser = () => {
+      const startedAt = revision;
+      void supabase.auth.getUser().then(({ data }) => { if (alive && revision === startedAt && data.user) setUser(data.user); }).catch(() => {});
+    };
+    window.addEventListener('focus', refreshUser);
+    const rejected = (event: Event) => {
+      setError((event as CustomEvent).detail === 403 ? 'Your account does not have team access.' : 'Your session expired. Please sign in again.');
+      setUser(null);
+      // Local sign-out also clears persisted session state, without blocking the UI.
+      void supabase.auth.signOut({ scope: 'local' });
+    };
+    window.addEventListener(AUTH_REJECTED_EVENT, rejected);
+    return () => { alive = false; subscription.unsubscribe(); window.removeEventListener('focus', refreshUser); window.removeEventListener(AUTH_REJECTED_EVENT, rejected); };
+  }, []);
+
+  if (loading) return <div className="grid min-h-svh place-items-center" role="status">Restoring your session…</div>;
+  if (!user) return <SignIn initialError={error} />;
+  if (recovery) return <SetPassword onComplete={() => setRecovery(false)} />;
+  const invited = !user.is_anonymous && !!user.email_confirmed_at && (!!user.invited_at || user.app_metadata.hack_muc_access === true);
+  if (!invited) return <AuthCard title="Team access required" description="Ask a project administrator to invite your account."><SignOutButton /></AuthCard>;
+  return <Context.Provider value={user}><div key={user.id}>{children}</div></Context.Provider>;
+}
+
+function AuthCard({ title, description, children }: { title: string; description: string; children: ReactNode }) {
+  return <main className="grid min-h-svh place-items-center bg-muted/30 p-6"><Card className="w-full max-w-sm"><CardHeader><CardTitle>{title}</CardTitle><CardDescription>{description}</CardDescription></CardHeader><CardContent>{children}</CardContent></Card></main>;
+}
+
+function SignIn({ initialError }: { initialError: string }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState(initialError);
+  useEffect(() => setError(initialError), [initialError]);
+  async function submit(event: FormEvent) {
+    event.preventDefault(); setBusy(true); setError(''); setMessage('');
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (error) setError('Sign-in failed. Check your email and password.');
+    } catch { setError('Unable to reach the sign-in service. Please retry.'); }
+    finally { setBusy(false); }
+  }
+  async function reset() {
+    if (!email.trim()) { setError('Enter your email address first.'); return; }
+    setBusy(true); setError('');
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin });
+      if (error) setError('Unable to send a reset email. Please retry later.');
+      else setMessage('If an account exists for this email, you will receive a password-reset link.');
+    } catch { setError('Unable to reach the sign-in service.'); }
+    finally { setBusy(false); }
+  }
+  return <AuthCard title="Sign in to Claims Triage" description="Team LLM · Invited team members only">
+    <form onSubmit={submit} className="space-y-4">
+      <label className="block space-y-1 text-sm">Email<Input type="email" autoComplete="username" required value={email} onChange={e => setEmail(e.target.value)} /></label>
+      <label className="block space-y-1 text-sm">Password<Input type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} /></label>
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      {message && <p role="status" className="text-sm text-muted-foreground">{message}</p>}
+      <Button className="w-full" disabled={busy} type="submit">{busy ? 'Please wait…' : 'Sign in'}</Button>
+      <Button className="w-full" variant="ghost" disabled={busy} type="button" onClick={() => void reset()}>Forgot password / set initial password</Button>
+    </form>
+  </AuthCard>;
+}
+
+function SetPassword({ onComplete }: { onComplete: () => void }) {
+  const [password, setPassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (password !== confirmation) { setError('Passwords do not match.'); return; }
+    setBusy(true); setError('');
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) setError(error.message);
+      else { window.history.replaceState(null, '', window.location.pathname); onComplete(); }
+    } catch { setError('Unable to save your password. Please retry.'); }
+    finally { setBusy(false); }
+  }
+  return <AuthCard title="Set your password" description="Choose a password with at least 12 characters."><form onSubmit={submit} className="space-y-4">
+    <label className="block space-y-1 text-sm">New password<Input type="password" autoComplete="new-password" required minLength={12} value={password} onChange={e => setPassword(e.target.value)} /></label>
+    <label className="block space-y-1 text-sm">Confirm password<Input type="password" autoComplete="new-password" required minLength={12} value={confirmation} onChange={e => setConfirmation(e.target.value)} /></label>
+    {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+    <Button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save password'}</Button>
+    <SignOutButton />
+  </form></AuthCard>;
+}
+
+export function SignOutButton() {
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  async function signOut() {
+    setBusy(true);
+    try {
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      if (error) setError('Could not sign out. Please retry.');
+    } catch { setError('Could not sign out. Please retry.'); }
+    finally { setBusy(false); }
+  }
+  return <><Button type="button" variant="outline" disabled={busy} onClick={() => void signOut()}>Sign out</Button>{error && <span role="alert" className="text-xs text-destructive">{error}</span>}</>;
+}

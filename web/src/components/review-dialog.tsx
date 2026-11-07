@@ -44,20 +44,18 @@ interface ReviewDialogProps {
 export function ReviewDialog({ action, onOpenChange, datasetId, decision, current, defaultReviewer, onSubmit }: ReviewDialogProps) {
   const [next, setNext] = useState<Recommendation | undefined>();
   const [reason, setReason] = useState('');
-  const [reviewer, setReviewer] = useState(defaultReviewer);
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
     if (!action) return;
     setNext(undefined);
     setReason('');
-    setReviewer(defaultReviewer);
     setSubmitted(false);
   }, [action, decision.caseId, defaultReviewer]);
 
   const shown = action ?? 'confirmed';
   const text = copy[shown];
-  const input: ReviewInput = { datasetId, decision, current, action: shown, reviewer, reason, next };
+  const input: ReviewInput = { datasetId, decision, current, action: shown, reviewer: defaultReviewer, reason, next };
   const errors = submitted ? validateReview(input) : {};
 
   return (
@@ -117,7 +115,7 @@ export function ReviewDialog({ action, onOpenChange, datasetId, decision, curren
             </Field>
             <Field data-invalid={!!errors.reviewer}>
               <FieldLabel htmlFor="review-reviewer">Reviewer</FieldLabel>
-              <Input id="review-reviewer" value={reviewer} onChange={event => setReviewer(event.target.value)} placeholder="Your name" autoComplete="name" aria-invalid={!!errors.reviewer} />
+              <Input id="review-reviewer" value={defaultReviewer} readOnly placeholder="Your name" autoComplete="name" aria-invalid={!!errors.reviewer} />
               {errors.reviewer && <FieldError>{errors.reviewer}</FieldError>}
             </Field>
           </FieldGroup>

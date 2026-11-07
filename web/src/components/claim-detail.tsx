@@ -28,10 +28,11 @@ const actionMeta: Record<ReviewAction, { label: string; icon: typeof CircleCheck
 interface ClaimDetailProps {
   item: CaseItem;
   state: ReviewState;
+  canReview: boolean;
   onAction: (action: ReviewAction) => void;
 }
 
-export function ClaimDetail({ item, state, onAction }: ClaimDetailProps) {
+export function ClaimDetail({ item, state, onAction, canReview }: ClaimDetailProps) {
   const { decision, claim, label } = item;
   const { history } = usePolicySource();
   const rule = ruleInfo(decision, history);
@@ -66,7 +67,7 @@ export function ClaimDetail({ item, state, onAction }: ClaimDetailProps) {
           <CardDescription>The summary is descriptive only. Decisions use the structured fields below.</CardDescription>
           <CardAction className="flex flex-wrap justify-end gap-2 max-sm:col-start-1 max-sm:row-span-1 max-sm:row-start-auto max-sm:mt-2 max-sm:justify-self-start">
             {overridden && (
-              <Button variant="ghost" disabled={claim.case_status === 'closed'} onClick={() => onAction('reverted')}>
+              <Button variant="ghost" disabled={!canReview || claim.case_status === 'closed'} onClick={() => onAction('reverted')}>
                 <Undo2Icon data-icon="inline-start" /> Revert
               </Button>
             )}
@@ -75,7 +76,7 @@ export function ClaimDetail({ item, state, onAction }: ClaimDetailProps) {
                 <ClockIcon /> {claim.case_status === 'closed' ? 'Historical decision · no action required' : 'Reviewer decision pending'}
               </Badge>
             ) : (
-              <Button disabled={claim.case_status === 'closed'} onClick={() => onAction('overridden')}>
+              <Button disabled={!canReview || claim.case_status === 'closed'} onClick={() => onAction('overridden')}>
                 <PencilLineIcon data-icon="inline-start" /> Override
               </Button>
             )}

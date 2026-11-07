@@ -1,3 +1,4 @@
+import { authenticatedFetch } from '@/lib/supabase';
 import type { ImpactReport, PolicyVersionRecord } from '../../../../src/policy-api/types';
 import type { PolicyDocument } from '../../../../src/policy-engine/schema';
 
@@ -9,7 +10,7 @@ export class ApiFailure extends Error {
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
-  try { response = await fetch(path, init); } catch { throw new ApiFailure('Die Policy-API ist nicht erreichbar.'); }
+  try { response = await authenticatedFetch(path, init); } catch { throw new ApiFailure('Die Policy-API ist nicht erreichbar.'); }
   if (!response.headers.get('content-type')?.includes('application/json')) {
     throw new ApiFailure('Die Policy-API ist nicht erreichbar. Lokal mit „npm run dev“ starten; auf Vercel müssen die Supabase-Variablen gesetzt sein.', [], response.status);
   }

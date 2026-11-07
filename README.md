@@ -32,11 +32,11 @@ A React + Tailwind + shadcn/ui reviewer screen in `web/`. It runs the shared JSO
 - **Quality**: correct recommendations, incorrect `routine_processing`, unnecessary `human_review`, and a confusion matrix on labelled cases, shown for the engine and after reviewer overrides. Unlabelled sets are not scored.
 - **Audit log**: all reviewer actions, exportable as CSV. **Export results** writes the exact seven-column judging format; reviewer overrides are kept separately in the audit export.
 
-Reviewer actions persist in the browser's `localStorage` (`hackmuc.*` keys). That keeps the demo dependency-free; it is per browser, not shared, and not a production audit store.
+Reviewer actions persist in the browser's `localStorage`, scoped to the authenticated user (`hackmuc.<user-id>.*` keys). That keeps the demo dependency-free; it is per browser, not shared, and not a production audit store.
 
 ## Deploy
 
-`vercel.json` pins the Vercel build (`npm ci`, `npm run build`, output `dist/`, Vite preset), so dashboard settings cannot change it. The Vercel project belongs to Louis's personal team, which deploys only commits authored by a team member. Commits from other authors show "Deployment was blocked" until Louis redeploys or pushes a commit himself.
+`vercel.json` configures the Vercel build (`npm ci`, `npm run build`, output `dist/`, Vite preset). Deployment uses the existing Vercel Git integration; this repository has no GitHub Actions deployment workflow. See [deployment notes](docs/deployment.md) for configuration and access requirements.
 
 ## Policy and evidence
 
@@ -92,7 +92,7 @@ Run locally with `npm run dev`: a Vite middleware serves the same functions that
 
 **Vercel Functions are plain JavaScript on purpose.** Vercel's TypeScript compiler for functions needs `ts.sys`, which TypeScript 7 (this repo) no longer provides, so TypeScript files in `api/` fail to build. The functions are written in `src/policy-api/functions/` and compiled by esbuild to `api/*.js` (`npm run build:api`, also run by `npm run build`). The generated files are committed; `tests/api-bundle.test.ts` fails if they are stale. Preview and Production deployments need the env vars above set for their environments.
 
-There is **no authentication**: anyone who can open the deployed URL can create drafts, activate versions and (with an API key) trigger AI calls. Names are labels only.
+The app requires **Supabase Auth** email/password sign-in. Policy and AI APIs verify sessions and require an invited team account (or explicit admin access grant). All team members currently have policy-management access. Draft creators are recorded from the verified user UUID. See [authentication setup](docs/auth.md) for the required owner configuration, first invitations, and local session behavior.
 
 > The section below describes the earlier local SQLite prototype (`src/server/`). The Policy tab no longer uses it; it is kept until the team agrees to remove it.
 

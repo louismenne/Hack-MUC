@@ -1,3 +1,5 @@
+import { useAuthUser } from '@/lib/auth';
+import { permissions } from '../../../../src/roles';
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeftIcon } from 'lucide-react';
 import { toast } from 'sonner';
@@ -33,7 +35,8 @@ interface Props {
 
 /** One version: read-only for active/archived, editable for drafts, with diff, impact and activation. */
 export function VersionPage({ version, active, aiAvailable, owner, busy, run, onBack, onReload }: Props) {
-  const isDraft = version.status === 'draft';
+  const canManage = permissions(useAuthUser()).policy;
+  const isDraft = version.status === 'draft' && canManage;
   const [rules, setRules] = useState<PolicyDocument>(version.rules);
   const [summary, setSummary] = useState(version.changeSummary ?? '');
   const [impact, setImpact] = useState<ImpactReport | null>(null);
@@ -99,7 +102,7 @@ export function VersionPage({ version, active, aiAvailable, owner, busy, run, on
               <Textarea id="summary" rows={2} maxLength={1000} value={summary} onChange={e => setSummary(e.target.value)} placeholder="Was ändert sich und warum? (Wird beim Speichern aus dem Diff ergänzt, wenn leer.)" />
             </div>
           ) : <p className="text-sm">{version.changeSummary ?? 'Kein Änderungstext.'}</p>}
-          {!isDraft && <div><Button variant="outline" size="sm" disabled={busy} onClick={() => void copyToDraft()}>Neuen Entwurf aus dieser Version erstellen</Button></div>}
+          {!isDraft && canManage && <div><Button variant="outline" size="sm" disabled={busy} onClick={() => void copyToDraft()}>Neuen Entwurf aus dieser Version erstellen</Button></div>}
         </CardContent>
       </Card>
 
