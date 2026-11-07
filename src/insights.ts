@@ -9,7 +9,7 @@ export const POLICY_LIMIT_EUR = 1500;
 
 export type ReviewTrigger =
   | 'policy_inactive' | 'not_motor_own_damage' | 'injury' | 'liability_disputed'
-  | 'duplicate' | 'evidence_conflict' | 'quote_above_limit';
+  | 'duplicate' | 'evidence_conflict' | 'quote_above_limit' | 'repair_type';
 
 export const triggerLabels: Record<ReviewTrigger, string> = {
   policy_inactive: 'Policy not active on incident date',
@@ -18,6 +18,7 @@ export const triggerLabels: Record<ReviewTrigger, string> = {
   liability_disputed: 'Liability disputed',
   duplicate: 'Possible duplicate',
   evidence_conflict: 'Conflicting evidence',
+  repair_type: 'Repair type requires review',
   quote_above_limit: 'Quote above the routine limit',
 };
 
@@ -29,6 +30,7 @@ const triggerByField: Partial<Record<string, ReviewTrigger>> = {
   duplicate_flag: 'duplicate',
   evidence_conflict: 'evidence_conflict',
   quote_eur: 'quote_above_limit',
+  repair_type: 'repair_type',
 };
 
 /** Why a request_information case could not proceed: a document explicitly absent, or an input blank/unreadable. */
@@ -47,6 +49,7 @@ export interface Count<K> { key: K; count: number }
 export interface QuoteBand { label: string; from: number; to: number | null; count: number; aboveLimit: boolean }
 
 export interface Insights {
+  limit: number | null;
   total: number;
   mix: Record<Recommendation, number>;
   /** Share of cases per recommendation, 0–1. */
@@ -57,9 +60,9 @@ export interface Insights {
   casesWithBlankFields: number;
   quoteBands: QuoteBand[];
   unknownQuotes: number;
-  /** Quotes within 20% below the limit — would flip to human review if the limit dropped. */
+  /** Quotes within 20% below the limit, regardless of other triggers. */
   nearLimitBelow: number;
-  /** Quotes within 20% above the limit — the cases a modest limit increase would release. */
+  /** Quotes within 20% above the limit; other review triggers may also apply. */
   nearLimitAbove: number;
   workload: { reviewQueue: number; reviewed: number; overridden: number; overrideRate: number | null };
   overridesByRule: Count<Decision['ruleId']>[];
@@ -87,15 +90,17 @@ export function reviewTriggers(decision: InsightCase['decision']): ReviewTrigger
   return decision.supportingFacts.map(fact => triggerByField[factField(fact) ?? '']).filter((t): t is ReviewTrigger => t !== undefined);
 }
 
-const bands: Omit<QuoteBand, 'count' | 'aboveLimit'>[] = [
-  { label: '< €500', from: 0, to: 500 },
-  { label: '€500–1,000', from: 500, to: 1000 },
-  { label: '€1,000–1,500', from: 1000, to: POLICY_LIMIT_EUR },
-  { label: '€1,500–2,000', from: POLICY_LIMIT_EUR, to: 2000 },
-  { label: '> €2,000', from: 2000, to: null },
-];
+const money = (n: number) => n.toLocaleString('en-US');
+function quoteBands(limit: number | null): Omit<QuoteBand, 'count' | 'aboveLimit'>[] {
+  const edges = [...new Set([0, 500, 1000, 2000, ...(limit === null ? [] : [limit])])].sort((a, b) => a - b);
+  return edges.map((from, i) => {
+    const to = edges[i + 1] ?? null;
+    return { from, to, label: to === null ? `≥ €${money(from)}` : from === 0 ? `< €${money(to)}` : `€${money(from)}–${money(to)}` };
+  });
+}
 
-export function computeInsights(cases: InsightCase[]): Insights {
+export function computeInsights(cases: InsightCase[], limit: number | null = POLICY_LIMIT_EUR): Insights {
+  const bands = quoteBands(limit);
   const total = cases.length;
   const mix: Record<Recommendation, number> = { routine_processing: 0, request_information: 0, human_review: 0 };
   const triggers = new Map<ReviewTrigger, number>();
@@ -117,10 +122,10 @@ export function computeInsights(cases: InsightCase[]): Insights {
     if (item.quote === null) unknownQuotes += 1;
     else {
       // A quote of exactly the limit is still routine (policy: "greater than"), so it belongs to the band below.
-      const index = bands.findIndex(band => band.to === null || item.quote! < band.to || (band.to === POLICY_LIMIT_EUR && item.quote === POLICY_LIMIT_EUR));
+      const index = bands.findIndex(band => band.to === null || item.quote! < band.to || (band.to === limit && item.quote === limit));
       bandCounts[index] += 1;
-      if (item.quote <= POLICY_LIMIT_EUR && item.quote >= POLICY_LIMIT_EUR * 0.8) nearLimitBelow += 1;
-      if (item.quote > POLICY_LIMIT_EUR && item.quote <= POLICY_LIMIT_EUR * 1.2) nearLimitAbove += 1;
+      if (limit !== null && item.quote <= limit && item.quote >= limit * 0.8) nearLimitBelow += 1;
+      if (limit !== null && item.quote > limit && item.quote <= limit * 1.2) nearLimitAbove += 1;
     }
 
     if (item.effective === 'human_review' && item.reviewStatus === 'pending') reviewQueue += 1;
@@ -134,13 +139,14 @@ export function computeInsights(cases: InsightCase[]): Insights {
   const rate = (n: number) => (total ? n / total : 0);
   return {
     total,
+    limit,
     mix,
     rates: { routine_processing: rate(mix.routine_processing), request_information: rate(mix.request_information), human_review: rate(mix.human_review) },
     reviewTriggers: sortDesc(triggers),
     multiTriggerReviews,
     infoGaps: sortDesc(gaps),
     casesWithBlankFields,
-    quoteBands: bands.map((band, index) => ({ ...band, count: bandCounts[index], aboveLimit: band.from >= POLICY_LIMIT_EUR })),
+    quoteBands: bands.map((band, index) => ({ ...band, count: bandCounts[index], aboveLimit: limit !== null && band.from >= limit })),
     unknownQuotes,
     nearLimitBelow,
     nearLimitAbove,
@@ -155,7 +161,8 @@ export interface SuggestedAction { id: string; severity: ActionSeverity; title: 
 const pct = (value: number) => `${Math.round(value * 100)}%`;
 
 const triggerAdvice: Record<ReviewTrigger, string> = {
-  quote_above_limit: 'Review whether the €1,500 limit still fits repair prices, or add a fast track for quotes slightly above it.',
+  repair_type: 'Route repair types requiring specialist review, including EV high-voltage battery work, to qualified reviewers.',
+  quote_above_limit: 'Review the active quote threshold against repair prices and test proposed changes before activation.',
   injury: 'Route injury claims straight to a specialised bodily-injury team instead of the general review queue.',
   liability_disputed: 'Collect both parties’ statements at intake so reviewers do not have to chase them.',
   duplicate: 'Add a duplicate check (same incident reference) at upload, before the claim reaches triage.',
@@ -208,12 +215,12 @@ export function suggestedActions(insights: Insights, labelled?: { labelled: numb
     });
   }
 
-  if (insights.nearLimitBelow >= 2) {
+  if (insights.limit !== null && insights.nearLimitBelow >= 2) {
     actions.push({
       id: 'near-limit', severity: 'info',
-      title: `${insights.nearLimitBelow} routine-eligible quotes sit just below the €1,500 limit`,
-      detail: 'Lowering the limit would move these into human review. Test any limit change against past cases before release.',
-      evidence: 'Quotes between €1,200 and €1,500',
+      title: `${insights.nearLimitBelow} quotes sit near the €${money(insights.limit!)} limit`,
+      detail: 'These quotes are within 20% below the limit. Other triggers may already require review; use the policy impact preview before changing the threshold.',
+      evidence: `Quotes between €${money(insights.limit! * 0.8)} and €${money(insights.limit!)}`,
     });
   }
 

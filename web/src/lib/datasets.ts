@@ -3,6 +3,8 @@ import { stringify } from 'csv-stringify/browser/esm/sync';
 import { normalizeHeaders, outputColumns, toOutputRecord, triageRows, type TriagedCase } from '../../../src/claims';
 import { isRecommendation, type ReviewState } from '../../../src/review';
 import type { Recommendation, Decision } from '../../../src/triage';
+import { bundledHistory, bundledV1, bundledV2 } from '../../../src/policy-engine/bundled';
+import { samePolicy } from '../../../src/policy-engine/reporting';
 import type { PolicyHistory } from '../../../src/policy-engine';
 import { receivedAt, type ReceivedAt } from '../../../src/received-at';
 import expectationsCsv from '../../../data/development_v2_expectations.csv?raw';
@@ -34,11 +36,15 @@ export interface Dataset {
 
 export function loadDataset(meta: Omit<Dataset, 'cases' | 'labelled'>, csv: string, history: PolicyHistory): Dataset {
   const rows = parse(csv, { bom: true, skip_empty_lines: true, columns: normalizeHeaders }) as Record<string, string>[];
+  const labelVersion = (rules: PolicyHistory['active']['rules']) => samePolicy(rules, bundledV1.rules) ? 'v1' : samePolicy(rules, bundledV2.rules) ? 'v2' : null;
+  const activeLabels = labelVersion(history.active.rules);
+  const originalLabels = labelVersion(history.original.rules);
   const cases = triageRows(rows, history).map(({ decision: baseline, current, ...item }): CaseItem => {
     const label = item.row.expected_v1?.trim();
     const labelV1 = isRecommendation(label) ? label : null;
     const labelV2 = isRecommendation(item.row.expected_v2) ? item.row.expected_v2 : meta.id === 'development' ? expectations.get(baseline.caseId) ?? null : null;
-    return { ...item, baseline, decision: current, labelV1, labelV2, label: item.frozen ? labelV1 : labelV2, received: receivedAt(baseline.caseId, item.row.received_at) };
+    const version = item.frozen ? originalLabels : activeLabels;
+    return { ...item, baseline, decision: current, labelV1, labelV2, label: version === 'v1' ? labelV1 : version === 'v2' ? labelV2 : null, received: receivedAt(baseline.caseId, item.row.received_at) };
   });
   return { ...meta, cases, labelled: cases.some(item => item.label !== null) };
 }
@@ -51,7 +57,7 @@ export const buildBuiltinDatasets = (history: PolicyHistory): Dataset[] => [
 
 /** Exact seven-column judging export, independent of reviewer overrides. */
 export function exportResultsCsv(dataset: Dataset, _states?: Map<string, ReviewState>): string {
-  return stringify(dataset.cases.map(item => toOutputRecord({ ...item, decision: item.baseline, current: item.decision })), { header: true, columns: outputColumns });
+  return stringify(officialComparison(dataset).map(toOutputRecord), { header: true, columns: outputColumns });
 }
 
 export function toCsv(records: Record<string, string>[], columns: string[]): string {
@@ -63,4 +69,9 @@ export function downloadFile(name: string, contents: string, type = 'text/csv;ch
   const link = Object.assign(document.createElement('a'), { href: url, download: name });
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+/** Fixed organizer versions, independent of the currently active workspace policy. */
+export function officialComparison(dataset: Dataset): TriagedCase[] {
+  return triageRows(dataset.cases.map(item => item.row), bundledHistory);
 }

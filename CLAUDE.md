@@ -8,8 +8,7 @@ Build a claims-triage prototype for fictional motor claims. Each claim gets one 
 Rules decide; an LLM may extract facts or draft explanations but must never override the policy.
 Blank fields are unknown facts, never invented.
 
-Policy v2 arrives Saturday ~18:00. Then: update rules, flag open claims that need a recheck,
-leave closed claims unchanged, and show before/after quality.
+Official policy v2 is in `policies/policy-v2.pdf`: €1,200 quote limit and mandatory human review for EV high-voltage battery work. Open claims follow the active Supabase version; closed claims retain the original policy outcome. Judging exports and official comparisons use the bundled v1/v2 pair.
 
 ## Deliverables (judging weight)
 1. Intake + decision — correct recommendation on hidden cases, incl. after v2 and with blank fields (30%)
@@ -21,7 +20,7 @@ leave closed claims unchanged, and show before/after quality.
 ## Required submission format (scored by script)
 Results CSV columns: `case_id, recommendation_v1, recommendation_v2, needs_recheck, rule_v1, rule_v2, explanation`.
 Closed claims: `recommendation_v2` = retained v1 decision, `needs_recheck=False`.
-Current CLI still writes the v1-only development format — the final exporter is not built yet.
+The CLI and browser judging export both write this seven-column format, independently of experimental active policies.
 
 ## Commands
 Node is installed locally at `~/.local/node/bin` (not on PATH by default — prefix it):

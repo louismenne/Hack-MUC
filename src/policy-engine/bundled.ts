@@ -5,7 +5,8 @@ import v2 from '../../policies/policy-v2.rules.json' with { type: 'json' };
 
 /**
  * The policy files in policies/*.rules.json, used where no database is available (CLI, tests, and the
- * browser fallback when Supabase cannot be reached). Never used when an active version can be loaded.
+ * browser fallback when Supabase cannot be reached), plus the fixed official comparison and judging export.
+ * Operational decisions use Supabase when an active version can be loaded.
  */
 const load = (name: string, json: unknown): PolicyDocument => {
   const parsed = policySchema.safeParse(json);

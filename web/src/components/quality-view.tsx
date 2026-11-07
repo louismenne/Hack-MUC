@@ -1,7 +1,10 @@
 import { ActivityIcon, CircleAlertIcon, FlaskConicalIcon, InfoIcon, LightbulbIcon, OctagonAlertIcon, TriangleAlertIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fieldLabels, recommendationMeta } from '@/lib/policy';
-import type { Dataset } from '@/lib/datasets';
+import { officialComparison, type Dataset } from '@/lib/datasets';
+import { usePolicySource } from '@/lib/policy-source';
+import { parseNumber } from '../../../src/policy-engine/values';
+import { reviewQuoteLimit } from '../../../src/policy-engine/reporting';
 import { dotClasses } from '@/components/recommendation-badge';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,26 +30,28 @@ function gapLabel(key: string): string {
 }
 
 export function QualityView({ dataset, states }: { dataset: Dataset; states: Map<string, ReviewState> }) {
-  const labelled = dataset.cases.filter(item => item.label !== null && item.claim.case_status !== 'closed');
+  const { history } = usePolicySource();
+  const official = new Map(officialComparison(dataset).map(item => [item.current.caseId, item]));
+  const labelled = dataset.cases.filter(item => item.label !== null && !item.frozen);
   const v1Cases = dataset.cases.filter(c => c.labelV1 !== null);
-  const v2Cases = dataset.cases.filter(c => c.labelV2 !== null && c.claim.case_status !== 'closed');
-  const v1Report = qualityReport(v1Cases.map(c => ({ expected: c.labelV1!, predicted: c.baseline.recommendation })));
-  const v1AgainstV2 = qualityReport(v2Cases.map(c => ({ expected: c.labelV2!, predicted: c.baseline.recommendation })));
-  const v2Report = qualityReport(v2Cases.map(c => ({ expected: c.labelV2!, predicted: c.decision.recommendation })));
-  const changed = v2Cases.filter(c => c.needsRecheck);
-  const changedBefore = qualityReport(changed.map(c => ({ expected: c.labelV2!, predicted: c.baseline.recommendation })));
-  const changedAfter = qualityReport(changed.map(c => ({ expected: c.labelV2!, predicted: c.decision.recommendation })));
+  const v2Cases = dataset.cases.filter(c => c.labelV2 !== null && !c.frozen);
+  const v1Report = qualityReport(v1Cases.map(c => ({ expected: c.labelV1!, predicted: official.get(c.decision.caseId)!.decision.recommendation })));
+  const v1AgainstV2 = qualityReport(v2Cases.map(c => ({ expected: c.labelV2!, predicted: official.get(c.decision.caseId)!.decision.recommendation })));
+  const v2Report = qualityReport(v2Cases.map(c => ({ expected: c.labelV2!, predicted: official.get(c.decision.caseId)!.current.recommendation })));
+  const changed = v2Cases.filter(c => official.get(c.decision.caseId)!.needsRecheck);
+  const changedBefore = qualityReport(changed.map(c => ({ expected: c.labelV2!, predicted: official.get(c.decision.caseId)!.decision.recommendation })));
+  const changedAfter = qualityReport(changed.map(c => ({ expected: c.labelV2!, predicted: official.get(c.decision.caseId)!.current.recommendation })));
   const engine = qualityReport(labelled.map(item => ({ expected: item.label!, predicted: item.decision.recommendation })));
   const reviewed = qualityReport(labelled.map(item => ({ expected: item.label!, predicted: states.get(item.decision.caseId)!.effective })));
-  const insights = computeInsights(dataset.cases.map(item => {
+  const insights = computeInsights(dataset.cases.filter(item => !item.frozen).map(item => {
     const state = states.get(item.decision.caseId)!;
     return {
       decision: item.decision,
-      quote: typeof item.claim.quote_eur === 'number' ? item.claim.quote_eur : null,
+      quote: parseNumber(item.row.quote_eur),
       effective: state.effective,
       reviewStatus: state.status,
     };
-  }));
+  }), reviewQuoteLimit(history.active.rules));
   const actions = suggestedActions(insights, labelled.length ? engine : undefined, gapLabel);
 
   return (
@@ -54,7 +59,7 @@ export function QualityView({ dataset, states }: { dataset: Dataset; states: Map
       <div>
         <h2 className="text-lg font-semibold tracking-tight">Operations overview</h2>
         <p className="text-sm text-muted-foreground">
-          How triage is performing on {dataset.name.toLowerCase()} ({insights.total} claims) and where to invest. Every figure is computed from the engine’s decisions and the structured claim fields.
+          How triage is performing on {dataset.name.toLowerCase()} ({insights.total} open claims; closed claims excluded) and where to invest. Every figure is computed from the engine’s decisions and the structured claim fields.
         </p>
       </div>
 
@@ -68,7 +73,7 @@ export function QualityView({ dataset, states }: { dataset: Dataset; states: Map
             <Stat label="Wrongly sent to routine" value={engine.incorrectRoutine} hint="The costliest error: must stay at 0" alert={engine.incorrectRoutine > 0} />
           </>
         ) : (
-          <Stat label="Decision accuracy" value="—" hint="No labels in this dataset, so accuracy is not measured" />
+          <Stat label="Decision accuracy" value="—" hint="No matching labels for the active policy, so accuracy is not measured" />
         )}
       </div>
 
@@ -116,7 +121,7 @@ export function QualityView({ dataset, states }: { dataset: Dataset; states: Map
       <Card><CardHeader><CardTitle>Official policy change · before and after</CardTitle><CardDescription>V1 labels are supplied by the organizer. Built-in v2 expectations are team-derived from the official notice; they are not independent hidden-set validation. Closed claims are excluded from every v2 score.</CardDescription></CardHeader>
         <CardContent><Table><TableHeader><TableRow><TableHead>Evaluation</TableHead><TableHead>Correct / labelled</TableHead><TableHead>Incorrect routine</TableHead><TableHead>Unnecessary review</TableHead></TableRow></TableHeader><TableBody>
           {([['V1 vs v1 labels', v1Report], ['V1 vs v2 expectations (before)', v1AgainstV2], ['V2 vs v2 expectations (after)', v2Report], ['Changed open cases · before', changedBefore], ['Changed open cases · after', changedAfter]] as const).map(([name, r]) => <TableRow key={name}><TableCell>{name}</TableCell><TableCell>{r.labelled ? `${r.correct}/${r.labelled}` : 'Not scored'}</TableCell><TableCell>{r.labelled ? `${r.incorrectRoutine} (${Math.round(100 * r.incorrectRoutine / r.labelled)}%)` : '—'}</TableCell><TableCell>{r.labelled ? `${r.unnecessaryReview} (${Math.round(100 * r.unnecessaryReview / r.labelled)}%)` : '—'}</TableCell></TableRow>)}
-        </TableBody></Table><p className="mt-3 text-xs text-muted-foreground">Error-rate denominator: all labelled claims in that row. {dataset.cases.filter(c => c.claim.case_status === 'closed').length} closed claims retain their v1 recommendation and are historical, not pending work.</p></CardContent>
+        </TableBody></Table><p className="mt-3 text-xs text-muted-foreground">Error-rate denominator: all labelled claims in that row. {dataset.cases.filter(c => c.frozen).length} closed claims retain their v1 recommendation and are historical, not pending work.</p></CardContent>
       </Card>
       {labelled.length > 0 ? (
         <>
@@ -135,7 +140,7 @@ export function QualityView({ dataset, states }: { dataset: Dataset; states: Map
             <Card>
               <CardHeader>
                 <CardTitle>Confusion matrix</CardTitle>
-                <CardDescription>Official v2 recommendation against the v2 expectation, {engine.labelled} cases.</CardDescription>
+                <CardDescription>Active policy recommendation against its matching official expectations, {engine.labelled} cases.</CardDescription>
               </CardHeader>
               <CardContent>
                 <ConfusionTable report={engine} />
@@ -174,8 +179,8 @@ export function QualityView({ dataset, states }: { dataset: Dataset; states: Map
           <Empty>
             <EmptyHeader>
               <EmptyMedia variant="icon"><FlaskConicalIcon /></EmptyMedia>
-              <EmptyTitle>No labels in this dataset</EmptyTitle>
-              <EmptyDescription>Accuracy is measured only where an expected_v2 label exists. Built-in development expectations are team-derived. Predictions on this set are not scored.</EmptyDescription>
+              <EmptyTitle>No matching labels for the active policy</EmptyTitle>
+              <EmptyDescription>Active-policy accuracy requires matching official policy rules and corresponding expected labels. Custom policies are not scored against a different policy’s labels. Built-in v2 expectations are team-derived.</EmptyDescription>
             </EmptyHeader>
           </Empty>
         </Card>
@@ -249,9 +254,9 @@ function QuoteChart({ insights }: { insights: Insights }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Repair quotes against the €1,500 limit</CardTitle>
+        <CardTitle>{insights.limit === null ? 'Repair quotes · no single review threshold' : `Repair quotes against the €${insights.limit.toLocaleString('en-US')} limit`}</CardTitle>
         <CardDescription>
-          Quotes above the limit always go to human review. {insights.nearLimitBelow} claim(s) sit just below it (€1,200–1,500), {insights.nearLimitAbove} just above (€1,500–1,800).
+          {insights.limit === null ? 'This policy cannot be summarized by a single unconditional quote threshold.' : `Quotes above the limit go to human review. ${insights.nearLimitBelow} quotes are within 20% below the limit; ${insights.nearLimitAbove} within 20% above it. Other review triggers may also apply.`}
           {insights.unknownQuotes > 0 && ` ${insights.unknownQuotes} quote(s) blank or unreadable.`}
         </CardDescription>
       </CardHeader>
@@ -261,7 +266,7 @@ function QuoteChart({ insights }: { insights: Insights }) {
             <div key={band.label} className="group relative flex h-full flex-1 flex-col justify-end" title={`${band.label}: ${band.count} claim(s)${band.aboveLimit ? ' · above limit, human review' : ''}`}>
               {index === limitIndex && (
                 <div className="absolute inset-y-0 -left-1.5 border-l border-dashed border-foreground/50">
-                  <span className="absolute -top-0.5 left-1 text-[10px] whitespace-nowrap text-muted-foreground">€1,500 limit</span>
+                  <span className="absolute -top-0.5 left-1 text-[10px] whitespace-nowrap text-muted-foreground">€{insights.limit?.toLocaleString('en-US')} limit</span>
                 </div>
               )}
               <div className="mb-1 text-center text-xs font-medium tabular-nums">{band.count || ''}</div>
@@ -276,8 +281,8 @@ function QuoteChart({ insights }: { insights: Insights }) {
           {insights.quoteBands.map(band => <div key={band.label} className="flex-1 text-center text-[11px] text-muted-foreground">{band.label}</div>)}
         </div>
         <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-foreground/25" /> Within limit</span>
-          <span className="flex items-center gap-1.5"><span className={cn('size-2 rounded-sm', dotClasses.human_review)} /> Above limit → human review</span>
+          <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-foreground/25" /> {insights.limit === null ? 'Quote distribution' : 'At or below limit'}</span>
+          <span className="flex items-center gap-1.5">{insights.limit !== null && <><span className={cn('size-2 rounded-sm', dotClasses.human_review)} /> Above limit → human review</>}</span>
         </div>
       </CardContent>
     </Card>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FileTextIcon, PlusIcon, SparklesIcon } from 'lucide-react';
 import { toast } from 'sonner';
+import { policyHistoryFrom } from '../../../../src/policy-engine/history';
 import { diffPolicies } from '../../../../src/policy-view/diff';
 import { usePersistentState } from '@/lib/storage';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -101,6 +102,14 @@ export function PolicyWorkspace() {
           <div className="ml-auto flex items-center gap-2"><Badge>Aktiv: {active.versionLabel}</Badge>{drafts.length > 0 && <Badge variant="secondary">{drafts.length} Entwurf{drafts.length > 1 ? 'e' : ''}</Badge>}</div>
         </CardContent>
       </Card>
+
+      <Alert>
+        <AlertTitle>Geltungsbereich: offene und geschlossene Fälle</AlertTitle>
+        <AlertDescription>
+          Offene Fälle werden mit {active.versionLabel} bewertet. Geschlossene Fälle behalten das Ergebnis der ursprünglichen Version {policyHistoryFrom(versions).original.label} und werden nicht erneut zur Prüfung markiert.
+          Diese Auswahl erfolgt vor der Regelauswertung und ist keine editierbare Policy-Regel. Im Hackathon wird das historische Ergebnis aus den unveränderten Falldaten rekonstruiert; gespeicherte Entscheidungssnapshots sind noch nicht implementiert.
+        </AlertDescription>
+      </Alert>
 
       {open ? (
         <VersionPage key={`${open.id}|${open.changeSummary}|${JSON.stringify(open.rules)}`} version={open} active={active} aiAvailable={aiAvailable} owner={owner} busy={busy} run={run} onBack={() => setOpenId(null)} onReload={load} />
