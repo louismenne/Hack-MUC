@@ -11,5 +11,11 @@
     "api/policy-ai.js": {
       "maxDuration": 60
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/claim",
+      "destination": "/claim/index.html"
+    }
+  ]
 }
