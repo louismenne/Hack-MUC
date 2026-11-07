@@ -71,6 +71,51 @@ describe('rule precedence and unknown facts', () => {
   });
 });
 
+describe('blank fields are missing facts, never a trigger (v1 as JSON)', () => {
+  const booleans = ['policy_active_on_incident', 'incident_report_present', 'itemized_quote_present', 'injury_reported', 'liability_disputed', 'duplicate_flag', 'evidence_conflict'];
+  const known = [{ injury_reported: 'true' }, { liability_disputed: 'true' }, { duplicate_flag: 'true' }, { evidence_conflict: 'true' }, { policy_active_on_incident: 'false' }, { claim_type: 'theft' }, { quote_eur: '1501' }];
+
+  it('a blank claim_type does NOT pass neq: it is request_information, not human_review', () => {
+    const r = decide({ ...base, claim_type: '' });
+    expect(r.recommendation).toBe('request_information');
+    expect(r.ruleId).toBe('v1.missing_input');
+    expect(r.missingFields).toEqual(['claim_type']);
+    expect(r.supportingFacts).toEqual(['claim_type=(missing)']);
+  });
+  it.each(booleans)('a blank %s is request_information, not human_review', field => {
+    const r = decide({ ...base, [field]: '' });
+    expect(r.recommendation).toBe('request_information');
+    expect(r.ruleId).toBe('v1.missing_input');
+    expect(r.missingFields).toEqual([field]);
+  });
+  it.each(['', '   ', 'n/a', 'abc', '-5', '1.500'])('a blank or unreadable quote %j is request_information, not human_review', quote_eur => {
+    const r = decide({ ...base, quote_eur });
+    expect(r.recommendation).toBe('request_information');
+    expect(r.missingFields).toEqual(['quote_eur']);
+  });
+  it('an absent column behaves like a blank value', () => {
+    const { claim_type: _omit, ...withoutColumn } = base;
+    expect(decide(withoutColumn).recommendation).toBe('request_information');
+  });
+  it.each(known)('a known trigger %j still wins over blank fields', trigger => {
+    const r = decide({ ...base, ...trigger, claim_type: trigger.claim_type ?? '', duplicate_flag: trigger.duplicate_flag ?? '', quote_eur: trigger.quote_eur ?? '' });
+    expect(r.recommendation).toBe('human_review');
+    expect(r.ruleId).toBe('v1.rule1');
+  });
+  it('a blank with an explicitly absent document is still request_information (rule2)', () => {
+    const r = decide({ ...base, itemized_quote_present: 'false', repair_type: '' });
+    expect(r.recommendation).toBe('request_information');
+    expect(r.ruleId).toBe('v1.rule2');
+  });
+  it('agrees with triage.ts for every single blanked field', () => {
+    for (const field of Object.keys(v1.fields)) {
+      const row = { ...base, [field]: '' };
+      const a = decide(row), b = evaluateV1(parseClaim(row));
+      expect([field, a.recommendation, a.ruleId]).toEqual([field, b.recommendation, b.ruleId]);
+    }
+  });
+});
+
 describe('robust value parsing', () => {
   it.each([['TRUE', true], ['true', true], [' True ', true], ['1', true], ['FALSE', false], ['0', false], ['yes', null], ['', null]])('boolean %j -> %j', (raw, expected) => {
     const facts = normalizeFacts(v1, { injury_reported: raw });
