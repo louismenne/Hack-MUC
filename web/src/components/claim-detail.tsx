@@ -2,7 +2,8 @@ import {
   ArrowRightIcon, BotIcon, CircleAlertIcon, ClockIcon, CircleCheckIcon, FlaskConicalIcon, PencilLineIcon, QuoteIcon, Undo2Icon, ZapIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { describeFact, euro, fieldGroups, fieldLabels, recommendationMeta, ruleMeta, triggeringFields } from '@/lib/policy';
+import { describeFact, euro, fieldGroups, fieldLabels, recommendationMeta, ruleInfo, triggeringFields } from '@/lib/policy';
+import { usePolicySource } from '@/lib/policy-source';
 import type { CaseItem } from '@/lib/datasets';
 import { fullDate } from '@/components/claims-list';
 import { daysOpen } from '../../../src/received-at';
@@ -32,7 +33,8 @@ interface ClaimDetailProps {
 
 export function ClaimDetail({ item, state, onAction }: ClaimDetailProps) {
   const { decision, claim, label } = item;
-  const rule = ruleMeta[decision.ruleId] ?? { title: decision.ruleId, text: decision.explanation };
+  const { history } = usePolicySource();
+  const rule = ruleInfo(decision, history);
   const triggered = triggeringFields(decision);
   const overridden = state.status === 'overridden';
   // Cases the engine routed to a human get a dedicated reviewer decision (still being designed);
@@ -170,7 +172,7 @@ export function ClaimDetail({ item, state, onAction }: ClaimDetailProps) {
             {label && (
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <FlaskConicalIcon className="size-3.5" aria-hidden />
-                {decision.policyVersion === 'v2' ? 'V2 expectation (team-derived for built-in cases)' : 'V1 development label'} <RecommendationBadge value={label} short />
+                {item.frozen ? 'V1 development label (closed claim, decision frozen)' : 'V2 expectation (team-derived for built-in cases)'} <RecommendationBadge value={label} short />
                 {label === decision.recommendation
                   ? <span className="text-rec-routine-foreground">matches the engine</span>
                   : <span className="font-medium text-destructive">differs from the engine</span>}

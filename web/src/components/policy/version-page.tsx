@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { diffPolicies } from '../../../../src/policy-view/diff';
 import { setLeafValue, type LeafPath } from '../../../../src/policy-view/edit';
 import type { Scalar } from '../../../../src/policy-engine/schema';
+import { POLICY_CHANGED_EVENT } from '@/lib/policy-source';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
@@ -68,6 +69,7 @@ export function VersionPage({ version, active, aiAvailable, owner, busy, run, on
   const activate = () => run(async () => {
     const { version: done } = await policyApi.activate(version.id, active.id);
     toast.success(`${done.versionLabel} ist jetzt aktiv. ${active.versionLabel} wurde archiviert.`);
+    window.dispatchEvent(new Event(POLICY_CHANGED_EVENT)); // the review queue re-evaluates with the new active version
     await onReload(done.id);
   });
   const copyToDraft = () => run(async () => {

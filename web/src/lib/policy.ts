@@ -1,4 +1,5 @@
 import type { Decision, Field, Recommendation } from '../../../src/triage';
+import type { PolicyHistory } from '../../../src/policy-engine';
 
 export const recommendationMeta: Record<Recommendation, { label: string; short: string; tone: string }> = {
   routine_processing: { label: 'Routine processing', short: 'Routine', tone: 'routine' },
@@ -6,33 +7,18 @@ export const recommendationMeta: Record<Recommendation, { label: string; short: 
   human_review: { label: 'Human review', short: 'Human review', tone: 'review' },
 };
 
-/** Rule text quoted from policies/policy-v1.txt so reviewers see the exact clause applied. */
-export const ruleMeta: Record<Decision['ruleId'], { title: string; text: string }> = {
-  'v1.rule1': {
-    title: 'Rule 1 · Known review trigger',
-    text: 'Send to human_review if the policy was not active on the incident date; claim_type is not motor_own_damage; injury_reported, liability_disputed, duplicate_flag or evidence_conflict is true; or quote_eur is greater than €1,500.',
-  },
-  'v1.rule2': {
-    title: 'Rule 2 · Required document absent',
-    text: 'Otherwise, send to request_information if incident_report_present or itemized_quote_present is false.',
-  },
-  'v1.missing_input': {
-    title: 'Missing input',
-    text: 'If an input field is absent or unreadable, do not invent a value. Request information unless another known fact already requires human review.',
-  },
-  'v1.rule3': {
-    title: 'Rule 3 · Routine',
-    text: 'Otherwise, send to routine_processing. This means the case may enter the insurer’s normal downstream process. It does not mean payment is approved.',
-  },
-};
-
-for (const suffix of ['rule1', 'rule2', 'missing_input', 'rule3']) {
-  ruleMeta[`v2.${suffix}`] = { ...ruleMeta[`v1.${suffix}`] };
+/**
+ * The rule that decided a case, as written in the policy JSON of the version that decided it.
+ * No rule text lives in the app: a new policy version brings its own descriptions.
+ */
+export function ruleInfo(decision: Decision, history: PolicyHistory): { title: string; text: string } {
+  const ref = [history.active, history.previous, history.original].find(p => p.label === decision.policyVersion);
+  const id = decision.ruleId.slice(decision.policyVersion.length + 1);
+  const found = ref && (ref.rules.rules.find(r => r.id === id) ?? (ref.rules.default.id === id ? ref.rules.default : undefined));
+  if (!found) return { title: decision.ruleId, text: decision.explanation };
+  const title = /^rule(\d+)$/.test(id) ? `Rule ${id.slice(4)}` : id.replaceAll('_', ' ').replace(/^./, c => c.toUpperCase());
+  return { title: `${title} · ${ref.label}`, text: found.description };
 }
-ruleMeta['v2.rule1'] = {
-  title: 'Rule 1 · Known review trigger (v2)',
-  text: 'Human review if coverage is inactive, the claim is not motor own damage, injury/liability/duplicate/conflict flags are true, quote exceeds €1,200, or repair_type is ev_high_voltage_battery. Known triggers take priority over missing documents.',
-};
 
 export const fieldGroups: { title: string; fields: Field[] }[] = [
   { title: 'Coverage', fields: ['policy_active_on_incident', 'claim_type', 'repair_type', 'quote_eur', 'case_status'] },
@@ -58,13 +44,18 @@ export const fieldLabels: Record<Field, string> = {
 
 export const euro = new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
-/** Turns an engine fact like `quote_eur=1800 exceeds 1500` into reviewer language. */
+const opWords: Record<string, string> = { gt: 'is above', gte: 'is at least', lt: 'is below', lte: 'is at most', neq: 'is not', in: 'is one of', not_in: 'is none of' };
+
+/** Turns an engine fact like `quote_eur=1800 gt 1200` into reviewer language. Unknown fields fall back to the raw fact. */
 export function describeFact(fact: string): string {
-  const match = /^([a-z_]+)=(\S+)/.exec(fact);
+  const match = /^([a-z_]+)=(\S+)(?: (gt|gte|lt|lte|neq|in|not_in) (.+))?$/.exec(fact);
   if (!match) return fact;
-  const [, field, value] = match;
+  const [, field, value, op, operand] = match;
+  if (field === 'quote_eur') {
+    const amount = euro.format(Number(value));
+    return op ? `Quote ${amount} ${opWords[op]} ${euro.format(Number(operand))}` : `Quote ${amount}`;
+  }
   switch (field) {
-    case 'quote_eur': return fact;
     case 'repair_type': return `Repair type ${value.replaceAll('_', ' ')} requires human review`;
     case 'policy_active_on_incident': return 'Policy was not active on the incident date';
     case 'claim_type': return `Claim type is ${value.replaceAll('_', ' ')}, not motor own damage`;
@@ -74,13 +65,13 @@ export function describeFact(fact: string): string {
     case 'evidence_conflict': return 'Evidence conflicts';
     case 'incident_report_present': return 'Incident report is absent';
     case 'itemized_quote_present': return 'Itemized quote is absent';
-    default: return fact;
+    default: return op ? `${fieldLabels[field as Field] ?? field} ${opWords[op]} ${operand}` : fact;
   }
 }
 
 /** Fields named in the decision's supporting facts, i.e. the inputs that fired the rule. */
 export function triggeringFields(decision: Decision): Set<Field> {
-  if (decision.ruleId.endsWith('.missing_input')) return new Set(decision.missingFields);
-  if (decision.ruleId.endsWith('.rule3')) return new Set();
+  // Highlight the inputs named by the facts that fired the rule; a routine decision has none.
+  if (decision.supportingFacts.length === 0) return new Set(decision.recommendation === 'request_information' ? decision.missingFields : []);
   return new Set(decision.supportingFacts.map(fact => /^([a-z_]+)=/.exec(fact)?.[1]).filter(Boolean) as Field[]);
 }
