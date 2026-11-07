@@ -2,13 +2,15 @@ import { readFileSync } from 'node:fs';
 import { parse } from 'csv-parse/sync';
 import { describe, expect, it } from 'vitest';
 import { triageRows } from '../src/claims.js';
-import { computeInsights, suggestedActions, type InsightCase } from '../src/insights.js';
+import { computeInsights, quoteBandIndex, suggestedActions, type InsightCase } from '../src/insights.js';
+import { policyV1 } from '../src/triage.js';
 
 const load = (name: string): InsightCase[] => {
   const rows = parse(readFileSync(new URL(`../data/${name}`, import.meta.url), 'utf8'), { columns: true }) as Record<string, string>[];
   return triageRows(rows).map(({ decision, claim }) => ({
     decision,
     quote: typeof claim.quote_eur === 'number' ? claim.quote_eur : null,
+    quoteLimit: policyV1.routineQuoteLimitEur,
     effective: decision.recommendation,
     reviewStatus: 'pending',
   }));
@@ -40,10 +42,11 @@ describe('computeInsights on development cases', () => {
     expect(insights.casesWithBlankFields).toBe(2);
   });
 
-  it('puts a quote of exactly €1,500 below the limit', () => {
-    const band = insights.quoteBands.find(b => b.label === '€1,000–1,500')!;
+  it('puts a quote of exactly the limit below it', () => {
+    const band = insights.quoteBands.find(b => b.label === 'Just below')!;
     expect(band.count).toBe(1);
     expect(band.aboveLimit).toBe(false);
+    expect(insights.quoteBands.find(b => b.label === 'Just above')!.count).toBe(1);
     expect(insights.unknownQuotes).toBe(1);
     expect(insights.quoteBands.reduce((sum, b) => sum + b.count, 0) + insights.unknownQuotes).toBe(14);
   });
@@ -53,6 +56,16 @@ describe('computeInsights on development cases', () => {
     const withOverride = computeInsights(development.map((item, i) => i === 0 ? { ...item, effective: 'human_review', reviewStatus: 'overridden' } : item));
     expect(withOverride.workload.overridden).toBe(1);
     expect(withOverride.overridesByRule).toEqual([{ key: 'v1.rule3', count: 1 }]);
+  });
+});
+
+describe('quoteBandIndex', () => {
+  it('measures each quote against its own policy limit', () => {
+    expect(quoteBandIndex(1500, 1500)).toBe(2);
+    expect(quoteBandIndex(1501, 1500)).toBe(3);
+    expect(quoteBandIndex(1500, 2000)).toBe(1); // a higher v2 limit moves the same quote down
+    expect(quoteBandIndex(3000, 2000)).toBe(4);
+    expect(quoteBandIndex(100, 1500)).toBe(0);
   });
 });
 
