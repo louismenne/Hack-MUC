@@ -1,3 +1,5 @@
+import { useAuthUser } from '@/lib/auth';
+import { permissions } from '../roles';
 import { useMemo, useRef, useState } from 'react';
 import { CheckCircle2Icon, FlaskConicalIcon, Loader2Icon, SparklesIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -22,6 +24,7 @@ const DEMO_PREFILL: Prefill = {
 };
 
 export function ClaimPage() {
+  const canSubmit = permissions(useAuthUser()).upload;
   const form = useClaimForm();
   const [files, setFiles] = useState<File[]>([]);
   const [reading, setReading] = useState(0);
@@ -52,6 +55,7 @@ export function ClaimPage() {
 
   const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!canSubmit || submitting) return;
     const found = validate(form.values);
     setErrors(found);
     setSubmitError(null);
@@ -107,7 +111,7 @@ export function ClaimPage() {
         ))}
 
         <Card>
-          <CardHeader><CardTitle>Documents</CardTitle><CardDescription>Incident report, repair quote, photos. We read them to speed things up and may pre-fill answers for you to check.</CardDescription></CardHeader>
+          <CardHeader><CardTitle>Documents</CardTitle><CardDescription>Incident report, repair quote, photos. Up to 10 files, 10 MB each. Files are stored privately with your claim. Automatic document extraction is not enabled yet.</CardDescription></CardHeader>
           <CardContent><FileDropzone files={files} reading={reading > 0} notice={notice} onAdd={addFiles} onRemove={index => setFiles(current => current.filter((_, i) => i !== index))} /></CardContent>
         </Card>
 
@@ -119,9 +123,10 @@ export function ClaimPage() {
           </div>
         )}
 
+        {!canSubmit && <Alert><AlertTitle>Submission access required</AlertTitle><AlertDescription>Ask an Admin to assign the Claims Handler role to submit claims.</AlertDescription></Alert>}
         {submitError && <Alert variant="destructive"><AlertTitle>Could not submit</AlertTitle><AlertDescription>{submitError}</AlertDescription></Alert>}
         <div className="flex items-center gap-3">
-          <Button type="submit" size="lg" disabled={submitting}>{submitting && <Loader2Icon className="animate-spin" />} Submit claim</Button>
+          <Button type="submit" size="lg" disabled={submitting || !canSubmit}>{submitting && <Loader2Icon className="animate-spin" />} Submit claim</Button>
           <span className="text-xs text-muted-foreground"><span aria-hidden className="text-destructive">*</span> required</span>
         </div>
       </form>
@@ -140,8 +145,8 @@ function Confirmation({ result, onStartOver }: { result: SubmitResult; onStartOv
       </div>
       <p className="mb-4 text-sm text-muted-foreground">{dry ? 'This is exactly what would be stored for this claim. No network call was made.' : 'Thank you. We have your claim.'}</p>
       <Card className="mb-4">
-        <CardHeader><CardTitle>Payload</CardTitle><CardDescription>Column names come from fields.ts. null means unknown or not set yet.</CardDescription></CardHeader>
-        <CardContent><pre data-testid="payload" className="max-h-[28rem] overflow-auto rounded-md bg-muted p-3 font-mono text-xs leading-relaxed">{JSON.stringify(result.payload, null, 2)}</pre></CardContent>
+        <CardHeader><CardTitle>{dry ? 'Payload' : 'Claim reference'}</CardTitle><CardDescription>{dry ? 'Preview only; nothing has been saved.' : 'Keep this reference when contacting the claims team.'}</CardDescription></CardHeader>
+        <CardContent>{!dry ? <p className="break-all font-mono text-sm">{String(result.payload.case_id)}</p> : <pre data-testid="payload" className="max-h-[28rem] overflow-auto rounded-md bg-muted p-3 font-mono text-xs leading-relaxed">{JSON.stringify(result.payload, null, 2)}</pre>}</CardContent>
       </Card>
       <Card className="mb-6">
         <CardHeader><CardTitle>Files ({result.files.length})</CardTitle></CardHeader>

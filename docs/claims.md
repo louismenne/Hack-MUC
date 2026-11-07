@@ -8,6 +8,12 @@ Authenticated inserts must omit system columns and internal checks (`policy_acti
 
 Claims Handlers can submit and read only their own records. Reviewers and Admins can submit and read all records. Policy Managers can read all records but cannot submit. Unknown/unassigned roles and anonymous callers have no access. Roles are read from current Auth metadata instead of stale JWT claims. No client update/delete permission is granted yet.
 
-The existing `/claim` UI is unchanged and still uses its dry-run adapter. Its `config.ts` table and bucket remain null. Connecting that adapter, authenticated page access, document storage and persisted review decisions are not implemented by these schema migrations. No attached files are stored in the claims table.
+The existing `/claim` page now requires invited-team sign-in and saves through the browser Supabase client, with RLS enforcing access. `config.ts` enables `claims` and the private `claim-documents` bucket. The adapter whitelists claimant columns, uploads files, inserts the claim with attachment metadata, then returns server-generated values. Confirmation appears only after a successful insert.
+
+Apply `20261107204500_claim_attachments.sql` after the two claims migrations. Attachments are limited to 10 PDF/image files, 10 MB each. Object paths are generated under the authenticated user ID; filenames are metadata, not paths. Owners can read their uploads; review/policy/admin roles can read documents linked to visible claims. No public bucket or public URLs are used. On submission failure, the adapter attempts to clean up uploads. RLS protects documents already linked to saved claims from client deletion. Interrupted requests can leave unlinked files; retention cleanup is not automated yet. A lost response after a successful insert can leave the user unsure whether submission succeeded; submissions are not yet idempotent.
+
+Automatic extraction remains a stub. Saved submissions are not yet connected to the sample CSV review queue or persisted review decisions. No verdict is inferred from claimant statements.
 
 Database integration checks: `supabase db query --remote --file tests/sql/claims-rls.sql --yes`. Fixtures run in a rolled-back transaction and cover allowed insert/read, ownership isolation, forged system fields, future dates, unauthorized mutations, role demotion and anonymous access.
+
+Live verification used a temporary authenticated Claims Handler account: submitted a claim with a PDF, checked generated ownership and protected coverage fields, read the row and private document, then verified demotion blocked further writes. All test records, files and the temporary account were removed.

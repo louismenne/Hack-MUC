@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { evaluatePolicyDocument } from '../src/policy-engine/index.js';
 import { bundledV2 } from '../src/policy-engine/bundled.js';
 import { isDryRun, submitClaim } from '../src/claim-intake/adapter.js';
@@ -116,6 +116,7 @@ describe('payload (the exact row for the future claims table)', () => {
 });
 
 describe('adapter (dry run: no network)', () => {
+  beforeEach(() => { claimIntakeConfig.claimsTable = null; claimIntakeConfig.claimsBucket = null; });
   afterEach(() => { vi.unstubAllGlobals(); claimIntakeConfig.claimsTable = null; claimIntakeConfig.claimsBucket = null; });
 
   it('is a dry run while claimsTable and claimsBucket are null', () => {
@@ -135,7 +136,7 @@ describe('adapter (dry run: no network)', () => {
   });
   it('refuses to pretend it saved once a table is configured but Supabase is not wired up yet', async () => {
     claimIntakeConfig.claimsTable = 'claims';
-    await expect(submitClaim(buildPayload(valid(), { now: NOW, isTest: false }), [])).rejects.toThrow(/not implemented/);
+    await expect(submitClaim(buildPayload(valid(), { now: NOW, isTest: false }), [])).rejects.toThrow(/not configured/);
   });
 });
 
