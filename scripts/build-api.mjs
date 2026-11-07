@@ -4,7 +4,7 @@
 // (tests/api-bundle.test.ts) fails if it is stale. Packages stay external and are traced by Vercel.
 import { build } from 'esbuild';
 
-export const functions = ['policy', 'policy-ai'];
+export const functions = ['policy', 'policy-ai', 'voice-session'];
 export const options = name => ({
   entryPoints: [`src/policy-api/functions/${name}.ts`],
   outfile: `api/${name}.js`,
