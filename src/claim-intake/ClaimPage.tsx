@@ -1,16 +1,22 @@
-import { useAuthUser } from '@/lib/auth';
-import { permissions } from '../roles';
-import { useMemo, useRef, useState } from 'react';
-import { CheckCircle2Icon, FlaskConicalIcon, Loader2Icon, SparklesIcon } from 'lucide-react';
+import { Fragment, useMemo, useRef, useState, type ReactNode } from 'react';
+import { CarIcon, CircleAlertIcon, CircleCheckIcon, FileTextIcon, FlaskConicalIcon, ImageIcon, LockIcon, RotateCcwIcon, SendIcon, SparklesIcon } from 'lucide-react';
+import { SignOutButton, useAuthUser } from '@/lib/auth';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
+import { FieldGroup, FieldSeparator } from '@/components/ui/field';
+import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '@/components/ui/item';
+import { Spinner } from '@/components/ui/spinner';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { isDryRun, submitClaim, type SubmitResult } from './adapter.js';
 import { extractFromFiles } from './extract.js';
 import { FieldControl } from './FieldControl.js';
 import { FileDropzone } from './FileDropzone.js';
-import { fields, sections } from './fields.js';
+import { engineColumns, fields, sections, type ColumnValue } from './fields.js';
+import { permissions } from '../roles.js';
 import { formatSize, sortNewFiles } from './files.js';
 import type { Prefill } from './form-state.js';
 import { buildPayload } from './payload.js';
@@ -22,6 +28,46 @@ const DEMO_PREFILL: Prefill = {
   claim_type: 'motor_own_damage', claim_summary: 'Parking scrape on the rear bumper, no other vehicle involved.',
   quote_eur: '1250', incident_report_present: 'yes', itemized_quote_present: 'yes', repair_battery: 'no',
 };
+
+/** Sections whose fields sit in two columns on wider screens. */
+const twoColumnSections = new Set(['contact']);
+/** Sections with a divider between questions. */
+const dividedSections = new Set(['facts']);
+
+function Shell({ children }: { children: ReactNode }) {
+  const user = useAuthUser();
+  return (
+    <div className="min-h-svh">
+      <header className="sticky top-0 z-20 border-b bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/60">
+        <div className="mx-auto flex h-14 max-w-2xl items-center gap-2.5 px-4">
+          <div className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
+            <CarIcon className="size-4" aria-hidden />
+          </div>
+          <span className="text-sm font-medium">Motor claims</span>
+          <div className="ml-auto flex items-center gap-2">
+            {isDryRun() && (
+              <Badge variant="outline">
+                <FlaskConicalIcon data-icon="inline-start" /> Test mode
+              </Badge>
+            )}
+            <span className="hidden max-w-48 truncate text-xs text-muted-foreground sm:inline">{user.email}</span>
+            <SignOutButton />
+          </div>
+        </div>
+      </header>
+      <main className="mx-auto max-w-2xl px-4 pt-8 pb-4">{children}</main>
+    </div>
+  );
+}
+
+function SectionTitle({ index, children }: { index: number; children: ReactNode }) {
+  return (
+    <CardTitle className="flex items-center gap-2.5">
+      <span className="flex size-6 items-center justify-center rounded-full bg-muted text-xs font-medium tabular-nums text-muted-foreground">{index}</span>
+      {children}
+    </CardTitle>
+  );
+}
 
 export function ClaimPage() {
   const canSubmit = permissions(useAuthUser()).upload;
@@ -53,6 +99,12 @@ export function ClaimPage() {
       .finally(() => setReading(n => n - 1));
   };
 
+  const focusField = (key: string) => {
+    const holder = formRef.current?.querySelector<HTMLElement>(`[data-field="${key}"]`);
+    holder?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    holder?.querySelector<HTMLElement>('input:not([type=file]):not([aria-hidden=true]), textarea, [role=radio], button')?.focus({ preventScroll: true });
+  };
+
   const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!canSubmit || submitting) return;
@@ -61,14 +113,13 @@ export function ClaimPage() {
     setSubmitError(null);
     const firstInvalid = fields.find(f => found[f.key]);
     if (firstInvalid) {
-      const holder = formRef.current?.querySelector<HTMLElement>(`[data-field="${firstInvalid.key}"]`);
-      holder?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      holder?.querySelector<HTMLElement>('[data-field-focus]')?.focus({ preventScroll: true });
+      focusField(firstInvalid.key);
       return;
     }
     setSubmitting(true);
     try {
       setResult(await submitClaim(buildPayload(form.values, { isTest: isDryRun() }), files));
+      window.scrollTo({ top: 0 });
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : String(error));
     } finally {
@@ -78,87 +129,235 @@ export function ClaimPage() {
 
   const startOver = () => { form.reset(); setFiles([]); setErrors({}); setResult(null); setNotice(null); window.scrollTo({ top: 0 }); };
 
-  if (result) return <Confirmation result={result} onStartOver={startOver} />;
+  if (result) return <Shell><Confirmation result={result} onStartOver={startOver} /></Shell>;
 
-  const errorCount = Object.keys(errors).length;
+  const invalidFields = fields.filter(f => errors[f.key]);
   return (
-    <main className="mx-auto max-w-2xl px-4 py-10">
-      <header className="mb-6">
+    <Shell>
+      <div className="mb-6 flex flex-col gap-1">
         <h1 className="text-2xl font-semibold tracking-tight">Submit a claim</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Tell us what happened and attach your documents. It takes about five minutes.</p>
-        {isDryRun() && <p className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1 text-xs text-muted-foreground"><FlaskConicalIcon className="size-3.5" aria-hidden /> Test mode: nothing is saved yet.</p>}
-      </header>
+        <p className="text-sm text-muted-foreground">Tell us what happened and attach your documents. It takes about five minutes.</p>
+      </div>
 
       <form ref={formRef} onSubmit={onSubmit} noValidate className="flex flex-col gap-6">
-        {errorCount > 0 && (
-          <Alert variant="destructive" role="alert">
-            <AlertTitle>Please check {errorCount} {errorCount === 1 ? 'field' : 'fields'}</AlertTitle>
-            <AlertDescription>{fields.filter(f => errors[f.key]).map(f => f.label).join(' · ')}</AlertDescription>
+        {isDryRun() && (
+          <Alert>
+            <FlaskConicalIcon />
+            <AlertTitle>Test mode: nothing is saved yet</AlertTitle>
+            <AlertDescription>Submitting shows the exact record that would be stored for this claim. No network call is made.</AlertDescription>
           </Alert>
         )}
 
-        {sections.map(section => (
-          <Card key={section.id}>
-            <CardHeader><CardTitle>{section.title}</CardTitle><CardDescription>{section.description}</CardDescription></CardHeader>
-            <CardContent className="flex flex-col gap-5">
-              {fields.filter(f => f.section === section.id).map(field => (
-                <FieldControl key={field.key} field={field} value={form.values[field.key] ?? ''} error={errors[field.key]} aiFilled={field.key in form.aiFilled}
-                  onChange={value => { form.setValue(field.key, value); if (errors[field.key]) setErrors(({ [field.key]: _gone, ...rest }) => rest); }}
-                  onConfirm={() => form.confirmAi(field.key)} />
-              ))}
-            </CardContent>
-          </Card>
-        ))}
+        {!canSubmit && (
+          <Alert>
+            <LockIcon />
+            <AlertTitle>Submission access required</AlertTitle>
+            <AlertDescription>Ask an Admin to assign the Claims Handler role to submit claims.</AlertDescription>
+          </Alert>
+        )}
+
+        {invalidFields.length > 0 && (
+          <Alert variant="destructive" role="alert">
+            <CircleAlertIcon />
+            <AlertTitle>Please check {invalidFields.length} {invalidFields.length === 1 ? 'field' : 'fields'}</AlertTitle>
+            <AlertDescription>
+              <ul className="flex flex-wrap gap-x-3 gap-y-1">
+                {invalidFields.map(f => (
+                  <li key={f.key}>
+                    <button type="button" className="underline underline-offset-4 hover:text-destructive/80" onClick={() => focusField(f.key)}>{f.label}</button>
+                  </li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {sections.map((section, index) => {
+          const sectionFields = fields.filter(f => f.section === section.id);
+          return (
+            <Card key={section.id}>
+              <CardHeader>
+                <SectionTitle index={index + 1}>{section.title}</SectionTitle>
+                <CardDescription>{section.description}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <FieldGroup className={twoColumnSections.has(section.id) ? 'grid gap-5 sm:grid-cols-2' : undefined}>
+                  {sectionFields.map((field, i) => (
+                    <Fragment key={field.key}>
+                      {dividedSections.has(section.id) && i > 0 && <FieldSeparator />}
+                      <FieldControl
+                        field={field}
+                        value={form.values[field.key] ?? ''}
+                        error={errors[field.key]}
+                        aiFilled={field.key in form.aiFilled}
+                        onChange={value => {
+                          form.setValue(field.key, value);
+                          if (errors[field.key]) setErrors(({ [field.key]: _gone, ...rest }) => rest);
+                        }}
+                        onConfirm={() => form.confirmAi(field.key)}
+                      />
+                    </Fragment>
+                  ))}
+                </FieldGroup>
+              </CardContent>
+            </Card>
+          );
+        })}
 
         <Card>
-          <CardHeader><CardTitle>Documents</CardTitle><CardDescription>Incident report, repair quote, photos. Up to 10 files, 10 MB each. Files are stored privately with your claim. Automatic document extraction is not enabled yet.</CardDescription></CardHeader>
-          <CardContent><FileDropzone files={files} reading={reading > 0} notice={notice} onAdd={addFiles} onRemove={index => setFiles(current => current.filter((_, i) => i !== index))} /></CardContent>
+          <CardHeader>
+            <SectionTitle index={sections.length + 1}>Documents</SectionTitle>
+            <CardDescription>Incident report, repair quote, photos. Up to 10 files, 10 MB each. Files are stored privately with your claim. Automatic document extraction is not enabled yet.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <FileDropzone files={files} reading={reading > 0} notice={notice} onAdd={addFiles} onRemove={index => setFiles(current => current.filter((_, i) => i !== index))} />
+          </CardContent>
         </Card>
 
         {demo && (
-          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-dashed p-3 text-sm">
-            <Badge variant="secondary">Demo</Badge>
-            <span className="text-muted-foreground">Shows how fields filled by the AI look. Only empty fields are filled.</span>
-            <Button type="button" size="sm" variant="outline" onClick={() => form.applyPrefill(DEMO_PREFILL)}><SparklesIcon /> Simulate AI prefill</Button>
-          </div>
+          <Item variant="outline" className="border-dashed">
+            <ItemMedia variant="icon"><SparklesIcon /></ItemMedia>
+            <ItemContent>
+              <ItemTitle>Demo: simulate AI prefill <Badge variant="secondary">Demo</Badge></ItemTitle>
+              <ItemDescription>Shows how fields filled by the AI look. Only empty fields are filled.</ItemDescription>
+            </ItemContent>
+            <ItemActions>
+              <Button type="button" size="sm" variant="outline" onClick={() => form.applyPrefill(DEMO_PREFILL)}>Simulate</Button>
+            </ItemActions>
+          </Item>
         )}
 
-        {!canSubmit && <Alert><AlertTitle>Submission access required</AlertTitle><AlertDescription>Ask an Admin to assign the Claims Handler role to submit claims.</AlertDescription></Alert>}
-        {submitError && <Alert variant="destructive"><AlertTitle>Could not submit</AlertTitle><AlertDescription>{submitError}</AlertDescription></Alert>}
-        <div className="flex items-center gap-3">
-          <Button type="submit" size="lg" disabled={submitting || !canSubmit}>{submitting && <Loader2Icon className="animate-spin" />} Submit claim</Button>
-          <span className="text-xs text-muted-foreground"><span aria-hidden className="text-destructive">*</span> required</span>
+        {submitError && (
+          <Alert variant="destructive">
+            <CircleAlertIcon />
+            <AlertTitle>Could not submit</AlertTitle>
+            <AlertDescription>{submitError}</AlertDescription>
+          </Alert>
+        )}
+
+        <div className="sticky bottom-0 z-10 -mx-4 border-t bg-background/80 px-4 py-3 backdrop-blur supports-backdrop-filter:bg-background/60">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              <span aria-hidden className="text-destructive">*</span> Required. Everything else may be left empty or answered “Don’t know”.
+            </p>
+            <Button type="submit" disabled={submitting || !canSubmit} className="shrink-0">
+              {submitting ? <Spinner data-icon="inline-start" /> : <SendIcon data-icon="inline-start" />} Submit claim
+            </Button>
+          </div>
         </div>
       </form>
-    </main>
+    </Shell>
+  );
+}
+
+function ColumnValueCell({ value }: { value: ColumnValue }) {
+  if (value === null) return <span className="text-muted-foreground">unknown</span>;
+  return <span className="font-mono text-xs break-all">{String(value)}</span>;
+}
+
+function FileItems({ files }: { files: SubmitResult['files'] }) {
+  if (files.length === 0) {
+    return (
+      <Empty className="border border-dashed py-8">
+        <EmptyHeader>
+          <EmptyTitle>No files attached</EmptyTitle>
+          <EmptyDescription>Documents can speed up the decision but are not required.</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    );
+  }
+  return (
+    <ItemGroup data-testid="file-list" className="gap-2">
+      {files.map((file, i) => (
+        <Item key={i} role="listitem" variant="outline" size="sm">
+          <ItemMedia variant="icon">{file.type.startsWith('image/') ? <ImageIcon /> : <FileTextIcon />}</ItemMedia>
+          <ItemContent className="min-w-0">
+            <ItemTitle className="block w-full truncate">{file.name}</ItemTitle>
+            <ItemDescription className="text-xs">{file.type || 'unknown type'} · {formatSize(file.size)}</ItemDescription>
+          </ItemContent>
+        </Item>
+      ))}
+    </ItemGroup>
   );
 }
 
 function Confirmation({ result, onStartOver }: { result: SubmitResult; onStartOver: () => void }) {
   const dry = result.mode === 'dry-run';
+  const engine = new Set(engineColumns());
   return (
-    <main className="mx-auto max-w-2xl px-4 py-10">
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <CheckCircle2Icon className="size-6 text-rec-routine" aria-hidden />
-        <h1 className="text-2xl font-semibold tracking-tight">{dry ? 'Dry run complete' : 'Claim submitted'}</h1>
-        {dry && <Badge variant="secondary" data-testid="dry-run-label">Dry run, nothing saved</Badge>}
-      </div>
-      <p className="mb-4 text-sm text-muted-foreground">{dry ? 'This is exactly what would be stored for this claim. No network call was made.' : 'Thank you. We have your claim.'}</p>
-      <Card className="mb-4">
-        <CardHeader><CardTitle>{dry ? 'Payload' : 'Claim reference'}</CardTitle><CardDescription>{dry ? 'Preview only; nothing has been saved.' : 'Keep this reference when contacting the claims team.'}</CardDescription></CardHeader>
-        <CardContent>{!dry ? <p className="break-all font-mono text-sm">{String(result.payload.case_id)}</p> : <pre data-testid="payload" className="max-h-[28rem] overflow-auto rounded-md bg-muted p-3 font-mono text-xs leading-relaxed">{JSON.stringify(result.payload, null, 2)}</pre>}</CardContent>
-      </Card>
-      <Card className="mb-6">
-        <CardHeader><CardTitle>Files ({result.files.length})</CardTitle></CardHeader>
-        <CardContent>
-          {result.files.length === 0 ? <p className="text-sm text-muted-foreground">No files attached.</p> : (
-            <ul data-testid="file-list" className="flex flex-col divide-y text-sm">
-              {result.files.map((f, i) => <li key={i} className="flex justify-between gap-3 py-1.5"><span className="truncate">{f.name}</span><span className="shrink-0 text-xs text-muted-foreground">{f.type || 'unknown type'} · {formatSize(f.size)}</span></li>)}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-      <Button onClick={onStartOver}>Start over</Button>
-    </main>
+    <Card>
+      <CardHeader>
+        <div className="mb-2 flex size-10 items-center justify-center rounded-full bg-rec-routine/15 text-rec-routine">
+          <CircleCheckIcon className="size-5" aria-hidden />
+        </div>
+        <CardTitle className="text-xl">{dry ? 'Dry run complete' : 'Claim submitted'}</CardTitle>
+        <CardDescription>
+          {dry ? 'This is exactly what would be stored for this claim. Nothing has been saved.' : 'Thank you. Your claim and documents are stored privately with the claims team.'}
+        </CardDescription>
+        {dry && (
+          <CardAction>
+            <Badge variant="secondary" data-testid="dry-run-label">Nothing saved</Badge>
+          </CardAction>
+        )}
+      </CardHeader>
+      <CardContent className="flex flex-col gap-6">
+        {dry ? (
+          <Tabs defaultValue="record">
+            <TabsList>
+              <TabsTrigger value="record">Record</TabsTrigger>
+              <TabsTrigger value="json">JSON</TabsTrigger>
+              <TabsTrigger value="files">Files ({result.files.length})</TabsTrigger>
+            </TabsList>
+            <TabsContent value="record" className="pt-2">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Column</TableHead>
+                    <TableHead>Value</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Object.entries(result.payload).map(([column, value]) => (
+                    <TableRow key={column}>
+                      <TableCell className="w-0 align-top whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs">{column}</span>
+                          {engine.has(column) && <Badge variant="outline" className="text-[10px]">policy input</Badge>}
+                        </div>
+                      </TableCell>
+                      <TableCell className="whitespace-normal"><ColumnValueCell value={value} /></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TabsContent>
+            <TabsContent value="json" className="pt-2">
+              <pre data-testid="payload" className="max-h-[28rem] overflow-auto rounded-lg bg-muted p-3 font-mono text-xs leading-relaxed">{JSON.stringify(result.payload, null, 2)}</pre>
+            </TabsContent>
+            <TabsContent value="files" className="pt-2">
+              <FileItems files={result.files} />
+            </TabsContent>
+          </Tabs>
+        ) : (
+          <>
+            <Item variant="muted">
+              <ItemContent className="min-w-0">
+                <ItemDescription>Claim reference. Keep it when contacting the claims team.</ItemDescription>
+                <ItemTitle className="block w-full font-mono text-base break-all">{String(result.payload.case_id)}</ItemTitle>
+              </ItemContent>
+            </Item>
+            <div className="flex flex-col gap-3">
+              <h2 className="text-sm font-medium">Documents ({result.files.length})</h2>
+              <FileItems files={result.files} />
+            </div>
+          </>
+        )}
+      </CardContent>
+      <CardFooter className="justify-end">
+        <Button onClick={onStartOver}>
+          <RotateCcwIcon data-icon="inline-start" /> Submit another claim
+        </Button>
+      </CardFooter>
+    </Card>
   );
 }

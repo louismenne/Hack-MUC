@@ -1,7 +1,10 @@
 import { useRef, useState } from 'react';
-import { FileTextIcon, ImageIcon, Loader2Icon, UploadIcon, XIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { CircleAlertIcon, FileTextIcon, ImageIcon, PaperclipIcon, UploadIcon, XIcon } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '@/components/ui/item';
+import { Spinner } from '@/components/ui/spinner';
 import { ACCEPT_ATTRIBUTE, formatSize } from './files.js';
 
 interface Props {
@@ -12,48 +15,91 @@ interface Props {
   onRemove: (index: number) => void;
 }
 
+const kindLabel = (file: File) => (file.type === 'application/pdf' || /\.pdf$/i.test(file.name) ? 'PDF' : 'Image');
+
 /** Drag & drop plus file picker for PDFs and images (several at once). */
 export function FileDropzone({ files, reading, notice, onAdd, onRemove }: Props) {
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   return (
     <div className="flex flex-col gap-3">
-      <div
-        role="button"
-        tabIndex={0}
-        aria-label="Add documents: drop files here or press Enter to choose files"
-        onClick={() => input.current?.click()}
-        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.current?.click(); } }}
-        onDragOver={e => { e.preventDefault(); setDragging(true); }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={e => { e.preventDefault(); setDragging(false); onAdd(Array.from(e.dataTransfer.files)); }}
-        className={cn(
-          'flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed px-4 py-8 text-center transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
-          dragging ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50',
-        )}
+      <Empty
         data-testid="dropzone"
+        data-dragging={dragging || undefined}
+        onDragOver={event => {
+          event.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={event => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
+        }}
+        onDrop={event => {
+          event.preventDefault();
+          setDragging(false);
+          onAdd(Array.from(event.dataTransfer.files));
+        }}
+        className="border border-dashed transition-colors data-dragging:border-primary data-dragging:bg-primary/5"
       >
-        <UploadIcon className="size-6 text-muted-foreground" aria-hidden />
-        <p className="text-sm font-medium">Drop documents here, or click to choose</p>
-        <p className="text-xs text-muted-foreground">PDF or images: incident report, repair quote, photos. You can add several files.</p>
-        <input ref={input} type="file" multiple accept={ACCEPT_ATTRIBUTE} className="sr-only" tabIndex={-1} data-testid="file-input"
-          onChange={e => { onAdd(Array.from(e.target.files ?? [])); e.target.value = ''; }} />
-      </div>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <UploadIcon />
+          </EmptyMedia>
+          <EmptyTitle>Drop documents here</EmptyTitle>
+          <EmptyDescription>PDF or images: incident report, repair quote, photos. You can add several files at once.</EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button type="button" variant="outline" size="sm" onClick={() => input.current?.click()}>
+            <PaperclipIcon data-icon="inline-start" /> Choose files
+          </Button>
+        </EmptyContent>
+        <input
+          ref={input}
+          type="file"
+          multiple
+          accept={ACCEPT_ATTRIBUTE}
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden
+          data-testid="file-input"
+          onChange={event => {
+            onAdd(Array.from(event.target.files ?? []));
+            event.target.value = '';
+          }}
+        />
+      </Empty>
 
-      {reading && <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2Icon className="size-4 animate-spin" aria-hidden /> Reading documents...</p>}
-      {notice && <p role="alert" className="text-sm text-destructive">{notice}</p>}
+      {reading && (
+        <div role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Spinner /> Reading documents…
+        </div>
+      )}
+
+      {notice && (
+        <Alert>
+          <CircleAlertIcon />
+          <AlertDescription>{notice}</AlertDescription>
+        </Alert>
+      )}
 
       {files.length > 0 && (
-        <ul className="flex flex-col divide-y rounded-lg border" aria-label="Attached documents">
+        <ItemGroup aria-label="Attached documents" className="gap-2">
           {files.map((file, index) => (
-            <li key={`${file.name}-${index}`} className="flex items-center gap-3 px-3 py-2 text-sm">
-              {file.type.startsWith('image/') ? <ImageIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden /> : <FileTextIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />}
-              <span className="min-w-0 flex-1 truncate" title={file.name}>{file.name}</span>
-              <span className="shrink-0 text-xs text-muted-foreground">{formatSize(file.size)}</span>
-              <Button type="button" size="icon-xs" variant="ghost" aria-label={`Remove ${file.name}`} onClick={() => onRemove(index)}><XIcon /></Button>
-            </li>
+            <Item key={`${file.name}-${index}`} role="listitem" variant="outline" size="sm">
+              <ItemMedia variant="icon">
+                {kindLabel(file) === 'PDF' ? <FileTextIcon /> : <ImageIcon />}
+              </ItemMedia>
+              <ItemContent className="min-w-0">
+                <ItemTitle className="block w-full truncate" title={file.name}>{file.name}</ItemTitle>
+                <ItemDescription className="text-xs">{kindLabel(file)} · {formatSize(file.size)}</ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                <Button type="button" size="icon-sm" variant="ghost" aria-label={`Remove ${file.name}`} onClick={() => onRemove(index)}>
+                  <XIcon />
+                </Button>
+              </ItemActions>
+            </Item>
           ))}
-        </ul>
+        </ItemGroup>
       )}
     </div>
   );
