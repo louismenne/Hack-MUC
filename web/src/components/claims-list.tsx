@@ -6,7 +6,6 @@ import { RecommendationBadge, dotClasses } from '@/components/recommendation-bad
 import { Card } from '@/components/ui/card';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -89,7 +88,7 @@ export function ClaimsList({ cases, visible, states, filters, onFiltersChange, s
   const positions = queuePositions(cases, states);
   return (
     <Card className="gap-0 overflow-hidden py-0 lg:sticky lg:top-[7.25rem] lg:max-h-[calc(100svh-8.5rem)]">
-      <div className="flex flex-col gap-2.5 border-b p-3">
+      <div className="flex shrink-0 flex-col gap-2.5 border-b p-3">
         <div className="flex gap-2">
           <div className="relative flex-1">
             <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -147,7 +146,7 @@ export function ClaimsList({ cases, visible, states, filters, onFiltersChange, s
           </EmptyHeader>
         </Empty>
       ) : (
-        <ScrollArea className="min-h-0 flex-1">
+        <div className="min-h-0 flex-1 overflow-auto" role="region" aria-label="Claims list" tabIndex={0}>
           <Table>
             <TableHeader className="sticky top-0 z-10 bg-card">
               <TableRow>
@@ -215,7 +214,7 @@ export function ClaimsList({ cases, visible, states, filters, onFiltersChange, s
               })}
             </TableBody>
           </Table>
-        </ScrollArea>
+        </div>
       )}
     </Card>
   );
