@@ -39,19 +39,23 @@ interface ReviewDialogProps {
   current: Recommendation;
   defaultReviewer: string;
   onSubmit: (input: ReviewInput) => void;
+  /** Preselected new recommendation for a reviewer decision (e.g. approve → routine). */
+  presetNext?: Recommendation;
+  /** Title of the reviewer decision, shown instead of the generic action title. */
+  presetTitle?: string;
 }
 
-export function ReviewDialog({ action, onOpenChange, datasetId, decision, current, defaultReviewer, onSubmit }: ReviewDialogProps) {
+export function ReviewDialog({ action, onOpenChange, datasetId, decision, current, defaultReviewer, onSubmit, presetNext, presetTitle }: ReviewDialogProps) {
   const [next, setNext] = useState<Recommendation | undefined>();
   const [reason, setReason] = useState('');
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
     if (!action) return;
-    setNext(undefined);
+    setNext(presetNext);
     setReason('');
     setSubmitted(false);
-  }, [action, decision.caseId, defaultReviewer]);
+  }, [action, decision.caseId, defaultReviewer, presetNext]);
 
   const shown = action ?? 'confirmed';
   const text = copy[shown];
@@ -72,7 +76,7 @@ export function ReviewDialog({ action, onOpenChange, datasetId, decision, curren
         >
           <DialogHeader>
             <DialogTitle>
-              {text.title} · <span className="font-mono">{decision.caseId}</span>
+              {presetTitle ?? text.title} · <span className="font-mono">{decision.caseId}</span>
             </DialogTitle>
             <DialogDescription>{text.description}</DialogDescription>
           </DialogHeader>

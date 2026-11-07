@@ -10,7 +10,7 @@ import { useAuthUser } from '@/lib/auth';
 import { useReviewAudit } from '@/lib/audit';
 import { POLICY_CHANGED_EVENT } from '@/lib/policy-source';
 import { permissions } from '../../../src/roles';
-import { parseClaim, type Decision } from '../../../src/triage';
+import { parseClaim, type Decision, type Recommendation } from '../../../src/triage';
 import { receivedAt } from '../../../src/received-at';
 import { reviewState, type ReviewAction, type ReviewInput } from '../../../src/review';
 import type { StoredQueueItem } from '../../../src/policy-api/stored-claims';
@@ -76,6 +76,7 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
   const [error, setError] = useState('');
   const selectedId = dashboard ? '' : route.caseId ?? '';
   const [action, setAction] = useState<ReviewAction | null>(null);
+  const [preset, setPreset] = useState<{ next?: Recommendation; title?: string }>({});
   const [filters, setFilters] = useState<ListFilters>({ query: '', recommendation: 'all', status: 'any' });
   const revision = useRef(0);
   const busy = useRef(false);
@@ -168,8 +169,9 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
       toast.info('The saved decision for this claim changed. Check the claim again before reviewing.');
     }
   }, [action, savedDecisionId]);
-  const openAction = (next: ReviewAction) => {
+  const openAction = (next: ReviewAction, presetNext?: Recommendation, title?: string) => {
     dialogDecision.current = savedDecisionId;
+    setPreset({ next: presetNext, title });
     setAction(next);
   };
   const openClaim = (caseId: string) => {
@@ -412,6 +414,8 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
             current={state.effective}
             defaultReviewer={user.email ?? user.id}
             onSubmit={(input) => void record(input)}
+            presetNext={preset.next}
+            presetTitle={preset.title}
           />
         </>
       ) : loading && !items.length ? (

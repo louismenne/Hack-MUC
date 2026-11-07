@@ -26,6 +26,9 @@ import { recommendations, type ReviewEvent, type ReviewState } from '../../../sr
 import { bucketEnd, countSeries, delta, inWindow, isoWeek, previousWindow, rangeLabels, receivedSeries, timeRanges, windowFor, type Bucket, type Delta, type SeriesPoint, type TimeRange, type Window } from '../../../src/timeline';
 import type { Field, Recommendation } from '../../../src/triage';
 
+/** Long stored IDs (CLM-<uuid>) shortened for tight labels. */
+const shortId = (id: string) => (id.length > 12 ? `${id.slice(0, 12)}…` : id);
+
 const pct = (value: number) => `${Math.round(value * 100)}%`;
 
 const documentNames: Partial<Record<Field, string>> = {
@@ -152,7 +155,7 @@ export function QualityView({ dataset, states, events, renderLog }: QualityViewP
         />
         <Kpi
           label="Needs recheck after policy change" value={recheck.length} better="neutral" vs=""
-          hint={recheck.length ? `${recheck.map(item => item.decision.caseId).join(', ')} · open, result changes under ${history.active.label}` : 'No open claim changes outcome'}
+          hint={recheck.length ? `${recheck.map(item => shortId(item.decision.caseId)).join(', ')} · open, result changes under ${history.active.label}` : 'No open claim changes outcome'}
         />
       </div>
 
