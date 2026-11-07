@@ -1,5 +1,5 @@
 import {
-  ArrowRightIcon, BotIcon, CircleAlertIcon, CircleCheckIcon, FlaskConicalIcon, PencilLineIcon, QuoteIcon, Undo2Icon, ZapIcon,
+  ArrowRightIcon, BotIcon, CircleAlertIcon, ClockIcon, CircleCheckIcon, FlaskConicalIcon, PencilLineIcon, QuoteIcon, Undo2Icon, ZapIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { describeFact, euro, fieldGroups, fieldLabels, recommendationMeta, ruleMeta, triggeringFields } from '@/lib/policy';
@@ -33,6 +33,9 @@ export function ClaimDetail({ item, state, onAction }: ClaimDetailProps) {
   const rule = ruleMeta[decision.ruleId];
   const triggered = triggeringFields(decision);
   const overridden = state.status === 'overridden';
+  // Cases the engine routed to a human get a dedicated reviewer decision (still being designed);
+  // cases the engine already decided can only be overridden.
+  const needsHuman = decision.recommendation === 'human_review';
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
@@ -54,15 +57,40 @@ export function ClaimDetail({ item, state, onAction }: ClaimDetailProps) {
                 <Undo2Icon data-icon="inline-start" /> Revert
               </Button>
             )}
-            <Button variant="outline" onClick={() => onAction('confirmed')}>
-              <CircleCheckIcon data-icon="inline-start" /> Confirm
-            </Button>
-            <Button onClick={() => onAction('overridden')}>
-              <PencilLineIcon data-icon="inline-start" /> Override
-            </Button>
+            {needsHuman ? (
+              <Badge variant="outline" className="gap-1.5">
+                <ClockIcon /> Reviewer decision pending
+              </Badge>
+            ) : (
+              <Button onClick={() => onAction('overridden')}>
+                <PencilLineIcon data-icon="inline-start" /> Override
+              </Button>
+            )}
           </CardAction>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
+          {needsHuman ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className={cn('rounded-lg p-3.5 ring-1', toneSurface.human_review)}>
+              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <CircleAlertIcon className="size-3.5" /> Why this could not be processed automatically
+              </div>
+              <ul className="mt-2 flex flex-col gap-1">
+                {decision.supportingFacts.map(fact => (
+                  <li key={fact} className="text-base font-semibold tracking-tight">{describeFact(fact)}</li>
+                ))}
+              </ul>
+              <div className="mt-1 font-mono text-xs text-muted-foreground">{decision.ruleId} · policy {decision.policyVersion}</div>
+            </div>
+            <div className="rounded-lg bg-muted/40 p-3.5 ring-1 ring-border">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <BotIcon className="size-3.5" /> Recommendation
+              </div>
+              <div className="mt-2 text-lg font-semibold tracking-tight text-muted-foreground">To be defined</div>
+              <div className="mt-1 text-xs text-muted-foreground">Placeholder until the reviewer decision step is agreed.</div>
+            </div>
+          </div>
+          ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             <div className={cn('rounded-lg p-3.5 ring-1', toneSurface[decision.recommendation])}>
               <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
@@ -77,10 +105,27 @@ export function ClaimDetail({ item, state, onAction }: ClaimDetailProps) {
               </div>
               <div className="mt-2 text-lg font-semibold tracking-tight">{recommendationMeta[state.effective].label}</div>
               <div className="mt-1 text-xs text-muted-foreground">
-                {overridden ? `Overridden by ${state.events.at(-1)?.reviewer}` : state.status === 'reviewed' ? `Confirmed by ${state.events.at(-1)?.reviewer}` : 'Awaiting reviewer'}
+                {overridden ? `Overridden by ${state.events.at(-1)?.reviewer}` : state.status === 'reviewed' ? `Confirmed by ${state.events.at(-1)?.reviewer}` : 'Automated · not overridden'}
               </div>
             </div>
           </div>
+          )}
+
+          {needsHuman && (
+            <section aria-labelledby="decision-heading" className="rounded-lg border border-dashed p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 id="decision-heading" className="text-sm font-semibold">Reviewer decision</h3>
+                <Badge variant="secondary">Coming soon</Badge>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                This claim needs a human decision. The decision step is still being designed; planned options:
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button variant="outline" disabled>Request missing information from claimant</Button>
+                <Button variant="outline" disabled>Release to routine processing</Button>
+              </div>
+            </section>
+          )}
 
           <section aria-labelledby="why-heading" className="flex flex-col gap-2.5">
             <h3 id="why-heading" className="text-sm font-semibold">Why this recommendation</h3>
@@ -227,7 +272,7 @@ function HistoryCard({ item, events }: { item: CaseItem; events: ReviewEvent[] }
             );
           })}
         </ol>
-        {events.length === 0 && <p className="mt-4 text-sm text-muted-foreground">No reviewer action yet. Confirm or override to add an entry.</p>}
+        {events.length === 0 && <p className="mt-4 text-sm text-muted-foreground">No reviewer action yet.</p>}
       </CardContent>
     </Card>
   );
