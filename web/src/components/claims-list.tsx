@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { recommendations, type ReviewState, type ReviewStatus } from '../../../src/review';
 import type { Recommendation } from '../../../src/triage';
+import { daysOpen, type ReceivedAt } from '../../../src/received-at';
 
 export type RecommendationFilter = Recommendation | 'all';
 export type StatusFilter = ReviewStatus | 'any';
@@ -20,6 +21,21 @@ export interface ListFilters {
   query: string;
   recommendation: RecommendationFilter;
   status: StatusFilter;
+}
+
+const timeOnly = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' });
+export const fullDate = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+const shortDate = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' });
+
+/** Short arrival label for lists: "Today 08:20", "Yesterday", "5 days ago", then a date like "24 Oct". */
+export function receivedLabel(received: ReceivedAt | null): string {
+  if (!received) return '—';
+  const days = daysOpen(received.at);
+  if (days === 0) return `Today ${timeOnly.format(received.at)}`;
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return `${days} days ago`;
+  return shortDate.format(received.at);
 }
 
 /** Case IDs are assigned in arrival order, so ascending ID = oldest first (FIFO). */
@@ -126,6 +142,7 @@ export function ClaimsList({ cases, visible, states, filters, onFiltersChange, s
             <TableHeader className="sticky top-0 z-10 bg-card">
               <TableRow>
                 <TableHead className="pl-3">Claim</TableHead>
+                <TableHead className="hidden md:table-cell">Received</TableHead>
                 <TableHead>Recommendation</TableHead>
                 <TableHead className="hidden pr-3 text-right sm:table-cell">Quote</TableHead>
               </TableRow>
@@ -162,6 +179,12 @@ export function ClaimsList({ cases, visible, states, filters, onFiltersChange, s
                         )}
                       </div>
                       <div className="truncate text-xs text-muted-foreground">{String(item.claim.claim_summary ?? 'No summary')}</div>
+                    </TableCell>
+                    <TableCell
+                      className="hidden w-0 whitespace-nowrap text-xs text-muted-foreground md:table-cell"
+                      title={item.received ? `${fullDate.format(item.received.at)}${item.received.simulated ? ' · simulated date' : ''}` : 'No arrival date'}
+                    >
+                      {receivedLabel(item.received)}
                     </TableCell>
                     <TableCell className="w-0">
                       <div className="flex items-center gap-1.5">

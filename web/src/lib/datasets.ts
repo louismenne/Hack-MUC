@@ -3,6 +3,7 @@ import { stringify } from 'csv-stringify/browser/esm/sync';
 import { normalizeHeaders, outputColumns, toOutputRecord, triageRows, type TriagedCase } from '../../../src/claims';
 import { isRecommendation, type ReviewState } from '../../../src/review';
 import { compareOfficialPolicies, type Recommendation, type Decision } from '../../../src/triage';
+import { receivedAt, type ReceivedAt } from '../../../src/received-at';
 import expectationsCsv from '../../../data/development_v2_expectations.csv?raw';
 const expectations = new Map((parse(expectationsCsv, { columns: true }) as { case_id: string; expected_v2: Recommendation }[]).map(r => [r.case_id, r.expected_v2]));
 import developmentCsv from '../../../data/labelled_development_cases.csv?raw';
@@ -15,6 +16,8 @@ export interface CaseItem extends TriagedCase {
   labelV2: Recommendation | null;
   baseline: Decision & { caseId: string };
   needsRecheck: boolean;
+  /** When the claim arrived. Simulated for the participant cases (see src/received-at.ts); never a decision input. */
+  received: ReceivedAt | null;
 }
 
 export interface Dataset {
@@ -33,7 +36,10 @@ export function loadDataset(meta: Omit<Dataset, 'cases' | 'labelled'>, csv: stri
     const comparison = compareOfficialPolicies(item.claim, item.decision);
     const labelV1 = isRecommendation(label) ? label : null;
     const labelV2 = isRecommendation(item.row.expected_v2) ? item.row.expected_v2 : meta.id === 'development' ? expectations.get(item.decision.caseId) ?? null : null;
-    return { ...item, baseline: item.decision, decision: { ...comparison.v2, caseId: item.decision.caseId }, needsRecheck: comparison.needsRecheck, labelV1, labelV2, label: comparison.retained ? labelV1 : labelV2 };
+    return {
+      ...item, baseline: item.decision, decision: { ...comparison.v2, caseId: item.decision.caseId }, needsRecheck: comparison.needsRecheck, labelV1, labelV2,
+      label: comparison.retained ? labelV1 : labelV2, received: receivedAt(item.decision.caseId, item.row.received_at),
+    };
   });
   return { ...meta, cases, labelled: cases.some(item => item.label !== null) };
 }
