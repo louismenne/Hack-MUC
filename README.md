@@ -34,6 +34,10 @@ A React + Tailwind + shadcn/ui reviewer screen in `web/`. It runs the same `src/
 
 Reviewer actions persist in the browser's `localStorage` (`hackmuc.*` keys). That keeps the demo dependency-free; it is per browser, not shared, and not a production audit store.
 
+## Deploy
+
+`vercel.json` pins the Vercel build (`npm ci`, `npm run build`, output `dist/`, Vite preset), so dashboard settings cannot change it. The Vercel project belongs to Louis's personal team, which deploys only commits authored by a team member. Commits from other authors show "Deployment was blocked" until Louis redeploys or pushes a commit himself.
+
 ## Policy and evidence
 
 The original participant policy is in `policies/policy-v1.docx`; `policies/policy-v1.txt` is its extracted text. Both CSVs in `data/` are copied unchanged from the participant materials. Development labels are test expectations, never decision inputs. Practice cases have no supplied labels.
@@ -61,7 +65,7 @@ case_id,policy_version,recommendation_v1,rule_v1,supporting_facts,missing_fields
 
 This is **not yet the final seven-column judging format**. Once v2 is supplied, add version comparison, affected-open-claim detection, and the required submission exporter. Closed claims must retain their recorded v1 recommendation with `needs_recheck=False`; the current runner only evaluates v1 and does not modify stored claims or implement rechecks.
 
-The pure evaluator in `src/triage.ts` and the batch rules in `src/claims.ts` are shared by the CLI and the review UI, and can back optional eve tools. Review state (`src/review.ts`) and quality metrics (`src/quality.ts`) are pure and tested. A shared server-side audit store and the business case remain future work. The original placeholder `index.html` at the repo root is preserved; the app lives in `web/`.
+The pure evaluator in `src/triage.ts` and the batch rules in `src/claims.ts` are shared by the CLI and the review UI, and can back optional eve tools. Review state (`src/review.ts`) and quality metrics (`src/quality.ts`) are pure and tested. A shared server-side audit store and the business case remain future work.
 
 ## Verification
 
