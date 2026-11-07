@@ -76,6 +76,8 @@ function AppContent() {
   const reviewer = user.email ?? user.id;
   const [selection, setSelection] = usePersistentState<Record<string, string>>('selection', {}, isRecord);
   const [tab, setTab] = usePersistentState('tab', 'queue', isString);
+  // The audit log now lives inside the dashboard; an old saved 'audit' tab opens the dashboard.
+  useEffect(() => { if (tab === 'audit') setTab('quality'); }, [tab, setTab]);
   const [filters, setFilters] = usePersistentState<ListFilters>('filters', defaultFilters, isFilters);
   const [dialog, setDialog] = useState<ReviewAction | null>(null);
   const [openCaseId, openCase] = useOpenCase();
@@ -255,10 +257,6 @@ function AppContent() {
             {access.team && <TabsTrigger value="team">Team</TabsTrigger>}
             <TabsTrigger value="quality">Dashboard</TabsTrigger>
             <TabsTrigger value="policy">Policy</TabsTrigger>
-            <TabsTrigger value="audit">
-              Audit log
-              {datasetEvents.length > 0 && <Badge variant="secondary" className="h-4 px-1.5 font-mono text-[10px]">{datasetEvents.length}</Badge>}
-            </TabsTrigger>
           </TabsList>
           <p className="text-xs text-muted-foreground">
             {dataset.description}. Recommends a handling step; never approves or pays a claim.
@@ -305,19 +303,22 @@ function AppContent() {
         <TabsContent value="policy"><PolicyManager /></TabsContent>
 
         <TabsContent value="quality">
-          <QualityView dataset={dataset} states={states} />
-        </TabsContent>
-
-        <TabsContent value="audit">
-          <ActivityLog />
-          {audit.error && <p role="alert" className="text-destructive">Could not load review history: {audit.error}</p>}
-          <Button variant="outline" disabled={audit.loading} onClick={() => void audit.refresh()}>Refresh review history</Button>
-          <AuditLog
+          <QualityView
+            dataset={dataset}
+            states={states}
             events={datasetEvents}
+            renderLog={logEvents => (
+          <>
+          {audit.error && <p role="alert" className="text-destructive">Could not load review history: {audit.error}</p>}
+          <AuditLog
+            events={logEvents}
             datasetName={dataset.name}
             onOpenCase={caseId => { setFilters({ ...defaultFilters, recommendation: 'all' }); setTab('queue'); showCase(caseId); }}
             onExport={() => downloadFile(`audit-${slug}.csv`, auditCsv(datasetEvents))}
-
+          />
+          <ActivityLog />
+          </>
+            )}
           />
         </TabsContent>
       </Tabs>

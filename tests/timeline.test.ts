@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bucketFor, delta, inWindow, isoWeek, previousWindow, receivedSeries, windowFor } from '../src/timeline.js';
+import { bucketFor, countSeries, delta, inWindow, isoWeek, previousWindow, receivedSeries, windowFor } from '../src/timeline.js';
 
 const now = new Date(2026, 10, 7, 15, 0); // Sat 7 Nov 2026, 15:00 local
 const DAY = 86_400_000;
@@ -70,5 +70,15 @@ describe('bucketFor and delta', () => {
     expect(delta(0.5, 0.25, 'pp')).toEqual({ value: 25, kind: 'pp' });
     expect(delta(3, 5, 'count')).toEqual({ value: -2, kind: 'count' });
     expect(delta(3, null, 'count')).toBeNull();
+  });
+});
+
+describe('countSeries', () => {
+  it('counts timestamps per bucket and ignores those outside', () => {
+    const w = windowFor('7d', now, null);
+    const series = countSeries([new Date(2026, 10, 3, 9), new Date(2026, 10, 3, 18), new Date(2026, 9, 1)], w);
+    expect(series).toHaveLength(7);
+    expect(series[2].count).toBe(2);
+    expect(series.reduce((n, p) => n + p.count, 0)).toBe(2);
   });
 });

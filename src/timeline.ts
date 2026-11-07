@@ -104,3 +104,15 @@ export function delta(current: number, previous: number | null, kind: Delta['kin
   if (previous === null) return null;
   return { value: kind === 'pp' ? Math.round((current - previous) * 100) : current - previous, kind };
 }
+
+/** Number of timestamps per bucket in the window, empty buckets included. */
+export function countSeries(dates: Date[], window: Window): { start: Date; count: number }[] {
+  const points: { start: Date; count: number }[] = [];
+  for (let t = floorTo(window.start, window.bucket); t < window.end; t = step(t, window.bucket)) points.push({ start: t, count: 0 });
+  for (const at of dates) {
+    if (!inWindow(at, window)) continue;
+    const point = points.find(p => p.start.getTime() === floorTo(at, window.bucket).getTime());
+    if (point) point.count += 1;
+  }
+  return points;
+}

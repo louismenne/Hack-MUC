@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { ActivityIcon, ArrowDownRightIcon, ArrowUpRightIcon, CalendarClockIcon, ChevronLeftIcon, ChevronRightIcon, FlaskConicalIcon, InfoIcon, LightbulbIcon, MinusIcon, OctagonAlertIcon, TriangleAlertIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { euro, fieldLabels, recommendationMeta } from '@/lib/policy';
@@ -14,11 +14,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { computeInsights, suggestedActions, triggerLabels, type ActionSeverity, type Insights } from '../../../src/insights';
 import { qualityReport, type QualityReport } from '../../../src/quality';
 import { daysOpen, V2_PERIOD_START } from '../../../src/received-at';
-import { recommendations, type ReviewState } from '../../../src/review';
-import { bucketEnd, delta, inWindow, isoWeek, previousWindow, rangeLabels, receivedSeries, timeRanges, windowFor, type Bucket, type Delta, type SeriesPoint, type TimeRange, type Window } from '../../../src/timeline';
+import { recommendations, type ReviewEvent, type ReviewState } from '../../../src/review';
+import { bucketEnd, countSeries, delta, inWindow, isoWeek, previousWindow, rangeLabels, receivedSeries, timeRanges, windowFor, type Bucket, type Delta, type SeriesPoint, type TimeRange, type Window } from '../../../src/timeline';
 import type { Field, Recommendation } from '../../../src/triage';
 
 const pct = (value: number) => `${Math.round(value * 100)}%`;
@@ -35,7 +36,17 @@ function gapLabel(key: string): string {
   return `${fieldLabels[field] ?? field} blank or unreadable`;
 }
 
-export function QualityView({ dataset, states }: { dataset: Dataset; states: Map<string, ReviewState> }) {
+interface QualityViewProps {
+  dataset: Dataset;
+  states: Map<string, ReviewState>;
+  /** Reviewer actions on this dataset (the audit trail). */
+  events: ReviewEvent[];
+  /** Renders the audit log table for the given (filtered) events. */
+  renderLog: (events: ReviewEvent[]) => ReactNode;
+}
+
+export function QualityView({ dataset, states, events, renderLog }: QualityViewProps) {
+  const [reviewerFilter, setReviewerFilter] = useState('all');
   const [range, setRange] = useState<TimeRange>('30d');
   const now = useMemo(() => new Date(), []);
   const dated = dataset.cases.filter(item => item.received);
@@ -93,7 +104,8 @@ export function QualityView({ dataset, states }: { dataset: Dataset; states: Map
   const changedAfter = qualityReport(changed.map(c => ({ expected: c.labelV2!, predicted: official.get(c.decision.caseId)!.current.recommendation })));
   const engine = qualityReport(labelled.map(item => ({ expected: item.label!, predicted: item.decision.recommendation })));
   const reviewed = qualityReport(labelled.map(item => ({ expected: item.label!, predicted: states.get(item.decision.caseId)!.effective })));
-  const actions = suggestedActions(insights, labelled.length ? engine : undefined, gapLabel);
+  // Where to act is about the process as a whole, so it looks at all open claims, not the selected time range.
+  const actions = suggestedActions(computeInsights(open.map(toInsight), limit), labelled.length ? engine : undefined, gapLabel);
   const series = hasDates ? receivedSeries(dated.filter(item => !item.frozen).map(item => ({ at: item.received!.at, recommendation: atArrival(item).recommendation })), window) : [];
   const priorRate = (rec: Recommendation) => (prior && prior.total ? prior.rates[rec] : null);
   const smallSample = prior !== null && prior.total > 0 && prior.total < 5 ? ` (only ${prior.total} before)` : '';
@@ -140,6 +152,8 @@ export function QualityView({ dataset, states }: { dataset: Dataset; states: Map
 
       {hasDates && <TrendCard series={series} window={window} />}
 
+      <ActionsCard actions={actions} />
+
       {insights.total === 0 ? (
         <Card>
           <Empty>
@@ -152,7 +166,6 @@ export function QualityView({ dataset, states }: { dataset: Dataset; states: Map
         </Card>
       ) : (
         <>
-          <ActionsCard actions={actions} />
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader>
@@ -171,12 +184,22 @@ export function QualityView({ dataset, states }: { dataset: Dataset; states: Map
               </CardContent>
             </Card>
           </div>
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+          <div>
             <QuoteChart insights={insights} />
-            <WorkloadCard insights={insights} />
           </div>
         </>
       )}
+
+      <ReviewerActivity
+        events={events}
+        window={hasDates ? window : null}
+        reviewer={reviewerFilter}
+        onReviewerChange={setReviewerFilter}
+        insights={insights}
+        renderLog={renderLog}
+        waitingNow={backlog.length}
+        newReviewCases={open.filter(item => item.received && atArrival(item).recommendation === 'human_review').map(item => item.received!.at)}
+      />
 
       <Card><CardHeader><CardTitle>Official policy change · before and after</CardTitle><CardDescription>V1 labels are supplied by the organizer. Built-in v2 expectations are team-derived from the official notice; they are not independent hidden-set validation. Closed claims are excluded from every v2 score.</CardDescription></CardHeader>
         <CardContent><Table><TableHeader><TableRow><TableHead>Evaluation</TableHead><TableHead>Correct / labelled</TableHead><TableHead>Incorrect routine</TableHead><TableHead>Unnecessary review</TableHead></TableRow></TableHeader><TableBody>
@@ -495,7 +518,7 @@ function ActionsCard({ actions }: { actions: ReturnType<typeof suggestedActions>
       </CardHeader>
       <CardContent>
         {actions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nothing stands out in this period.</p>
+          <p className="text-sm text-muted-foreground">Nothing stands out across open claims.</p>
         ) : (
           <ul className="flex flex-col divide-y rounded-lg border">
             {actions.map((item, index) => (
@@ -610,17 +633,165 @@ function QuoteChart({ insights }: { insights: Insights }) {
   );
 }
 
-function WorkloadCard({ insights }: { insights: Insights }) {
+/** Does the team keep up? New human-review cases vs. completed reviewer decisions per bucket. */
+function ThroughputCard({ window, incoming, completed }: { window: Window; incoming: Date[]; completed: Date[] }) {
+  const [hover, setHover] = useState<number | null>(null);
+  const inSeries = countSeries(incoming, window);
+  const doneSeries = countSeries(completed, window);
+  const top = Math.max(1, ...inSeries.map(p => p.count), ...doneSeries.map(p => p.count));
+  const ticks = axisTicks(top);
+  const labelEvery = Math.max(1, Math.ceil(inSeries.length / 10));
+  const sum = (series: { count: number }[]) => series.reduce((n, p) => n + p.count, 0);
+  const totalIn = sum(inSeries);
+  const totalDone = sum(doneSeries);
+  const previous = previousWindow(window);
+  const prevDone = sum(countSeries(completed, previous));
+  const doneChange = prevDone > 0 ? Math.round(((totalDone - prevDone) / prevDone) * 100) : null;
+  const backlogChange = totalIn - totalDone;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>New review cases vs. completed reviews</CardTitle>
+        <CardDescription className="flex flex-wrap gap-x-4 gap-y-1">
+          <span><span className="font-medium text-foreground tabular-nums">{totalIn}</span> new</span>
+          <span>
+            <span className="font-medium text-foreground tabular-nums">{totalDone}</span> completed
+            {doneChange !== null && <> · <Change change={{ value: doneChange, kind: 'count' }} better="up" />%</>}
+          </span>
+          <span className={cn(backlogChange > 0 ? 'text-destructive' : backlogChange < 0 ? 'text-rec-routine-foreground' : '')}>
+            Backlog {backlogChange > 0 ? `grew by ${backlogChange}` : backlogChange < 0 ? `shrank by ${-backlogChange}` : 'unchanged'}
+          </span>
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-wrap gap-4 pb-4 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5"><span className={cn('h-0.5 w-3 rounded-full', dotClasses.human_review)} /> New human-review cases</span>
+          <span className="flex items-center gap-1.5"><span className="h-0.5 w-3 rounded-full bg-primary/70" /> Completed reviews</span>
+        </div>
+        <div className="flex gap-2">
+          <div className="relative h-36 w-6 shrink-0 text-right text-[10px] text-muted-foreground tabular-nums">
+            {ticks.map(t => <span key={t} className="absolute right-0 translate-y-1/2 leading-none" style={{ bottom: `${(t / top) * 100}%` }}>{t}</span>)}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="relative h-36 border-b" onMouseLeave={() => setHover(null)}>
+              {ticks.filter(t => t > 0).map(t => <div key={t} className="pointer-events-none absolute inset-x-0 border-t border-border/60" style={{ bottom: `${(t / top) * 100}%` }} />)}
+              {/* Lines: one point per bucket, counts per bucket (not cumulative), so waves stay visible. */}
+              <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" viewBox={`0 0 ${inSeries.length} 100`} preserveAspectRatio="none" aria-hidden>
+                {([[inSeries, 'stroke-rec-review'], [doneSeries, 'stroke-primary/70']] as const).map(([series, stroke]) => (
+                  <polyline
+                    key={stroke}
+                    fill="none"
+                    strokeWidth="2"
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                    vectorEffect="non-scaling-stroke"
+                    className={stroke}
+                    points={series.map((p, i) => `${i + 0.5},${100 - (p.count / top) * 100}`).join(' ')}
+                  />
+                ))}
+              </svg>
+              {([[inSeries, dotClasses.human_review], [doneSeries, 'bg-primary']] as const).map(([series, fill]) =>
+                series.map((p, i) => p.count > 0 && (
+                  <span
+                    key={`${fill}-${i}`}
+                    className={cn('pointer-events-none absolute size-2 -translate-x-1/2 translate-y-1/2 rounded-full ring-2 ring-card', fill, hover === i && 'size-2.5')}
+                    style={{ left: `${((i + 0.5) / series.length) * 100}%`, bottom: `${(p.count / top) * 100}%` }}
+                  />
+                )),
+              )}
+              {hover !== null && (
+                <div className="pointer-events-none absolute inset-y-0 border-l border-foreground/30" style={{ left: `${((hover + 0.5) / inSeries.length) * 100}%` }} />
+              )}
+              <div className="absolute inset-0 flex">
+                {inSeries.map((point, index) => (
+                  <div key={point.start.getTime()} className="h-full min-w-0 flex-1" onMouseEnter={() => setHover(index)} />
+                ))}
+              </div>
+              {hover !== null && (
+                <div
+                  className="pointer-events-none absolute top-2 z-10 min-w-40 rounded-lg border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md"
+                  style={{ left: `${((hover + 0.5) / inSeries.length) * 100}%`, transform: `translateX(${hover / inSeries.length > 0.7 ? '-105%' : hover / inSeries.length < 0.3 ? '5%' : '-50%'})` }}
+                >
+                  <div className="mb-1 font-medium">{bucketTitle(inSeries[hover].start, window.bucket)}</div>
+                  <div className="flex justify-between gap-4"><span>New review cases</span><span className="tabular-nums">{inSeries[hover].count}</span></div>
+                  <div className="flex justify-between gap-4"><span>Completed reviews</span><span className="tabular-nums">{doneSeries[hover].count}</span></div>
+                </div>
+              )}
+            </div>
+            <div className="mt-1.5 flex">
+              {inSeries.map((point, index) => (
+                <div key={point.start.getTime()} className="min-w-0 flex-1 text-center text-[10px] whitespace-nowrap text-muted-foreground">
+                  {index % labelEvery === 0 ? bucketLabel(point.start, window.bucket) : ''}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Owner view of what reviewers did: actions per reviewer, queue figures and the full audit log. */
+function ReviewerActivity({ events, window, reviewer, onReviewerChange, insights, renderLog, newReviewCases, waitingNow }: {
+  events: ReviewEvent[]; window: Window | null; reviewer: string; onReviewerChange: (value: string) => void; insights: Insights;
+  renderLog: (events: ReviewEvent[]) => ReactNode; newReviewCases: Date[]; waitingNow: number;
+}) {
+  const inRange = window ? events.filter(event => inWindow(new Date(event.at), window)) : events;
+  const reviewers = [...new Set(events.map(event => event.reviewer))].sort();
+  const shown = reviewer === 'all' ? inRange : inRange.filter(event => event.reviewer === reviewer);
+  const perReviewer = new Map<string, number>();
+  for (const event of inRange) perReviewer.set(event.reviewer, (perReviewer.get(event.reviewer) ?? 0) + 1);
+  return (
+    <>
+      <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
+        <h2 className="text-lg font-semibold tracking-tight">Reviewer activity</h2>
+        <Select value={reviewer} onValueChange={onReviewerChange}>
+          <SelectTrigger className="w-52" aria-label="Filter by reviewer"><SelectValue /></SelectTrigger>
+          <SelectContent align="end">
+            <SelectItem value="all">All reviewers</SelectItem>
+            {reviewers.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+      {window && (
+        <ThroughputCard
+          window={window}
+          incoming={newReviewCases}
+          completed={(reviewer === 'all' ? events : events.filter(event => event.reviewer === reviewer)).filter(event => event.action !== 'reverted').map(event => new Date(event.at))}
+        />
+      )}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Actions per reviewer</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <BarList
+              items={[...perReviewer].sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ label: name, count }))}
+              total={inRange.length}
+              barClass="bg-primary/70"
+              empty="No reviewer actions in this period."
+            />
+          </CardContent>
+        </Card>
+        <WorkloadCard insights={insights} waitingNow={waitingNow} />
+      </div>
+      {renderLog(shown)}
+    </>
+  );
+}
+
+function WorkloadCard({ insights, waitingNow }: { insights: Insights; waitingNow: number }) {
   const { workload } = insights;
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2"><ActivityIcon className="size-4" /> Reviewer activity</CardTitle>
-        <CardDescription>Claims from this period · actions recorded in this browser</CardDescription>
+        <CardTitle className="flex items-center gap-2"><ActivityIcon className="size-4" /> Review queue</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="grid grid-cols-2 gap-3 text-center sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
-          <MiniStat label="Waiting" value={workload.reviewQueue} />
+          <MiniStat label="Waiting now" value={waitingNow} />
           <MiniStat label="Reviewed" value={workload.reviewed} />
           <MiniStat label="Overridden" value={workload.overridden} />
           <MiniStat label="Override rate" value={workload.overrideRate === null ? '—' : pct(workload.overrideRate)} />
