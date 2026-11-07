@@ -12,6 +12,7 @@ export function policyApiPlugin(repoRoot: string): Plugin {
   const routes: Record<string, { file: string; methods: string[] }> = {
     '/api/policy': { file: 'src/policy-api/functions/policy.ts', methods: ['GET', 'POST'] },
     '/api/policy-ai': { file: 'src/policy-api/functions/policy-ai.ts', methods: ['POST'] },
+    '/api/voice-session': { file: 'src/policy-api/functions/voice-session.ts', methods: ['POST'] },
   };
   return {
     name: 'policy-api',

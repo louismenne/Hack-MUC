@@ -22,6 +22,7 @@ import { formatSize, sortNewFiles } from './files.js';
 import type { Prefill } from './form-state.js';
 import { buildPayload } from './payload.js';
 import { useClaimForm } from './use-claim-form.js';
+import { VoicePanel } from './voice/VoicePanel.js';
 import { validate, type FormErrors } from './validation.js';
 
 /** Sample values for the demo button (?demo=1), to show how AI-filled fields look. */
@@ -80,6 +81,7 @@ export function ClaimPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [result, setResult] = useState<SubmitResult | null>(null);
+  const [voiceDone, setVoiceDone] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const demo = useMemo(() => new URLSearchParams(window.location.search).has('demo'), []);
 
@@ -141,6 +143,15 @@ export function ClaimPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Submit a claim</h1>
         <p className="text-sm text-muted-foreground">Tell us what happened and attach your documents. It takes about five minutes.</p>
       </div>
+
+      {canSubmit && <VoicePanel getValues={form.getValues} applyAnswer={form.applyVoiceAnswer} onFinished={() => setVoiceDone(true)} />}
+      {voiceDone && (
+        <Alert className="mb-6">
+          <SparklesIcon />
+          <AlertTitle>The assistant has finished</AlertTitle>
+          <AlertDescription>Please check every field (yellow means filled by the AI), attach your documents, then submit the claim yourself.</AlertDescription>
+        </Alert>
+      )}
 
       <form ref={formRef} onSubmit={onSubmit} noValidate className="flex flex-col gap-6">
         {isDryRun() && (

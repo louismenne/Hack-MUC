@@ -35,6 +35,9 @@ function check(field: FieldDef, raw: string, now: Date): string | null {
   }
 }
 
+/** Message for one field's value, or null if it is valid (empty optional fields are valid). */
+export const validateField = (field: FieldDef, value: string, now: Date = new Date()): string | null => check(field, value, now);
+
 /** Returns one message per invalid field (keyed by field key). An empty object means the form is valid. */
 export function validate(values: FormValues, now: Date = new Date()): FormErrors {
   const errors: FormErrors = {};
