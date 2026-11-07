@@ -30,9 +30,11 @@ interface ClaimDetailProps {
   state: ReviewState;
   canReview: boolean;
   onAction: (action: ReviewAction) => void;
+  /** Optional block shown under the decision card, e.g. the claim's attached documents. */
+  documents?: React.ReactNode;
 }
 
-export function ClaimDetail({ item, state, onAction, canReview }: ClaimDetailProps) {
+export function ClaimDetail({ item, state, onAction, canReview, documents }: ClaimDetailProps) {
   const { decision, claim, label } = item;
   const { history } = usePolicySource();
   const rule = ruleInfo(decision, history);
@@ -134,6 +136,8 @@ export function ClaimDetail({ item, state, onAction, canReview }: ClaimDetailPro
           </section>
         </CardContent>
       </Card>
+
+      {documents}
 
       <div className="grid gap-4 xl:grid-cols-2">
         <EvidenceCard item={item} triggered={triggered} />

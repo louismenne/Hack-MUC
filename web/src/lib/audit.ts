@@ -19,6 +19,9 @@ export function useReviewAudit(datasetId: string) {
   const [events, setEvents] = useState<ReviewEvent[]>(() => cached() ?? []);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  // True once events came from the server in this mount (not only from the reload cache).
+  // Background refreshes (window focus) keep it true, so open review dialogs are not interrupted.
+  const [ready, setReady] = useState(false);
   const revision = useRef(0);
   const refresh = useCallback(async () => {
     const current = ++revision.current;
@@ -32,10 +35,10 @@ export function useReviewAudit(datasetId: string) {
         rows.push(...data as AuditRow[]);
         if (data.length < 1000) break;
       }
-      if (current === revision.current) { const events = rows.map(reviewFromRow); writeCache(scope, key, events, epoch); setEvents(events); setError(''); }
+      if (current === revision.current) { const events = rows.map(reviewFromRow); writeCache(scope, key, events, epoch); setEvents(events); setError(''); setReady(true); }
     } catch (e) { if (current === revision.current) setError(e instanceof Error ? e.message : String(e)); }
     finally { if (current === revision.current) setLoading(false); }
   }, [datasetId, scope, key]);
-  useEffect(() => { setEvents(cached() ?? []); void refresh(); const focus = () => void refresh(); window.addEventListener('focus', focus); return () => { revision.current++; window.removeEventListener('focus', focus); }; }, [refresh]);
-  return { events, setEvents, error, loading, refresh };
+  useEffect(() => { setEvents(cached() ?? []); setReady(false); void refresh(); const focus = () => void refresh(); window.addEventListener('focus', focus); return () => { revision.current++; window.removeEventListener('focus', focus); }; }, [refresh]);
+  return { events, setEvents, error, loading, ready, refresh };
 }

@@ -38,8 +38,18 @@ export function receivedLabel(received: ReceivedAt | null): string {
   return shortDate.format(received.at);
 }
 
-/** Case IDs are assigned in arrival order, so ascending ID = oldest first (FIFO). */
-const byArrival = (a: CaseItem, b: CaseItem) => a.decision.caseId.localeCompare(b.decision.caseId, undefined, { numeric: true });
+/**
+ * Oldest first (FIFO) by arrival time. Submitted claims carry random IDs (CLM-<uuid>), so the ID alone
+ * says nothing about arrival; it only breaks ties and orders cases without a date (DEV-001 < DEV-002).
+ */
+const byArrival = (a: CaseItem, b: CaseItem) => {
+  const at = a.received?.at.getTime();
+  const bt = b.received?.at.getTime();
+  if (at !== undefined && bt !== undefined && at !== bt) return at - bt;
+  if (at !== undefined && bt === undefined) return -1;
+  if (at === undefined && bt !== undefined) return 1;
+  return a.decision.caseId.localeCompare(b.decision.caseId, undefined, { numeric: true });
+};
 
 /** Position of each pending human-review case in the oldest-first queue (1 = handle next). */
 export function queuePositions(cases: CaseItem[], states: Map<string, ReviewState>): Map<string, number> {
@@ -169,11 +179,15 @@ export function ClaimsList({ cases, visible, states, filters, onFiltersChange, s
                   >
                     <TableCell className="max-w-0 pl-3">
                       <div className="flex items-center gap-1.5">
-                        <span className="font-mono text-xs font-medium">{id}</span>
-                        {item.claim.case_status === 'closed' && <span className="text-xs text-muted-foreground">Historical · v1</span>}
-                        {item.needsRecheck && <span className="text-xs text-muted-foreground">Changed in v2</span>}
+                        <span className="truncate font-mono text-xs font-medium" title={id}>{id}</span>
+                        {item.claim.case_status === 'closed' && <span className="shrink-0 text-xs text-muted-foreground">Historical · {item.decision.policyVersion}</span>}
+                        {item.needsRecheck && (
+                          <span className="shrink-0 rounded border border-rec-info/50 bg-rec-info/10 px-1 text-[10px] font-medium text-rec-info-foreground" title={`The recommendation changed under ${item.decision.policyVersion}; this open claim needs another look.`}>
+                            Changed in {item.decision.policyVersion}
+                          </span>
+                        )}
                         {positions.has(id) && (
-                          <span className="rounded bg-muted px-1 font-mono text-[10px] text-muted-foreground tabular-nums" title="Position in the oldest-first review queue">
+                          <span className="shrink-0 rounded bg-muted px-1 font-mono text-[10px] text-muted-foreground tabular-nums" title="Position in the oldest-first review queue">
                             #{positions.get(id)}
                           </span>
                         )}

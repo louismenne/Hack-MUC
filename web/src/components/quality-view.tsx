@@ -697,14 +697,14 @@ function QuoteChart({ insights }: { insights: Insights }) {
         <CardTitle>Repair quotes vs. quote limit</CardTitle>
         {(insights.limit === null || insights.unknownQuotes > 0) && (
           <CardDescription>
-            {insights.limit === null ? 'The active policy has no single quote limit.' : `${insights.unknownQuotes} quote(s) unreadable`}
+            {insights.limit === null ? 'The active policy has no single quote limit.' : `${insights.unknownQuotes} ${insights.unknownQuotes === 1 ? 'quote' : 'quotes'} unreadable`}
           </CardDescription>
         )}
       </CardHeader>
       <CardContent>
         <div className="relative flex h-40 items-end gap-2 border-b" role="img" aria-label={insights.quoteBands.map(band => `${band.label}: ${band.count}`).join(', ')}>
           {insights.quoteBands.map((band, index) => (
-            <div key={band.label} className="group relative flex h-full flex-1 flex-col justify-end" title={`${band.label} the limit (${band.range}): ${band.count} claim(s)${band.aboveLimit ? ' → human review' : ''}`}>
+            <div key={band.label} className="group relative flex h-full flex-1 flex-col justify-end" title={`${band.label} the limit (${band.range}): ${band.count} ${band.count === 1 ? 'claim' : 'claims'}${band.aboveLimit ? ' → human review' : ''}`}>
               {index === limitIndex && (
                 <div className="absolute inset-y-0 -left-1.5 border-l border-dashed border-foreground/50" title={insights.limit === null ? undefined : `Active policy quote limit: ${euro.format(insights.limit)}`}>
                   <span className="absolute -top-0.5 left-1 text-[10px] whitespace-nowrap text-muted-foreground">Limit</span>

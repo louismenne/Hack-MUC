@@ -182,6 +182,8 @@ const triggerAdvice: Record<ReviewTrigger, string> = {
   not_motor_own_damage: 'Route other claim types (e.g. theft) to their own process at intake.',
 };
 
+const claims = (n: number) => `${n} ${n === 1 ? 'claim' : 'claims'}`;
+
 /**
  * Rule-based suggestions for the policy owner. Thresholds are deliberately simple and visible
  * so the owner can see exactly why a suggestion appears.
@@ -193,7 +195,7 @@ export function suggestedActions(insights: Insights, labelled?: { labelled: numb
   if (labelled && labelled.incorrectRoutine > 0) {
     actions.push({
       id: 'incorrect-routine', severity: 'critical',
-      title: `${labelled.incorrectRoutine} claim(s) wrongly sent to routine processing`,
+      title: `${claims(labelled.incorrectRoutine)} wrongly sent to routine processing`,
       detail: 'This is the most expensive error. Inspect these cases before any rollout and add them as regression tests.',
       evidence: `${labelled.incorrectRoutine} of ${labelled.labelled} labelled cases`,
     });
@@ -239,7 +241,7 @@ export function suggestedActions(insights: Insights, labelled?: { labelled: numb
   if (insights.casesWithBlankFields > 0) {
     actions.push({
       id: 'blank-fields', severity: 'info',
-      title: `${insights.casesWithBlankFields} claim(s) arrived with blank or unreadable fields`,
+      title: `${claims(insights.casesWithBlankFields)} arrived with blank or unreadable fields`,
       detail: 'The engine never guesses missing values. Validate required fields in the upload form to reduce follow-ups.',
       evidence: `${insights.casesWithBlankFields} of ${insights.total} claims`,
     });
