@@ -10,8 +10,8 @@ type Handler = (request: Request) => Promise<Response>;
  */
 export function policyApiPlugin(repoRoot: string): Plugin {
   const routes: Record<string, { file: string; methods: string[] }> = {
-    '/api/policy': { file: 'api/policy.ts', methods: ['GET', 'POST'] },
-    '/api/policy-ai': { file: 'api/policy-ai.ts', methods: ['POST'] },
+    '/api/policy': { file: 'src/policy-api/functions/policy.ts', methods: ['GET', 'POST'] },
+    '/api/policy-ai': { file: 'src/policy-api/functions/policy-ai.ts', methods: ['POST'] },
   };
   return {
     name: 'policy-api',

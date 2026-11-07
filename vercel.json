@@ -5,10 +5,10 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "functions": {
-    "api/policy.ts": {
+    "api/policy.js": {
       "includeFiles": "data/**"
     },
-    "api/policy-ai.ts": {
+    "api/policy-ai.js": {
       "maxDuration": 60
     }
   }
