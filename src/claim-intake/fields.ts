@@ -58,7 +58,7 @@ const tri = (key: string, label: string, section: SectionId, engineField: boolea
 
 export const fields: FieldDef[] = [
   // ---- Contact & claim details (not read by the engine)
-  { key: 'claimant_name', column: 'claimant_name', label: 'Your name', kind: 'text', section: 'contact', required: false, engineField: false, maxLength: 120, placeholder: 'Full name' },
+  { key: 'claimant_name', column: 'claimant_name', label: 'Your name', kind: 'text', section: 'contact', required: true, engineField: false, maxLength: 120, placeholder: 'Full name' },
   { key: 'claimant_email', column: 'claimant_email', label: 'Email address', kind: 'email', section: 'contact', required: true, engineField: false, maxLength: 200, placeholder: 'name@example.com', help: 'We write to this address if we need more information.' },
   { key: 'policy_number', column: 'policy_number', label: 'Policy number', kind: 'text', section: 'contact', required: false, engineField: false, maxLength: 40, pattern: /^[A-Za-z0-9 ./-]{3,40}$/, patternMessage: 'Use letters, digits, spaces, "-", "/" or ".".', help: 'You find it on your policy documents.' },
   { key: 'incident_date', column: 'incident_date', label: 'Date of the incident', kind: 'date', section: 'contact', required: false, engineField: false },

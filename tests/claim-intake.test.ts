@@ -13,7 +13,7 @@ import { validate, type FormValues } from '../src/claim-intake/validation.js';
 const NOW = new Date('2026-11-08T10:00:00Z');
 const valid = (changes: FormValues = {}): FormValues => ({
   ...initialFormState().values,
-  claimant_email: 'anna@example.com', claim_type: 'motor_own_damage', claim_summary: 'Parking scrape on the bumper.', ...changes,
+  claimant_name: 'Anna Beispiel', claimant_email: 'anna@example.com', claim_type: 'motor_own_damage', claim_summary: 'Parking scrape on the bumper.', ...changes,
 });
 const file = (name: string, type = 'application/pdf', size = 10) => new File([new Uint8Array(size)], name, { type, lastModified: 1 });
 
@@ -29,8 +29,8 @@ describe('fields.ts is the single source of truth', () => {
     const notEngine = [...fields.filter(f => !f.engineField).map(f => f.column), ...systemColumns.filter(c => !c.engineField).map(c => c.column)].sort();
     expect(notEngine).toEqual(['claimant_email', 'claimant_name', 'claimant_states_policy_active', 'incident_date', 'is_test', 'license_plate', 'policy_number', 'received_at']);
   });
-  it('requires exactly claim_summary, claim_type and the contact email', () => {
-    expect(fields.filter(f => f.required).map(f => f.key).sort()).toEqual(['claim_summary', 'claim_type', 'claimant_email']);
+  it('requires exactly claim_summary, claim_type, the claimant name and email', () => {
+    expect(fields.filter(f => f.required).map(f => f.key).sort()).toEqual(['claim_summary', 'claim_type', 'claimant_email', 'claimant_name']);
   });
   it('every yes/no question offers Yes / No / Don\'t know', () => {
     for (const key of ['injury_reported', 'liability_disputed', 'claimant_states_policy_active', 'incident_report_present', 'itemized_quote_present', 'repair_battery']) {
@@ -42,7 +42,7 @@ describe('fields.ts is the single source of truth', () => {
 describe('validation', () => {
   it('accepts a minimal valid form', () => expect(validate(valid(), NOW)).toEqual({}));
   it('an empty form flags exactly the required fields', () => {
-    expect(Object.keys(validate(initialFormState().values, NOW)).sort()).toEqual(['claim_summary', 'claim_type', 'claimant_email']);
+    expect(Object.keys(validate(initialFormState().values, NOW)).sort()).toEqual(['claim_summary', 'claim_type', 'claimant_email', 'claimant_name']);
   });
   it.each([['claimant_email', 'not-an-email'], ['claimant_email', 'a@b'], ['quote_eur', 'abc'], ['quote_eur', '-5'], ['quote_eur', '1.234,50'], ['quote_eur', '2000000'],
     ['incident_date', '2026-11-09'], ['incident_date', '1999-12-31'], ['incident_date', '31.10.2026'], ['license_plate', '!'], ['policy_number', '??'], ['claim_type', 'banana'], ['injury_reported', 'maybe']])('rejects %s = %j', (key, value) => {
@@ -87,7 +87,7 @@ describe('payload (the exact row for the future claims table)', () => {
   });
   it('parses and normalises values', () => {
     expect(payload).toMatchObject({ quote_eur: 1250.5, claimant_name: 'Anna Beispiel', license_plate: 'M-AB 1234', incident_date: '2026-11-01', policy_number: 'POL-1' });
-    expect(buildPayload(valid(), { now: NOW, isTest: true })).toMatchObject({ quote_eur: null, claimant_name: null, incident_date: null });
+    expect(buildPayload(valid(), { now: NOW, isTest: true })).toMatchObject({ quote_eur: null, claimant_name: 'Anna Beispiel', incident_date: null, policy_number: null });
   });
   it('is_test follows the dry-run flag', () => expect(buildPayload(valid(), { now: NOW, isTest: false }).is_test).toBe(false));
 
