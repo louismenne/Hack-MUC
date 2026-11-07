@@ -1,8 +1,11 @@
+import { authRedirectState } from '../../../src/auth-redirect';
 import { createClient } from '@supabase/supabase-js';
 import config from '../../../config/supabase-public.json';
 
 // Capture invitation/recovery redirects before the SDK consumes the URL fragment.
-export const passwordSetupRequested = ['invite', 'recovery'].includes(new URLSearchParams(window.location.hash.slice(1)).get('type') ?? '');
+const redirect = authRedirectState(window.location.hash, window.location.search);
+export const passwordSetupRequested = redirect.passwordSetup;
+export const authRedirectError = redirect.error;
 
 // A publishable key identifies the project; it grants no privileged database access.
 export const supabase = createClient(

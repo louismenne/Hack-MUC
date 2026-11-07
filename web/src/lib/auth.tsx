@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode, type FormEvent } from 'react';
 import type { User } from '@supabase/supabase-js';
-import { AUTH_REJECTED_EVENT, passwordSetupRequested, supabase } from './supabase';
+import { AUTH_REJECTED_EVENT, authRedirectError, passwordSetupRequested, supabase } from './supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,7 +16,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [recovery, setRecovery] = useState(passwordSetupRequested);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(authRedirectError);
 
   useEffect(() => {
     let alive = true;
@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   if (loading) return <div className="grid min-h-svh place-items-center" role="status">Restoring your session…</div>;
-  if (!user) return <SignIn initialError={error} />;
+  if (!user) return <SignIn initialError={error || (recovery ? 'The password-reset link did not establish a session. Open a fresh link in this browser; do not reuse a link that was already opened.' : '')} />;
   if (recovery) return <SetPassword onComplete={() => setRecovery(false)} />;
   const invited = !user.is_anonymous && !!user.email_confirmed_at && (!!user.invited_at || user.app_metadata.hack_muc_access === true);
   if (!invited) return <AuthCard title="Team access required" description="Ask a project administrator to invite your account."><SignOutButton /></AuthCard>;
