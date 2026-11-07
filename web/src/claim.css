@@ -1,0 +1,3 @@
+/* Styles for the standalone claim form (/claim): the shared theme plus Tailwind scanning of src/claim-intake. */
+@import "./index.css";
+@source "../../src/claim-intake";
