@@ -42,6 +42,17 @@ export const policyV1: PolicyConfig = {
   routineQuoteLimitEur: 1500, humanReviewRepairTypes: [],
   requireIncidentReport: true, requireItemizedQuote: true,
 };
+/** Official organizer change notice, effective on release: all open claims. */
+export const policyV2: PolicyConfig = {
+  routineQuoteLimitEur: 1200, humanReviewRepairTypes: ['ev_high_voltage_battery'],
+  requireIncidentReport: true, requireItemizedQuote: true,
+};
+export function evaluateV2(claim: Claim): Decision { return evaluatePolicy(claim, policyV2, 'v2'); }
+export function compareOfficialPolicies(claim: Claim, historicalV1 = evaluateV1(claim)) {
+  const closed = claim.case_status === 'closed';
+  const v2 = closed ? historicalV1 : evaluateV2(claim);
+  return { v1: historicalV1, v2, needsRecheck: !closed && historicalV1.recommendation !== v2.recommendation, retained: closed };
+}
 export function evaluateV1(claim: Claim): Decision { return evaluatePolicy(claim, policyV1, 'v1'); }
 export function evaluatePolicy(claim: Claim, policy: PolicyConfig, version: string): Decision {
   const missingFields = inputFields.filter(field => claim[field] === null && (field !== 'incident_report_present' || policy.requireIncidentReport) && (field !== 'itemized_quote_present' || policy.requireItemizedQuote));

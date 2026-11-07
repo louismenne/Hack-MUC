@@ -80,7 +80,7 @@ export function App() {
   const states = useMemo(() => {
     const byCase = new Map<string, ReviewEvent[]>();
     for (const event of datasetEvents) byCase.set(event.caseId, [...(byCase.get(event.caseId) ?? []), event]);
-    return new Map<string, ReviewState>(dataset.cases.map(item => [item.decision.caseId, reviewState(item.decision, byCase.get(item.decision.caseId) ?? [])]));
+    return new Map<string, ReviewState>(dataset.cases.map(item => [item.decision.caseId, reviewState(item.decision, (byCase.get(item.decision.caseId) ?? []).filter(e => e.policyVersion === item.decision.policyVersion))]));
   }, [dataset, datasetEvents]);
 
   const visible = useMemo(() => filterCases(dataset.cases, states, filters), [dataset, states, filters]);
@@ -117,6 +117,7 @@ export function App() {
 
   const record = (input: ReviewInput) => {
     try {
+      if (selected.claim.case_status === 'closed') throw new Error('Closed claims are historical and cannot be reviewed.');
       const event = createReviewEvent(input, { id: crypto.randomUUID(), at: new Date().toISOString() });
       setEvents(previous => [...previous, event]);
       setReviewer(event.reviewer);
@@ -165,9 +166,9 @@ export function App() {
           </div>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Badge variant="outline" className="font-mono">v1 baseline</Badge>
+              <Badge variant="outline" className="font-mono">official v2</Badge>
             </TooltipTrigger>
-            <TooltipContent>The review queue shows the v1 baseline. Manage current policy decisions in the Policy tab.</TooltipContent>
+            <TooltipContent>Open claims follow official v2. Closed claims retain their historical v1 decision.</TooltipContent>
           </Tooltip>
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <Select value={dataset.id} onValueChange={value => { setDatasetId(value); setFilters(defaultFilters); }}>

@@ -26,6 +26,14 @@ export const ruleMeta: Record<Decision['ruleId'], { title: string; text: string 
   },
 };
 
+for (const suffix of ['rule1', 'rule2', 'missing_input', 'rule3']) {
+  ruleMeta[`v2.${suffix}`] = { ...ruleMeta[`v1.${suffix}`] };
+}
+ruleMeta['v2.rule1'] = {
+  title: 'Rule 1 · Known review trigger (v2)',
+  text: 'Human review if coverage is inactive, the claim is not motor own damage, injury/liability/duplicate/conflict flags are true, quote exceeds €1,200, or repair_type is ev_high_voltage_battery. Known triggers take priority over missing documents.',
+};
+
 export const fieldGroups: { title: string; fields: Field[] }[] = [
   { title: 'Coverage', fields: ['policy_active_on_incident', 'claim_type', 'repair_type', 'quote_eur', 'case_status'] },
   { title: 'Documents', fields: ['incident_report_present', 'itemized_quote_present'] },
@@ -56,7 +64,8 @@ export function describeFact(fact: string): string {
   if (!match) return fact;
   const [, field, value] = match;
   switch (field) {
-    case 'quote_eur': return fact.includes('exceeds') ? `Quote ${euro.format(Number(value))} is above the €1,500 limit` : `Quote ${euro.format(Number(value))} is within the €1,500 limit`;
+    case 'quote_eur': return fact;
+    case 'repair_type': return `Repair type ${value.replaceAll('_', ' ')} requires human review`;
     case 'policy_active_on_incident': return 'Policy was not active on the incident date';
     case 'claim_type': return `Claim type is ${value.replaceAll('_', ' ')}, not motor own damage`;
     case 'injury_reported': return 'Injury reported';
@@ -71,7 +80,7 @@ export function describeFact(fact: string): string {
 
 /** Fields named in the decision's supporting facts, i.e. the inputs that fired the rule. */
 export function triggeringFields(decision: Decision): Set<Field> {
-  if (decision.ruleId === 'v1.missing_input') return new Set(decision.missingFields);
-  if (decision.ruleId === 'v1.rule3') return new Set();
+  if (decision.ruleId.endsWith('.missing_input')) return new Set(decision.missingFields);
+  if (decision.ruleId.endsWith('.rule3')) return new Set();
   return new Set(decision.supportingFacts.map(fact => /^([a-z_]+)=/.exec(fact)?.[1]).filter(Boolean) as Field[]);
 }

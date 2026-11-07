@@ -6,5 +6,5 @@ export { outputColumns };
 
 export function triageCsv(input: string): string {
   const rows = parse(input, { bom: true, skip_empty_lines: true, columns: normalizeHeaders }) as Record<string, string>[];
-  return stringify(triageRows(rows).map(({ decision }) => toOutputRecord(decision)), { header: true, columns: outputColumns });
+  return stringify(triageRows(rows).map(toOutputRecord), { header: true, columns: outputColumns });
 }

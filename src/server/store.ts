@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 import { randomUUID } from 'node:crypto';
-import { evaluatePolicy, evaluateV1, parseClaim, policyV1, type Claim, type Decision, type PolicyConfig } from '../triage.js';
+import { evaluatePolicy, evaluateV1, parseClaim, policyV1, policyV2, type Claim, type Decision, type PolicyConfig } from '../triage.js';
 
 export interface PolicyVersion { id: string; config: PolicyConfig; status: 'draft' | 'active' | 'retired'; createdBy: string; createdAt: string; activatedBy?: string; activatedAt?: string }
 export interface Impact { caseId: string; status: string; before: Decision; after: Decision; changed: boolean; needsRecheck: boolean; retained: boolean }
@@ -29,12 +29,19 @@ export class PolicyStore {
       this.db.prepare('INSERT OR IGNORE INTO claims(id,facts,baseline,current) VALUES(?,?,?,?)').run(baseline.caseId, JSON.stringify(facts), JSON.stringify(baseline), JSON.stringify(baseline));
     }
   }
+  /** One-time organizer migration; existing experimental versions/history are retained. */
+  installOfficialV2() {
+    const existing = this.list().find(p => p.id === 'official-v2');
+    if (existing && existing.status !== 'draft') return;
+    if (!existing) this.save({ id: 'official-v2', config: policyV2, status: 'draft', createdBy: 'Organizer v2 notice', createdAt: new Date().toISOString() });
+    this.activate('official-v2', this.preview('official-v2').token, 'Organizer v2 notice');
+  }
   save(p: PolicyVersion) { this.db.prepare('INSERT OR REPLACE INTO policies VALUES(?,?)').run(p.id, JSON.stringify(p)); }
   list(): PolicyVersion[] { return this.db.prepare('SELECT body FROM policies ORDER BY rowid').all().map(r => JSON.parse(String(r.body))); }
   active() { return this.list().find(p => p.status === 'active')!; }
   get(id: string) { const p = this.list().find(p => p.id === id); if (!p) throw new Error('Policy not found.'); return p; }
   draft(config: unknown, by: unknown) {
-    const p: PolicyVersion = { id: `v${Math.max(...this.list().map(p => Number(p.id.slice(1)))) + 1}`, config: validateConfig(config), status: 'draft', createdBy: actor(by), createdAt: new Date().toISOString() };
+    const p: PolicyVersion = { id: `draft-${randomUUID()}`, config: validateConfig(config), status: 'draft', createdBy: actor(by), createdAt: new Date().toISOString() };
     this.save(p); return p;
   }
   preview(id: string): Preview {
@@ -42,7 +49,7 @@ export class PolicyStore {
     const rows: Impact[] = this.db.prepare('SELECT * FROM claims ORDER BY id').all().map(r => {
       const facts: Claim = JSON.parse(String(r.facts)); const before: Decision = JSON.parse(String(r.current));
       const retained = facts.case_status === 'closed';
-      const after = retained ? before : evaluatePolicy(facts, p.config, p.id);
+      const after = retained ? before : evaluatePolicy(facts, p.config, p.id === 'official-v2' ? 'v2' : p.id);
       const changed = after.recommendation !== before.recommendation;
       return { caseId: String(r.id), status: String(facts.case_status), before, after, changed, needsRecheck: !retained && (changed || Boolean(r.needs_recheck)), retained };
     });

@@ -30,7 +30,7 @@ export function queuePositions(cases: CaseItem[], states: Map<string, ReviewStat
   const waiting = cases
     .filter(item => {
       const state = states.get(item.decision.caseId);
-      return state?.effective === 'human_review' && state.status === 'pending';
+      return item.claim.case_status !== 'closed' && state?.effective === 'human_review' && state.status === 'pending';
     })
     .sort(byArrival);
   return new Map(waiting.map((item, index) => [item.decision.caseId, index + 1]));
@@ -41,6 +41,7 @@ export function filterCases(cases: CaseItem[], states: Map<string, ReviewState>,
   return [...cases].sort(byArrival).filter(item => {
     const state = states.get(item.decision.caseId)!;
     if (filters.recommendation !== 'all' && state.effective !== filters.recommendation) return false;
+    if (item.claim.case_status === 'closed' && filters.status !== 'any') return false;
     if (filters.status !== 'any' && state.status !== filters.status) return false;
     if (!query) return true;
     return item.decision.caseId.toLowerCase().includes(query) || String(item.claim.claim_summary ?? '').toLowerCase().includes(query);
@@ -152,6 +153,8 @@ export function ClaimsList({ cases, visible, states, filters, onFiltersChange, s
                     <TableCell className="max-w-0 pl-3">
                       <div className="flex items-center gap-1.5">
                         <span className="font-mono text-xs font-medium">{id}</span>
+                        {item.claim.case_status === 'closed' && <span className="text-xs text-muted-foreground">Historical · v1</span>}
+                        {item.needsRecheck && <span className="text-xs text-muted-foreground">Changed in v2</span>}
                         {positions.has(id) && (
                           <span className="rounded bg-muted px-1 font-mono text-[10px] text-muted-foreground tabular-nums" title="Position in the oldest-first review queue">
                             #{positions.get(id)}

@@ -1,3 +1,4 @@
+import { evaluateV1, parseClaim } from '../triage.js';
 import { evaluatePolicyDocument } from '../policy-engine/engine.js';
 import type { ImpactReport, ImpactRow, PolicyVersionRecord } from './types.js';
 
@@ -13,7 +14,11 @@ const statusOf = (row: Record<string, string>): ImpactRow['caseStatus'] => {
  */
 export function computeImpact(base: PolicyVersionRecord, draft: PolicyVersionRecord, cases: Record<string, string>[]): ImpactReport {
   const rows: ImpactRow[] = cases.map(row => {
-    const before = evaluatePolicyDocument(base.rules, base.versionLabel, row);
+    // The exercise fixes all closed claims to their historical v1 outcome, even
+    // when the currently active policy is already v2 or a later experiment.
+    const before = statusOf(row) === 'closed'
+      ? evaluateV1(parseClaim(row))
+      : evaluatePolicyDocument(base.rules, base.versionLabel, row);
     const proposed = evaluatePolicyDocument(draft.rules, draft.versionLabel, row);
     const caseStatus = statusOf(row);
     const frozen = caseStatus === 'closed';

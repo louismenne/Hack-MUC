@@ -53,21 +53,21 @@ describe('policy boundaries and uncertainty', () => {
 });
 
 describe('batch contract', () => {
-  it('exports all labelled decisions with evidence and an explicit v2 status', () => {
+  it('exports both policy versions with evidence', () => {
     const output = parse(triageCsv(developmentCsv), { columns: true }) as Record<string, string>[];
     expect(output).toHaveLength(14);
     expect(Object.keys(output[0])).toEqual(outputColumns);
     for (const [index, row] of output.entries()) {
       expect(row.recommendation_v1).toBe(development[index].expected_v1);
-      expect(row.v2_status).toBe('unavailable');
-      expect(Array.isArray(JSON.parse(row.supporting_facts))).toBe(true);
+      expect(row.rule_v2).toMatch(/^v2\./);
+      expect(row.explanation).toContain('After:');
     }
   });
-  it('processes all practice cases without inventing labels or v2 decisions', () => {
+  it('processes practice cases under both official policies', () => {
     const input = readFileSync(new URL('../data/unlabelled_practice_cases.csv', import.meta.url), 'utf8');
     const output = parse(triageCsv(input), { columns: true }) as Record<string, string>[];
     expect(output).toHaveLength(12);
-    expect(output.every((row: Record<string, string>) => row.v2_status === 'unavailable')).toBe(true);
+    expect(output.every((row: Record<string, string>) => ['routine_processing', 'request_information', 'human_review'].includes(row.recommendation_v2))).toBe(true);
   });
   it.each(['', 'case_id\n', 'quote_eur\n12\n', 'case_id,case_id\na,b\n', 'case_id\na\na\n', 'case_id,quote_eur\n,12\n'])('rejects unusable batch input %j', input => {
     expect(() => triageCsv(input)).toThrow();

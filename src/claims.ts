@@ -1,6 +1,6 @@
-import { evaluateV1, parseClaim, type Claim, type Decision } from './triage.js';
+import { compareOfficialPolicies, evaluateV1, parseClaim, type Claim, type Decision } from './triage.js';
 
-export const outputColumns = ['case_id', 'policy_version', 'recommendation_v1', 'rule_v1', 'supporting_facts', 'missing_fields', 'explanation', 'v2_status'];
+export const outputColumns = ['case_id', 'recommendation_v1', 'recommendation_v2', 'needs_recheck', 'rule_v1', 'rule_v2', 'explanation'];
 
 export interface TriagedCase {
   row: Record<string, string>;
@@ -30,12 +30,12 @@ export function triageRows(rows: Record<string, string>[]): TriagedCase[] {
   });
 }
 
-export function toOutputRecord(decision: Decision & { caseId: string }): Record<string, string> {
+export function toOutputRecord(item: TriagedCase): Record<string, string> {
+  const { v1, v2, needsRecheck, retained } = compareOfficialPolicies(item.claim, item.decision);
   return {
-    case_id: decision.caseId, policy_version: decision.policyVersion,
-    recommendation_v1: decision.recommendation, rule_v1: decision.ruleId,
-    supporting_facts: JSON.stringify(decision.supportingFacts),
-    missing_fields: JSON.stringify(decision.missingFields), explanation: decision.explanation,
-    v2_status: 'unavailable',
+    case_id: item.decision.caseId,
+    recommendation_v1: v1.recommendation, recommendation_v2: v2.recommendation,
+    needs_recheck: needsRecheck ? 'True' : 'False', rule_v1: v1.ruleId, rule_v2: v2.ruleId,
+    explanation: retained ? `Closed claim: historical v1 decision retained. ${v1.explanation}` : `Before: ${v1.explanation} After: ${v2.explanation}`,
   };
 }

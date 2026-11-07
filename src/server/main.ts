@@ -5,6 +5,7 @@ import { PolicyStore } from './store.js';
 mkdirSync('.local', { recursive: true });
 const seeds = ['labelled_development_cases.csv', 'unlabelled_practice_cases.csv'].flatMap(name => parse(readFileSync(`data/${name}`, 'utf8'), { columns: true }) as Record<string,string>[]);
 const store = new PolicyStore(process.env.POLICY_DB ?? '.local/policies.sqlite', seeds);
+store.installOfficialV2();
 const server = createServer(async (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Cache-Control', 'no-store');
@@ -20,7 +21,7 @@ const server = createServer(async (req, res) => {
     let body = ''; for await (const chunk of req) { body += chunk; if (body.length > 32000) throw new Error('Request too large.'); }
     const data = JSON.parse(body || '{}');
     if (path === '/api/policies') { send(201, store.draft(data.config, data.actor)); return; }
-    const match = /^\/api\/policies\/(v\d+)\/(preview|activate)$/.exec(path);
+    const match = /^\/api\/policies\/([a-z0-9-]+)\/(preview|activate)$/.exec(path);
     if (!match) { send(404, { error: 'Not found' }); return; }
     send(200, match[2] === 'preview' ? store.preview(match[1]) : store.activate(match[1], data.token, data.actor));
   } catch (error) { send(400, { error: error instanceof Error ? error.message : 'Request failed' }); }

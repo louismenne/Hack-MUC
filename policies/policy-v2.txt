@@ -1,0 +1,28 @@
+​Change notice · policy v2​
+​Effective time​
+​For this exercise, policy v2 takes effect when the organizer releases this notice. It applies to all​
+ ​open claims from that point forward (after being processed by v1). Closed claims retain their​
+  ​historical v1 decision and should not be silently rewritten. This is a fictional change; it does not​
+   ​describe real law. Judges do not count closed claims in the v2 accuracy score; they check that​
+    ​closed claims still show their v1 decision.​
+
+
+​Two changes​
+​1. The routine-processing repair quote limit falls from €1,500 to €1,200. A quote of exactly​
+ ​€1,200 remains within the limit; €1,201 requires human review.​
+  ​2. Any claim with repair_type = ev_high_voltage_battery now requires human review, whatever​
+   ​the quote. This known review trigger takes priority over missing documents.​
+
+
+​Everything else​
+​All other v1 rules and their order remain in force. The system must retain a recommendation’s​
+ ​policy version, rerun its tests under v2, and identify open claims whose next-step​
+  ​recommendation changes. It may show closed claims as historical examples, but must​
+   ​distinguish them from work awaiting action.​
+
+
+​What teams should show​
+​Show a before-and-after quality comparison on labelled examples. Run the final hidden​
+ ​assessment cases under both versions and hand the judges as result CSV in the format​
+  ​described in the case brief.​
+
