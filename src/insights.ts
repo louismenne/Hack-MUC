@@ -18,7 +18,7 @@ export const triggerLabels: Record<ReviewTrigger, string> = {
   liability_disputed: 'Liability disputed',
   duplicate: 'Possible duplicate',
   evidence_conflict: 'Conflicting evidence',
-  quote_above_limit: `Quote above €${POLICY_LIMIT_EUR.toLocaleString('en')}`,
+  quote_above_limit: 'Quote above the routine limit',
 };
 
 const triggerByField: Partial<Record<string, ReviewTrigger>> = {
@@ -74,14 +74,16 @@ export const gapKey = (gap: InfoGap) => `${gap.field}:${gap.kind}`;
 
 export function infoGaps(decision: InsightCase['decision']): InfoGap[] {
   if (decision.recommendation !== 'request_information') return [];
-  if (decision.ruleId === 'v1.rule2') {
-    return decision.supportingFacts.map(factField).filter((field): field is Field => field !== null).map(field => ({ field, kind: 'absent' }));
+  // Facts about an explicitly absent document name the field; blank inputs are reported as `field=(missing)`.
+  const absent = decision.supportingFacts.filter(fact => !fact.includes('(missing)'));
+  if (absent.length > 0) {
+    return absent.map(factField).filter((field): field is Field => field !== null).map(field => ({ field, kind: 'absent' }));
   }
   return decision.missingFields.map(field => ({ field, kind: 'blank' }));
 }
 
 export function reviewTriggers(decision: InsightCase['decision']): ReviewTrigger[] {
-  if (decision.ruleId !== 'v1.rule1') return [];
+  if (decision.recommendation !== 'human_review') return [];
   return decision.supportingFacts.map(fact => triggerByField[factField(fact) ?? '']).filter((t): t is ReviewTrigger => t !== undefined);
 }
 

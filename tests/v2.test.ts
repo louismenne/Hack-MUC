@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { parse } from 'csv-parse/sync';
 import { describe, expect, it } from 'vitest';
-import { compareOfficialPolicies, evaluateV2, parseClaim } from '../src/triage.js';
+import { decideClaim } from '../src/policy-engine/index.js';
+import { bundledHistory, decideV2 } from './support/policies.js';
 import { triageCsv } from '../src/batch.js';
 import { PolicyStore } from '../src/server/store.js';
 const read = (name: string) => parse(readFileSync(`data/${name}`, 'utf8'), { columns: true }) as Record<string,string>[];
@@ -11,28 +12,30 @@ const base = dev[0];
 describe('official v2 notice', () => {
   it.each(expectations)('$case_id matches independently recorded v2 expectation', expected => {
     const row = dev.find(r => r.case_id === expected.case_id)!;
-    expect(evaluateV2(parseClaim(row)).recommendation).toBe(expected.expected_v2);
+    expect(decideV2(row).recommendation).toBe(expected.expected_v2);
   });
   it.each([['1200', 'routine_processing'], ['1200.01', 'human_review'], ['1201', 'human_review']])('strict quote boundary %s', (quote_eur, recommendation) => {
-    expect(evaluateV2(parseClaim({ ...base, quote_eur })).recommendation).toBe(recommendation);
+    expect(decideV2({ ...base, quote_eur }).recommendation).toBe(recommendation);
   });
   it.each(['False', '', 'unreadable'])('battery review precedes missing document %s', itemized_quote_present => {
-    const result = evaluateV2(parseClaim({ ...base, repair_type: 'ev_high_voltage_battery', quote_eur: '', itemized_quote_present }));
+    const result = decideV2({ ...base, repair_type: 'ev_high_voltage_battery', quote_eur: '', itemized_quote_present });
     expect(result.recommendation).toBe('human_review');
     expect(result.supportingFacts).toContain('repair_type=ev_high_voltage_battery');
   });
   it('all open claims use v2; only changed open outcomes need recheck', () => {
     for (const row of dev) {
-      const result = compareOfficialPolicies(parseClaim(row));
-      expect(result.v2.policyVersion).toBe('v2');
+      const result = decideClaim(row, bundledHistory);
+      expect(result.decision.policyVersion).toBe('v2');
       expect(result.needsRecheck).toBe(['DEV-010', 'DEV-011'].includes(row.case_id));
     }
   });
-  it('retains an explicitly supplied historical decision for closed claims', () => {
-    const claim = parseClaim({ ...base, case_status: 'closed', repair_type: 'ev_high_voltage_battery' });
-    const baseline = compareOfficialPolicies(claim).v1;
-    const result = compareOfficialPolicies(claim, baseline);
-    expect(result.v2).toBe(baseline); expect(result.needsRecheck).toBe(false);
+  it('a closed claim keeps its original (v1) decision and is never rechecked', () => {
+    const result = decideClaim({ ...base, case_status: 'closed', repair_type: 'ev_high_voltage_battery' }, bundledHistory);
+    expect(result.frozen).toBe(true);
+    expect(result.decision.policyVersion).toBe('v1');
+    expect(result.decision).toEqual(result.baseline);
+    expect(result.decision.recommendation).toBe('routine_processing'); // v2 would send EV battery work to human review
+    expect(result.needsRecheck).toBe(false);
   });
   it('exports exactly the seven required columns and both closed cases retain v1', () => {
     const rows = parse(triageCsv(readFileSync('data/unlabelled_practice_cases.csv', 'utf8')), { columns: true }) as Record<string,string>[];
@@ -61,7 +64,7 @@ describe('Supabase JSON policy alignment', () => {
     const parsed = validatePolicy(JSON.parse(readFileSync('policies/policy-v2.rules.json', 'utf8')));
     expect(parsed.ok).toBe(true); if (!parsed.ok) return;
     for (const row of [...dev, ...read('unlabelled_practice_cases.csv')]) {
-      expect(evaluatePolicyDocument(parsed.policy, 'v2', row).recommendation).toBe(evaluateV2(parseClaim(row)).recommendation);
+      expect(evaluatePolicyDocument(parsed.policy, 'v2', row).recommendation).toBe(decideV2(row).recommendation);
     }
     const sql = readFileSync('supabase/migrations/20261107183000_official_policy_v2.sql', 'utf8');
     const seed = sql.split('$official_v2$')[1];
@@ -71,7 +74,8 @@ describe('Supabase JSON policy alignment', () => {
     const { computeImpact } = await import('../src/policy-api/impact.js');
     const rules = JSON.parse(readFileSync('policies/policy-v2.rules.json', 'utf8'));
     const version = { id: 'base', versionLabel: 'v2', rules, status: 'active' as const, changeSummary: null, source: 'seed' as const, parentVersionId: null, createdBy: 'Organizer', createdAt: '', activatedAt: '' };
-    const impact = computeImpact(version, { ...version, id: 'draft', versionLabel: 'v3', status: 'draft' }, read('unlabelled_practice_cases.csv'));
+    const original = { ...version, id: 'orig', versionLabel: 'v1', rules: JSON.parse(readFileSync('policies/policy-v1.rules.json', 'utf8')), status: 'archived' as const };
+    const impact = computeImpact(version, { ...version, id: 'draft', versionLabel: 'v3', status: 'draft' }, read('unlabelled_practice_cases.csv'), original);
     for (const id of ['PRA-009', 'PRA-010']) {
       const r = impact.rows.find(r => r.caseId === id)!;
       expect(r.before).toEqual({ recommendation: 'routine_processing', ruleId: 'v1.rule3' });

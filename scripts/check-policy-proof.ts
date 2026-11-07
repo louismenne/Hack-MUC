@@ -4,7 +4,8 @@ import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { parse } from 'csv-parse/sync';
-import { booleanFields, evaluatePolicy, parseClaim, policyV1, policyV2, type PolicyConfig } from '../src/triage.js';
+import { booleanFields, parseClaim } from '../src/triage.js';
+import { evaluatePolicy, policyV1, policyV2, type PolicyConfig } from '../src/server/legacy-policy.js';
 
 const lean = process.env.LEAN_BIN || 'lean';
 const scratch = mkdtempSync(join(tmpdir(), 'hack-muc-proof-'));

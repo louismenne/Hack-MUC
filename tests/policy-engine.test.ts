@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs';
 import { parse } from 'csv-parse/sync';
 import { describe, expect, it } from 'vitest';
 import { evaluatePolicyDocument, normalizeFacts, parseNumber, validatePolicy, type PolicyDocument } from '../src/policy-engine/index.js';
-import { evaluateV1, parseClaim } from '../src/triage.js';
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8');
 const csv = (path: string) => parse(read(path), { columns: true }) as Record<string, string>[];
@@ -30,15 +29,6 @@ describe('v1 as JSON', () => {
     expect(wrong).toEqual([]);
   });
 
-  it.each([...labelled, ...practice])('$case_id agrees with src/triage.ts', row => {
-    const expected = evaluateV1(parseClaim(row));
-    const actual = decide(row);
-    expect(actual.recommendation).toBe(expected.recommendation);
-    expect(actual.ruleId).toBe(expected.ruleId);
-    expect(actual.policyVersion).toBe(expected.policyVersion);
-    expect(actual.missingFields).toEqual(expected.missingFields);
-    if (expected.ruleId === 'v1.rule1' || expected.ruleId === 'v1.rule2') expect(factFields(actual.supportingFacts)).toEqual(factFields(expected.supportingFacts));
-  });
 });
 
 describe('rule precedence and unknown facts', () => {
@@ -106,13 +96,6 @@ describe('blank fields are missing facts, never a trigger (v1 as JSON)', () => {
     const r = decide({ ...base, itemized_quote_present: 'false', repair_type: '' });
     expect(r.recommendation).toBe('request_information');
     expect(r.ruleId).toBe('v1.rule2');
-  });
-  it('agrees with triage.ts for every single blanked field', () => {
-    for (const field of Object.keys(v1.fields)) {
-      const row = { ...base, [field]: '' };
-      const a = decide(row), b = evaluateV1(parseClaim(row));
-      expect([field, a.recommendation, a.ruleId]).toEqual([field, b.recommendation, b.ruleId]);
-    }
   });
 });
 

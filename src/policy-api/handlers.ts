@@ -1,6 +1,7 @@
 import { validatePolicy, type PolicyDocument } from '../policy-engine/schema.js';
 import { AiError, suggestPolicy, type AiClient } from '../policy-ai/suggest.js';
 import { computeImpact } from './impact.js';
+import { policyHistoryFrom } from '../policy-engine/history.js';
 import type { PolicyRepo, PolicyVersionRecord } from './types.js';
 
 export interface ApiDeps {
@@ -92,9 +93,14 @@ export async function handlePost(deps: ApiDeps, raw: unknown): Promise<ApiResult
     }
     case 'impact': {
       const draft = await mustGet(repo, uuid(raw, 'id'));
-      const active = await mustActive(repo);
+      const versions = await repo.list();
+      const active = versions.find(v => v.status === 'active');
+      if (!active) throw new ApiError(409, 'Es gibt keine aktive Version.');
       if (draft.id === active.id) throw new ApiError(400, 'Die aktive Version hat keinen Unterschied zu sich selbst.');
-      return ok({ impact: computeImpact(active, draft, deps.loadCases()) });
+      // Closed claims keep the decision of the original version, not of whatever is active now.
+      const originalLabel = policyHistoryFrom(versions).original.label;
+      const original = versions.find(v => v.versionLabel === originalLabel) ?? active;
+      return ok({ impact: computeImpact(active, draft, deps.loadCases(), original) });
     }
     case 'activate': {
       const draft = await mustGet(repo, uuid(raw, 'id'));

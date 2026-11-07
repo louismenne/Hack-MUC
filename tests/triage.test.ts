@@ -1,17 +1,18 @@
 import { readFileSync } from 'node:fs';
 import { parse } from 'csv-parse/sync';
 import { describe, expect, it } from 'vitest';
-import { booleanFields, evaluateV1, parseClaim } from '../src/triage.js';
+import { booleanFields } from '../src/triage.js';
+import { decideV1 } from './support/policies.js';
 import { outputColumns, triageCsv } from '../src/batch.js';
 
 const developmentCsv = readFileSync(new URL('../data/labelled_development_cases.csv', import.meta.url), 'utf8');
 const development = parse(developmentCsv, { columns: true }) as Record<string, string>[];
 const base = development[0];
-const decide = (changes: Record<string, string>) => evaluateV1(parseClaim({ ...base, ...changes }));
+const decide = (changes: Record<string, string>) => decideV1({ ...base, ...changes });
 
 describe('supplied development labels', () => {
   it.each(development)('$case_id matches $expected_v1', row => {
-    const result = evaluateV1(parseClaim(row));
+    const result = decideV1(row);
     expect(result.recommendation).toBe(row.expected_v1);
     expect(result.policyVersion).toBe('v1');
     expect(result.explanation).toContain(result.ruleId);
@@ -27,7 +28,8 @@ describe('policy boundaries and uncertainty', () => {
     expect(result.recommendation).toBe('request_information');
     expect(result.missingFields).toContain(field);
   });
-  it.each(['', 'unreadable', 'NaN', 'Infinity', '-50', '1,500', '1e3'])('quote %s is absent or unreadable', quote_eur => {
+  // "1,500" is deliberately NOT here: the engine reads "1,500" / "€1,500" as 1500 (see tests/policy-engine.test.ts).
+  it.each(['', 'unreadable', 'NaN', 'Infinity', '-50', '1e3', '1.500'])('quote %s is absent or unreadable', quote_eur => {
     expect(decide({ quote_eur }).recommendation).toBe('request_information');
   });
   it('prioritizes known injury over missing or unreadable inputs', () => {
@@ -48,7 +50,7 @@ describe('policy boundaries and uncertainty', () => {
   });
   it('treats omitted fields as missing', () => {
     const { claim_type: omitted, ...row } = base;
-    expect(evaluateV1(parseClaim(row)).recommendation).toBe('request_information');
+    expect(decideV1(row).recommendation).toBe('request_information');
   });
 });
 

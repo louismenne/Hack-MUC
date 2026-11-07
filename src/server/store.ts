@@ -1,6 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { randomUUID } from 'node:crypto';
-import { evaluatePolicy, evaluateV1, parseClaim, policyV1, policyV2, type Claim, type Decision, type PolicyConfig } from '../triage.js';
+import { parseClaim, type Claim, type Decision } from '../triage.js';
+import { evaluatePolicy, evaluateV1, policyV1, policyV2, type PolicyConfig } from './legacy-policy.js';
 
 export interface PolicyVersion { id: string; config: PolicyConfig; status: 'draft' | 'active' | 'retired'; createdBy: string; createdAt: string; activatedBy?: string; activatedAt?: string }
 export interface Impact { caseId: string; status: string; before: Decision; after: Decision; changed: boolean; needsRecheck: boolean; retained: boolean }
