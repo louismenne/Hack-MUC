@@ -19,10 +19,11 @@ interface AuditLogProps {
   datasetName: string;
   onOpenCase: (caseId: string) => void;
   onExport: () => void;
+  canClear: boolean;
   onClear: () => void;
 }
 
-export function AuditLog({ events, datasetName, onOpenCase, onExport, onClear }: AuditLogProps) {
+export function AuditLog({ events, datasetName, onOpenCase, onExport, onClear, canClear }: AuditLogProps) {
   const ordered = [...events].reverse();
   return (
     <Card>
@@ -35,7 +36,7 @@ export function AuditLog({ events, datasetName, onOpenCase, onExport, onClear }:
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="destructive" disabled={!events.length}>
+              <Button variant="destructive" disabled={!canClear || !events.length}>
                 <Trash2Icon data-icon="inline-start" /> Reset
               </Button>
             </AlertDialogTrigger>

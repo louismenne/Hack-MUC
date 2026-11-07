@@ -1,3 +1,4 @@
+import { AuthProvider } from '@/lib/auth';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ThemeProvider } from '@/lib/theme';
@@ -10,7 +11,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider>
       <TooltipProvider delayDuration={200}>
-        <App />
+        <AuthProvider><App /></AuthProvider>
         <Toaster position="bottom-right" />
       </TooltipProvider>
     </ThemeProvider>

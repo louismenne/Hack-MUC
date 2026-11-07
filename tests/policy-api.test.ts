@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { validatePolicy, type PolicyDocument } from '../src/policy-engine/index.js';
 import { loadCases } from '../src/policy-api/cases.js';
 import { ApiError, handleAi, handleGet, handlePost, type ApiDeps } from '../src/policy-api/handlers.js';
-import { handlePolicyRequest } from '../src/policy-api/http.js';
+import { handlePolicyRequest as authenticatedRequest } from '../src/policy-api/http.js';
 import { computeImpact } from '../src/policy-api/impact.js';
 import type { PolicyVersionRecord } from '../src/policy-api/types.js';
 import { memoryRepo } from './support/memory-repo.js';
@@ -215,6 +215,8 @@ describe('policy API: AI actions (mocked, no real Claude call)', () => {
     await rejects(handleAi(deps, { mode: 'other', createdBy: 'L' }), 400);
   });
 });
+
+const handlePolicyRequest: typeof authenticatedRequest = (request, kind, deps) => authenticatedRequest(request, kind, deps, async () => ({ id: 'test-user', email: 'team@example.test', email_confirmed_at: '2026-11-07', invited_at: '2026-11-07', app_metadata: { hack_muc_role: 'policy_manager' } }));
 
 describe('HTTP wrapper', () => {
   const req = (method: string, path: string, json?: unknown) => new Request(`http://localhost${path}`, { method, headers: json === undefined ? {} : { 'content-type': 'application/json' }, body: json === undefined ? undefined : JSON.stringify(json) });

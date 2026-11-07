@@ -1,3 +1,6 @@
+import { permissions, roleOf, roleLabels } from '../../src/roles';
+import { Team } from '@/components/team';
+import { useAuthUser, SignOutButton } from '@/lib/auth';
 import { PolicyManager } from '@/components/policy-manager';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, MoonIcon, ShieldCheckIcon, SunIcon, UploadIcon } from 'lucide-react';
@@ -61,13 +64,16 @@ export function App() {
 }
 
 function AppContent() {
+  const user = useAuthUser();
+  const access = permissions(user);
+  const role = roleOf(user);
   const source = usePolicySource();
   const history = source.history;
   const builtinDatasets = useMemo(() => buildBuiltinDatasets(history), [history]);
   const [datasetId, setDatasetId] = usePersistentState('dataset', 'development', isString);
   const [upload, setUpload] = usePersistentState<StoredUpload | null>('upload', null, isUpload);
   const [events, setEvents] = usePersistentState<ReviewEvent[]>('audit', [], isEvents);
-  const [reviewer, setReviewer] = usePersistentState('reviewer', '', isString);
+  const reviewer = user.email ?? user.id;
   const [selection, setSelection] = usePersistentState<Record<string, string>>('selection', {}, isRecord);
   const [tab, setTab] = usePersistentState('tab', 'queue', isString);
   const [filters, setFilters] = usePersistentState<ListFilters>('filters', defaultFilters, isFilters);
@@ -127,10 +133,11 @@ function AppContent() {
 
   const record = (input: ReviewInput) => {
     try {
+      if (!access.review) throw new Error('Reviewer or Admin role required.');
       if (selected.claim.case_status === 'closed') throw new Error('Closed claims are historical and cannot be reviewed.');
-      const event = createReviewEvent(input, { id: crypto.randomUUID(), at: new Date().toISOString() });
+      const event = createReviewEvent({ ...input, reviewer }, { id: crypto.randomUUID(), at: new Date().toISOString() });
       setEvents(previous => [...previous, event]);
-      setReviewer(event.reviewer);
+
       setDialog(null);
       const message = event.action === 'overridden'
         ? `Override recorded: ${recommendationMeta[event.next].label}`
@@ -142,7 +149,7 @@ function AppContent() {
   };
 
   const onUpload = async (file: File | undefined) => {
-    if (!file) return;
+    if (!file || !access.upload) return;
     if (file.size > maxUploadBytes) {
       toast.error('That file is larger than 2 MB. Use the CLI for big batches.');
       return;
@@ -206,12 +213,14 @@ function AppContent() {
               </SelectContent>
             </Select>
             <input ref={fileInput} type="file" accept=".csv,text/csv" className="sr-only" tabIndex={-1} onChange={event => { void onUpload(event.target.files?.[0]); event.target.value = ''; }} />
-            <Button variant="outline" onClick={() => fileInput.current?.click()}>
+            <Button variant="outline" disabled={!access.upload} onClick={() => fileInput.current?.click()}>
               <UploadIcon data-icon="inline-start" /> Upload CSV
             </Button>
             <Button variant="outline" onClick={() => downloadFile(`results-${slug}.csv`, exportResultsCsv(dataset, states))}>
               <DownloadIcon data-icon="inline-start" /> Export results
             </Button>
+            <span className="text-xs text-muted-foreground">{user.email} · {role ? roleLabels[role] : 'Unassigned (read only)'}</span>
+            <SignOutButton />
             <ThemeToggle />
           </div>
         </div>
@@ -234,6 +243,7 @@ function AppContent() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <TabsList>
             <TabsTrigger value="queue">Review queue</TabsTrigger>
+            {access.team && <TabsTrigger value="team">Team</TabsTrigger>}
             <TabsTrigger value="quality">Quality</TabsTrigger>
             <TabsTrigger value="policy">Policy</TabsTrigger>
             <TabsTrigger value="audit">
@@ -265,7 +275,7 @@ function AppContent() {
                   </Button>
                 </div>
               </div>
-              <ClaimDetail item={selected} state={selectedState} onAction={setDialog} />
+              <ClaimDetail item={selected} state={selectedState} onAction={action => { if (access.review) setDialog(action); }} canReview={access.review} />
             </div>
           ) : (
             <div className="mx-auto max-w-5xl">
@@ -282,6 +292,7 @@ function AppContent() {
           )}
         </TabsContent>
 
+        {access.team && <TabsContent value="team"><Team /></TabsContent>}
         <TabsContent value="policy"><PolicyManager /></TabsContent>
 
         <TabsContent value="quality">
@@ -294,7 +305,9 @@ function AppContent() {
             datasetName={dataset.name}
             onOpenCase={caseId => { setFilters({ ...defaultFilters, recommendation: 'all' }); setTab('queue'); showCase(caseId); }}
             onExport={() => downloadFile(`audit-${slug}.csv`, auditCsv(datasetEvents))}
+            canClear={access.review}
             onClear={() => {
+              if (!access.review) return;
               setEvents(previous => previous.filter(event => event.datasetId !== dataset.id));
               toast.success(`Cleared the audit log for ${dataset.name.toLowerCase()}`);
             }}
@@ -303,7 +316,7 @@ function AppContent() {
       </Tabs>
 
       <ReviewDialog
-        action={dialog}
+        action={access.review ? dialog : null}
         onOpenChange={open => !open && setDialog(null)}
         datasetId={dataset.id}
         decision={selected.decision}

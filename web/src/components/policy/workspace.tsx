@@ -1,9 +1,10 @@
+import { permissions } from '../../../../src/roles';
+import { useAuthUser } from '@/lib/auth';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FileTextIcon, PlusIcon, SparklesIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { policyHistoryFrom } from '../../../../src/policy-engine/history';
 import { diffPolicies } from '../../../../src/policy-view/diff';
-import { usePersistentState } from '@/lib/storage';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,6 @@ import { DiffList } from './diff-list';
 import { RuleCard } from './rule-view';
 import { VersionPage, formatDate, sourceLabel, statusLabel } from './version-page';
 
-const isString = (v: unknown): v is string => typeof v === 'string';
 const MAX_PDF_BYTES = 2_400_000;
 const MAX_TEXT_CHARS = 60_000;
 
@@ -33,7 +33,9 @@ export function PolicyWorkspace() {
   const [aiAvailable, setAiAvailable] = useState(false);
   const [error, setError] = useState<ApiFailure | null>(null);
   const [busy, setBusy] = useState(false);
-  const [owner, setOwner] = usePersistentState('policy.owner', '', isString);
+  const user = useAuthUser();
+  const canManage = permissions(user).policy;
+  const owner = user.id;
   const [openId, setOpenId] = useState<string | null>(null);
   const [tab, setTab] = useState('overview');
   const [compare, setCompare] = useState<{ from: string; to: string } | null>(null);
@@ -95,10 +97,10 @@ export function PolicyWorkspace() {
       <Card>
         <CardContent className="flex flex-wrap items-end gap-4">
           <label className="space-y-1 text-sm">
-            <span className="font-medium">Dein Name (Ersteller)</span>
-            <Input className="w-56" value={owner} maxLength={100} placeholder="z. B. Louis" onChange={e => setOwner(e.target.value)} />
+            <span className="font-medium">Angemeldet als</span>
+            <Input className="w-56" value={user.email ?? owner} readOnly />
           </label>
-          <p className="max-w-md text-xs text-muted-foreground">Der Name wird als Label bei neuen Entwürfen gespeichert, es gibt keine Anmeldung. Regeln werden nur von deterministischem Code ausgewertet; die KI macht ausschließlich Vorschläge, die du freigibst.</p>
+          <p className="max-w-md text-xs text-muted-foreground">Neue Entwürfe werden serverseitig deiner verifizierten Benutzer-ID zugeordnet. Regeln werden nur von deterministischem Code ausgewertet; die KI macht ausschließlich Vorschläge, die du freigibst.</p>
           <div className="ml-auto flex items-center gap-2"><Badge>Aktiv: {active.versionLabel}</Badge>{drafts.length > 0 && <Badge variant="secondary">{drafts.length} Entwurf{drafts.length > 1 ? 'e' : ''}</Badge>}</div>
         </CardContent>
       </Card>
@@ -112,7 +114,7 @@ export function PolicyWorkspace() {
       </Alert>
 
       {open ? (
-        <VersionPage key={`${open.id}|${open.changeSummary}|${JSON.stringify(open.rules)}`} version={open} active={active} aiAvailable={aiAvailable} owner={owner} busy={busy} run={run} onBack={() => setOpenId(null)} onReload={load} />
+        <VersionPage key={`${open.id}|${open.changeSummary}|${JSON.stringify(open.rules)}`} version={open} active={active} aiAvailable={aiAvailable && canManage} owner={owner} busy={busy} run={run} onBack={() => setOpenId(null)} onReload={load} />
       ) : (
         <Tabs value={tab} onValueChange={setTab} className="gap-4">
           <TabsList>
@@ -131,7 +133,7 @@ export function PolicyWorkspace() {
                 <ol className="space-y-3">
                   {active.rules.rules.map((rule, i) => (
                     <RuleCard key={rule.id} index={i} rule={rule} fields={active.rules.fields}
-                      ai={{ available: aiAvailable && !!owner.trim(), busy, onSubmit: instruction => { void run(async () => {
+                      ai={{ available: canManage && aiAvailable && !!owner.trim(), busy, onSubmit: instruction => { void run(async () => {
                         const r = await policyApi.aiInstruction({ createdBy: owner, versionId: active.id, ruleId: rule.id, instruction });
                         toast.success(`Claude hat ${r.version.versionLabel} als Entwurf vorgeschlagen. Bitte Diff und Folgen prüfen.`);
                         await load(r.version.id);
@@ -142,7 +144,7 @@ export function PolicyWorkspace() {
               </CardContent>
             </Card>
 
-            <Card>
+            {canManage && <Card>
               <CardHeader><CardTitle>Neue Version vorbereiten</CardTitle><CardDescription>Jede Änderung wird zuerst ein Entwurf. Du siehst Diff und betroffene offene Fälle, bevor du freigibst.</CardDescription></CardHeader>
               <CardContent className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2 rounded-lg border p-4">
@@ -165,7 +167,7 @@ export function PolicyWorkspace() {
                   </div>
                 )}
               </CardContent>
-            </Card>
+            </Card>}
           </TabsContent>
 
           <TabsContent value="history" className="space-y-4">
