@@ -1,6 +1,6 @@
 import { PolicyManager } from '@/components/policy-manager';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { DownloadIcon, MoonIcon, ShieldCheckIcon, SunIcon, UploadIcon } from 'lucide-react';
+import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, MoonIcon, ShieldCheckIcon, SunIcon, UploadIcon } from 'lucide-react';
 import { useTheme } from '@/lib/theme';
 import { toast } from 'sonner';
 import { builtinDatasets, downloadFile, exportResultsCsv, loadDataset, toCsv, type Dataset } from '@/lib/datasets';
@@ -29,7 +29,29 @@ const isEvents = (value: unknown): value is ReviewEvent[] => Array.isArray(value
 const isFilters = (value: unknown): value is ListFilters => isRecord(value) && typeof value.query === 'string';
 
 const maxUploadBytes = 2_000_000;
-const defaultFilters: ListFilters = { query: '', recommendation: 'all', status: 'any' };
+
+/** The open case page lives in the URL (#/case/DEV-004) so the browser back button returns to the inbox. */
+const caseFromHash = () => {
+  const match = /^#\/case\/(.+)$/.exec(window.location.hash);
+  return match ? decodeURIComponent(match[1]) : null;
+};
+function useOpenCase(): [string | null, (caseId: string | null) => void] {
+  const [openId, setOpenId] = useState(caseFromHash);
+  useEffect(() => {
+    const onHash = () => setOpenId(caseFromHash());
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+  const open = (caseId: string | null) => {
+    if (caseId) window.location.hash = `/case/${encodeURIComponent(caseId)}`;
+    else if (window.location.hash) history.pushState(null, '', window.location.pathname + window.location.search);
+    setOpenId(caseId);
+    window.scrollTo({ top: 0 });
+  };
+  return [openId, open];
+}
+// Reviewer inbox by default: only cases routed to human review.
+const defaultFilters: ListFilters = { query: '', recommendation: 'human_review', status: 'any' };
 
 export function App() {
   const [datasetId, setDatasetId] = usePersistentState('dataset', 'development', isString);
@@ -40,6 +62,7 @@ export function App() {
   const [tab, setTab] = usePersistentState('tab', 'queue', isString);
   const [filters, setFilters] = usePersistentState<ListFilters>('filters', defaultFilters, isFilters);
   const [dialog, setDialog] = useState<ReviewAction | null>(null);
+  const [openCaseId, openCase] = useOpenCase();
   const fileInput = useRef<HTMLInputElement>(null);
 
   const uploaded = useMemo<Dataset | null>(() => {
@@ -67,6 +90,12 @@ export function App() {
   const selected = dataset.cases.find(item => item.decision.caseId === selectedId)!;
   const selectedState = states.get(selectedId)!;
   const select = (caseId: string) => setSelection(previous => ({ ...previous, [dataset.id]: caseId }));
+  const pageOpen = openCaseId !== null && dataset.cases.some(item => item.decision.caseId === openCaseId);
+  const showCase = (caseId: string) => { select(caseId); openCase(caseId); };
+  useEffect(() => { if (pageOpen && openCaseId !== selectedId) select(openCaseId!); });
+  const pageIndex = visible.findIndex(item => item.decision.caseId === selectedId);
+  const pagePrev = pageIndex > 0 ? visible[pageIndex - 1] : null;
+  const pageNext = pageIndex >= 0 && pageIndex < visible.length - 1 ? visible[pageIndex + 1] : null;
 
   // j/k or arrow keys move through the visible queue when focus is not in a form control.
   useEffect(() => {
@@ -80,10 +109,11 @@ export function App() {
       const index = visible.findIndex(item => item.decision.caseId === selectedId);
       const next = visible[Math.min(visible.length - 1, Math.max(0, index + step))];
       setSelection(previous => ({ ...previous, [dataset.id]: next.decision.caseId }));
+      if (pageOpen) openCase(next.decision.caseId);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [tab, dialog, visible, selectedId, dataset.id, setSelection]);
+  }, [tab, dialog, visible, selectedId, dataset.id, setSelection, pageOpen, openCase]);
 
   const record = (input: ReviewInput) => {
     try {
@@ -190,17 +220,40 @@ export function App() {
           </p>
         </div>
 
-        <TabsContent value="queue" className="grid items-start gap-4 lg:grid-cols-[minmax(340px,440px)_minmax(0,1fr)]">
-          <ClaimsList
-            cases={dataset.cases}
-            visible={visible}
-            states={states}
-            filters={filters}
-            onFiltersChange={setFilters}
-            selectedId={selectedId}
-            onSelect={select}
-          />
-          <ClaimDetail item={selected} state={selectedState} onAction={setDialog} />
+        <TabsContent value="queue">
+          {pageOpen ? (
+            <div className="mx-auto flex max-w-5xl flex-col gap-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Button variant="ghost" onClick={() => openCase(null)}>
+                  <ArrowLeftIcon data-icon="inline-start" /> Back to inbox
+                </Button>
+                <div className="flex items-center gap-1">
+                  {pageIndex >= 0 && (
+                    <span className="mr-2 text-xs text-muted-foreground tabular-nums">Case {pageIndex + 1} of {visible.length}</span>
+                  )}
+                  <Button variant="outline" size="icon" disabled={!pagePrev} onClick={() => pagePrev && showCase(pagePrev.decision.caseId)} aria-label="Previous case">
+                    <ChevronLeftIcon />
+                  </Button>
+                  <Button variant="outline" size="icon" disabled={!pageNext} onClick={() => pageNext && showCase(pageNext.decision.caseId)} aria-label="Next case">
+                    <ChevronRightIcon />
+                  </Button>
+                </div>
+              </div>
+              <ClaimDetail item={selected} state={selectedState} onAction={setDialog} />
+            </div>
+          ) : (
+            <div className="mx-auto max-w-5xl">
+              <ClaimsList
+                cases={dataset.cases}
+                visible={visible}
+                states={states}
+                filters={filters}
+                onFiltersChange={setFilters}
+                selectedId={selectedId}
+                onSelect={showCase}
+              />
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="policy"><PolicyManager /></TabsContent>
@@ -213,7 +266,7 @@ export function App() {
           <AuditLog
             events={datasetEvents}
             datasetName={dataset.name}
-            onOpenCase={caseId => { select(caseId); setFilters(defaultFilters); setTab('queue'); }}
+            onOpenCase={caseId => { setFilters({ ...defaultFilters, recommendation: 'all' }); setTab('queue'); showCase(caseId); }}
             onExport={() => downloadFile(`audit-${slug}.csv`, auditCsv(datasetEvents))}
             onClear={() => {
               setEvents(previous => previous.filter(event => event.datasetId !== dataset.id));
