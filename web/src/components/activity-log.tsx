@@ -22,7 +22,7 @@ export function ActivityLog() {
     return () => { alive = false; };
   }, [page, revision]);
   return <Card className="mb-4"><CardHeader><CardTitle>Persistent activity log</CardTitle></CardHeader><CardContent className="space-y-3">
-    <p className="text-sm text-muted-foreground">Claim submissions, policy changes and reviews recorded in Supabase. Entries cannot be edited or cleared. Server-side policy changes are attributed to “Server / database”.</p>
+    <p className="text-sm text-muted-foreground">Claim submissions, policy changes and reviews recorded in Supabase. Entries cannot be edited or cleared. New policy and team-role changes identify the signed-in actor. Engine evaluations identify “Policy engine”.</p>
     <Button variant="outline" disabled={loading} onClick={() => refresh(n => n + 1)}>Refresh</Button>
     {error && <p role="alert" className="text-destructive">{error}</p>}
     {loading ? <p role="status">Loading activity…</p> : rows.length === 0 ? <p>No recorded activity.</p> : rows.map(row => <div key={row.id} className="rounded border p-3 text-sm"><p>{row.entity_type} · {row.action} · {String(row.details.caseId ?? row.details.version ?? row.entity_id)}</p><p className="text-xs text-muted-foreground">{new Date(row.occurred_at).toLocaleString()} · {row.actor_label}</p>{row.details.reason ? <p>{String(row.details.reason)}</p> : null}</div>)}

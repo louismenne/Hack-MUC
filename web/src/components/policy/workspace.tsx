@@ -108,7 +108,7 @@ export function PolicyWorkspace() {
       <Alert>
         <AlertTitle>Geltungsbereich: offene und geschlossene Fälle</AlertTitle>
         <AlertDescription>
-          Offene Fälle werden mit {active.versionLabel} bewertet. Geschlossene Fälle behalten das Ergebnis der ursprünglichen Version {policyHistoryFrom(versions).original.label} und werden nicht erneut zur Prüfung markiert.
+          Offene Fälle werden mit {active.versionLabel} bewertet. Geschlossene eingereichte Fälle behalten ihre gespeicherte Entscheidung und werden nicht erneut zur Prüfung markiert.
           Diese Auswahl erfolgt vor der Regelauswertung und ist keine editierbare Policy-Regel. Im Hackathon wird das historische Ergebnis aus den unveränderten Falldaten rekonstruiert; gespeicherte Entscheidungssnapshots sind noch nicht implementiert.
         </AlertDescription>
       </Alert>

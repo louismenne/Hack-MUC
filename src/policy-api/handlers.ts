@@ -6,6 +6,7 @@ import type { PolicyRepo, PolicyVersionRecord } from './types.js';
 
 export interface ApiDeps {
   repo: PolicyRepo;
+  storedImpact?: (base: PolicyVersionRecord, draft: PolicyVersionRecord) => Promise<import('./types.js').ImpactReport>;
   loadCases: () => Record<string, string>[];
   /** null = no ANTHROPIC_API_KEY: AI actions answer 503, everything else keeps working. */
   ai: AiClient | null;
@@ -100,7 +101,7 @@ export async function handlePost(deps: ApiDeps, raw: unknown): Promise<ApiResult
       // Closed claims keep the decision of the original version, not of whatever is active now.
       const originalLabel = policyHistoryFrom(versions).original.label;
       const original = versions.find(v => v.versionLabel === originalLabel) ?? active;
-      return ok({ impact: computeImpact(active, draft, deps.loadCases(), original) });
+      return ok({ impact: deps.storedImpact ? await deps.storedImpact(active, draft) : computeImpact(active, draft, deps.loadCases(), original) });
     }
     case 'activate': {
       const draft = await mustGet(repo, uuid(raw, 'id'));
@@ -109,7 +110,7 @@ export async function handlePost(deps: ApiDeps, raw: unknown): Promise<ApiResult
       rulesFrom(draft.rules);
       const active = await mustActive(repo);
       if (active.id !== expectedActive) throw new ApiError(409, 'Die aktive Version hat sich inzwischen geändert. Bitte Folgenabschätzung neu laden und erneut prüfen.');
-      return ok({ version: await repo.activate(draft.id) });
+      return ok({ version: await repo.activate(draft.id, expectedActive) });
     }
     default:
       throw new ApiError(400, 'Unbekannte Aktion.');

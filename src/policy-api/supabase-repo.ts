@@ -18,9 +18,13 @@ function fail(action: string, error: { message: string }): never {
 }
 
 /** Server-side only: uses the secret key, which must never reach the browser. */
-export function createSupabaseRepo(url: string, secretKey: string): PolicyRepo {
+export function createSupabaseRepo(url: string, secretKey: string, actorId?: string): PolicyRepo {
   const db = createClient(url, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const table = () => db.from('policy_versions');
+  const write = async (action: string, data: Record<string, unknown>) => {
+    if (!actorId) throw new Error('Authenticated policy actor required.');
+    return db.rpc('write_policy_as', { p_actor: actorId, p_action: action, p_data: data });
+  };
   const repo: PolicyRepo = {
     async list() {
       const { data, error } = await table().select(COLUMNS).order('created_at', { ascending: true });
@@ -35,10 +39,10 @@ export function createSupabaseRepo(url: string, secretKey: string): PolicyRepo {
     async createDraft(draft: NewDraft) {
       for (let attempt = 0; attempt < 3; attempt++) {
         const label = nextVersionLabel((await repo.list()).map(v => v.versionLabel));
-        const { data, error } = await table().insert({
+        const { data, error } = await write('create', {
           version_label: label, rules: draft.rules, status: 'draft', change_summary: draft.changeSummary, source: draft.source,
           parent_version_id: draft.parentVersionId, created_by: draft.createdBy,
-        }).select(COLUMNS).single();
+        });
         if (!error) return toRecord(data as unknown as Row);
         if (error.code !== '23505') fail('createDraft', error); // 23505 = label taken by a concurrent draft: retry
       }
@@ -49,17 +53,17 @@ export function createSupabaseRepo(url: string, secretKey: string): PolicyRepo {
       if (patch.rules !== undefined) columns.rules = patch.rules;
       if (patch.changeSummary !== undefined) columns.change_summary = patch.changeSummary;
       // The status filter makes the immutability check atomic with the write.
-      const { data, error } = await table().update(columns).eq('id', id).eq('status', 'draft').select(COLUMNS);
+      const { data, error } = await write('update', { id, ...columns });
       if (error) fail('updateDraft', error);
-      return data && data.length ? toRecord(data[0] as unknown as Row) : null;
+      return data?.id ? toRecord(data as unknown as Row) : null;
     },
     async deleteDraft(id) {
-      const { data, error } = await table().delete().eq('id', id).eq('status', 'draft').select('id');
+      const { data, error } = await write('delete', { id });
       if (error) fail('deleteDraft', error);
-      return Boolean(data && data.length);
+      return Boolean(data?.id);
     },
-    async activate(id) {
-      const { data, error } = await db.rpc('activate_policy_version', { p_version_id: id });
+    async activate(id, expectedActiveId) {
+      const { data, error } = await write('activate', { id, expected_active_id: expectedActiveId });
       if (error) fail('activate', error);
       return toRecord(data as unknown as Row);
     },

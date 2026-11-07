@@ -17,6 +17,7 @@ export interface CaseItem extends Omit<TriagedCase, 'decision' | 'current'> {
   decision: Decision & { caseId: string };
   /** Development label, used only for quality reporting, never as a decision input. */
   label: Recommendation | null;
+  initialQuoteLimit?: number | null;
   labelV1: Recommendation | null;
   labelV2: Recommendation | null;
   /** The decision before the latest policy change. */
@@ -29,7 +30,7 @@ export interface Dataset {
   id: string;
   name: string;
   description: string;
-  source: 'builtin' | 'upload';
+  source: 'builtin' | 'upload' | 'stored';
   cases: CaseItem[];
   labelled: boolean;
 }
@@ -73,5 +74,6 @@ export function downloadFile(name: string, contents: string, type = 'text/csv;ch
 
 /** Fixed organizer versions, independent of the currently active workspace policy. */
 export function officialComparison(dataset: Dataset): TriagedCase[] {
+  if (dataset.source === 'stored' || dataset.cases.length === 0) return [];
   return triageRows(dataset.cases.map(item => item.row), bundledHistory);
 }

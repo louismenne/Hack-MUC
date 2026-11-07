@@ -1,3 +1,4 @@
+import { serviceClient } from './stored-claims.js';
 import { createClient } from '@supabase/supabase-js';
 import { isRole, roleOf } from '../roles.js';
 import { ApiError } from './handlers.js';
@@ -17,16 +18,11 @@ export async function listTeam(admin = createTeamAdmin()) {
   }
   return { status: 200, body: { users } };
 }
-export async function setTeamRole(actor: AuthUser, input: unknown, admin = createTeamAdmin()) {
+export async function setTeamRole(actor: AuthUser, input: unknown, db = serviceClient()) {
   const body = input as { userId?: unknown; role?: unknown } | null;
   if (!body || typeof body.userId !== 'string' || !isRole(body.role)) throw new ApiError(400, 'A user ID and valid role are required.');
-  // Prevent accidental self-demotion. Project admins can recover roles via Supabase.
   if (body.userId === actor.id) throw new ApiError(400, 'You cannot change your own role.');
-  const { data, error } = await admin.getUserById(body.userId);
-  if (error || !data.user) throw new ApiError(404, 'Team member not found.');
-  const target = data.user;
-  if (!target.invited_at && target.app_metadata.hack_muc_access !== true) throw new ApiError(403, 'Only invited team members can be assigned a role.');
-  const updated = await admin.updateUserById(target.id, { app_metadata: { ...target.app_metadata, hack_muc_role: body.role } });
-  if (updated.error) throw new ApiError(502, 'Could not update the role.');
-  return { status: 200, body: { user: { id: target.id, email: target.email, role: body.role } } };
+  const { error } = await db.rpc('set_team_role', { p_actor: actor.id, p_user: body.userId, p_role: body.role });
+  if (error) throw new ApiError(400, error.message);
+  return { status: 200, body: { updated: true } };
 }

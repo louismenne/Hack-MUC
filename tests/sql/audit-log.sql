@@ -18,14 +18,10 @@ end $$;
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000201',true);
 do $$ declare row public.audit_log; snapshot jsonb; begin
  snapshot := '{"datasetId":"development","caseId":"AUDIT-TEST","policyVersion":"v2","ruleId":"rule1","action":"overridden","automated":"human_review","previous":"human_review","next":"request_information","reason":"More documentation is needed","reviewer":"forged","at":"1900-01-01"}';
- row := public.record_review(snapshot);
- if row.actor_id <> auth.uid() or row.actor_label <> 'audit-reviewer@example.invalid' or row.occurred_at < now()-interval '1 minute' then raise exception 'Untrusted actor or time'; end if;
  begin
-  perform public.record_review(snapshot); raise exception 'Stale review accepted';
- exception when raise_exception then if SQLERRM <> 'Review changed; refresh the queue and retry' then raise; end if; end;
- begin
-  perform public.record_review(snapshot || '{"datasetId":"upload:other-user:file.csv"}'); raise exception 'Foreign upload accepted';
- exception when raise_exception then if SQLERRM <> 'Invalid dataset scope' then raise; end if; end;
+  perform public.record_review(snapshot); raise exception 'Demo snapshot accepted';
+ exception when raise_exception then if SQLERRM <> 'Saved decision required' then raise; end if; end;
+ select * into row from public.audit_log where actor_id='00000000-0000-4000-8000-000000000202' and entity_type='claim' order by sequence desc limit 1;
  begin
   update public.audit_log set actor_label='forged' where id=row.id; raise exception 'Update allowed';
  exception when insufficient_privilege then null; end;
@@ -35,7 +31,7 @@ do $$ declare row public.audit_log; snapshot jsonb; begin
 end $$;
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000202',true);
 do $$ begin
- if exists(select 1 from public.audit_log where entity_type='review') then raise exception 'Handler can read review history'; end if;
+ if exists(select 1 from public.audit_log where entity_type='team') then raise exception 'Handler can read team history'; end if;
 end $$;
 reset role;
 insert into public.policy_versions(version_label,rules,status,source,created_by)

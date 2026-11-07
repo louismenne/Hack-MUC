@@ -19,7 +19,7 @@ export function ImpactTable({ impact }: { impact: ImpactReport }) {
         <Badge variant="outline">{t.cases} Fälle geprüft</Badge>
       </div>
       <p className="text-xs text-muted-foreground">
-        Vergleich: aktive Version {impact.base.label} gegen Entwurf {impact.draft.label}, über die Teilnehmer-Fälle aus den CSVs. Geschlossene Fälle behalten ihr bisheriges Ergebnis. Das ist eine Auswirkungsmessung, keine Genauigkeitsbewertung.
+        Vergleich: aktive Version {impact.base.label} gegen Entwurf {impact.draft.label}, über die in Supabase eingereichten Fälle. Geschlossene Fälle behalten ihr bisheriges Ergebnis. Das ist eine Auswirkungsmessung, keine Genauigkeitsbewertung.
       </p>
       {rows.length === 0
         ? <p className="text-sm text-muted-foreground">Keine Fallergebnisse ändern sich.</p>

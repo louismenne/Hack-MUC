@@ -73,8 +73,8 @@ export function QualityView({ dataset, states, events, renderLog }: QualityViewP
   // Claims received before the policy change keep their earlier decision here; whether they
   // need another look under the new policy is shown separately (needsRecheck).
   const changeDate = new Date(V2_PERIOD_START);
-  const decidedBeforeChange = (item: CaseItem) => !!item.received && item.received.at < changeDate;
-  const atArrival = (item: CaseItem) => (decidedBeforeChange(item) ? item.baseline : item.decision);
+  const decidedBeforeChange = (item: CaseItem) => dataset.source !== 'stored' && !!item.received && item.received.at < changeDate;
+  const atArrival = (item: CaseItem) => (dataset.source === 'stored' || decidedBeforeChange(item) ? item.baseline : item.decision);
   const recheck = open.filter(item => item.needsRecheck);
 
   const toInsight = (item: CaseItem) => {
@@ -82,7 +82,7 @@ export function QualityView({ dataset, states, events, renderLog }: QualityViewP
     return {
       decision: atArrival(item),
       quote: parseNumber(item.row.quote_eur),
-      quoteLimit: decidedBeforeChange(item) ? previousLimit : limit,
+      quoteLimit: dataset.source === 'stored' ? item.initialQuoteLimit ?? null : decidedBeforeChange(item) ? previousLimit : limit,
       // Without a reviewer action the outcome is the decision at arrival.
       effective: state.status === 'pending' ? atArrival(item).recommendation : state.effective,
       reviewStatus: state.status,
@@ -156,7 +156,7 @@ export function QualityView({ dataset, states, events, renderLog }: QualityViewP
         />
       </div>
 
-      {hasDates && <TrendCard series={series} window={window} />}
+      {hasDates && <TrendCard series={series} window={window} showDemoPolicyMarker={dataset.source !== 'stored'} />}
 
       <ActionsCard actions={actions} />
 
@@ -166,7 +166,7 @@ export function QualityView({ dataset, states, events, renderLog }: QualityViewP
             <EmptyHeader>
               <EmptyMedia variant="icon"><CalendarClockIcon /></EmptyMedia>
               <EmptyTitle>No claims received in this period</EmptyTitle>
-              <EmptyDescription>Pick a longer range. Policy v1 cases run until 24 Oct; the period after is reserved for policy v2 claims.</EmptyDescription>
+              <EmptyDescription>Pick a longer range or submit claims to populate the dashboard.</EmptyDescription>
             </EmptyHeader>
           </Empty>
         </Card>
@@ -207,11 +207,11 @@ export function QualityView({ dataset, states, events, renderLog }: QualityViewP
         newReviewCases={open.filter(item => item.received && atArrival(item).recommendation === 'human_review').map(item => item.received!.at)}
       />
 
-      <Card><CardHeader><CardTitle>Official policy change · before and after</CardTitle><CardDescription>V1 labels are supplied by the organizer. Built-in v2 expectations are team-derived from the official notice; they are not independent hidden-set validation. Closed claims are excluded from every v2 score.</CardDescription></CardHeader>
+      {dataset.source !== 'stored' && <Card><CardHeader><CardTitle>Official policy change · before and after</CardTitle><CardDescription>V1 labels are supplied by the organizer. Built-in v2 expectations are team-derived from the official notice; they are not independent hidden-set validation. Closed claims are excluded from every v2 score.</CardDescription></CardHeader>
         <CardContent><Table><TableHeader><TableRow><TableHead>Evaluation</TableHead><TableHead>Correct / labelled</TableHead><TableHead>Incorrect routine</TableHead><TableHead>Unnecessary review</TableHead></TableRow></TableHeader><TableBody>
           {([['V1 vs v1 labels', v1Report], ['V1 vs v2 expectations (before)', v1AgainstV2], ['V2 vs v2 expectations (after)', v2Report], ['Changed open cases · before', changedBefore], ['Changed open cases · after', changedAfter]] as const).map(([name, r]) => <TableRow key={name}><TableCell>{name}</TableCell><TableCell>{r.labelled ? `${r.correct}/${r.labelled}` : 'Not scored'}</TableCell><TableCell>{r.labelled ? `${r.incorrectRoutine} (${Math.round(100 * r.incorrectRoutine / r.labelled)}%)` : '—'}</TableCell><TableCell>{r.labelled ? `${r.unnecessaryReview} (${Math.round(100 * r.unnecessaryReview / r.labelled)}%)` : '—'}</TableCell></TableRow>)}
         </TableBody></Table><p className="mt-3 text-xs text-muted-foreground">Error-rate denominator: all labelled claims in that row. {dataset.cases.filter(c => c.frozen).length} closed claims retain their v1 recommendation and are historical, not pending work.</p></CardContent>
-      </Card>
+      </Card>}
       {labelled.length > 0 ? (
         <>
           <div className="mt-2">
@@ -238,7 +238,7 @@ export function QualityView({ dataset, states, events, renderLog }: QualityViewP
             <Card>
               <CardHeader>
                 <CardTitle>Engine versus after review</CardTitle>
-                <CardDescription>Effect of the overrides recorded in this browser on labelled cases.</CardDescription>
+                <CardDescription>Read-only comparison on labelled example cases.</CardDescription>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -268,7 +268,7 @@ export function QualityView({ dataset, states, events, renderLog }: QualityViewP
           <Empty>
             <EmptyHeader>
               <EmptyMedia variant="icon"><FlaskConicalIcon /></EmptyMedia>
-              <EmptyTitle>No matching labels for the active policy</EmptyTitle>
+              <EmptyTitle>{dataset.source === 'stored' ? 'Submitted claims have no ground-truth labels' : 'No matching labels for the active policy'}</EmptyTitle>
               <EmptyDescription>Active-policy accuracy requires matching official policy rules and corresponding expected labels. Custom policies are not scored against a different policy’s labels. Built-in v2 expectations are team-derived.</EmptyDescription>
             </EmptyHeader>
           </Empty>
@@ -311,13 +311,13 @@ function axisTicks(max: number): number[] {
   return top >= 2 && Number.isInteger(mid) ? [0, mid, top] : [0, top];
 }
 
-function TrendCard({ series, window }: { series: SeriesPoint[]; window: Window }) {
+function TrendCard({ series, window, showDemoPolicyMarker }: { series: SeriesPoint[]; window: Window; showDemoPolicyMarker: boolean }) {
   const [hover, setHover] = useState<number | null>(null);
   const top = Math.max(1, ...series.map(p => p.total));
   const ticks = axisTicks(top);
   const labelEvery = Math.max(1, Math.ceil(series.length / 10));
   const v2Start = new Date(V2_PERIOD_START);
-  const v2Index = v2Start > window.start && v2Start < window.end ? series.findIndex(p => p.start >= v2Start) : -1;
+  const v2Index = showDemoPolicyMarker && v2Start > window.start && v2Start < window.end ? series.findIndex(p => p.start >= v2Start) : -1;
   const hovered = hover === null ? null : series[hover];
   return (
     <Card>

@@ -38,9 +38,6 @@ export function ClaimDetail({ item, state, onAction, canReview }: ClaimDetailPro
   const rule = ruleInfo(decision, history);
   const triggered = triggeringFields(decision);
   const overridden = state.status === 'overridden';
-  // Cases the engine routed to a human get a dedicated reviewer decision (still being designed);
-  // cases the engine already decided can only be overridden.
-  const needsHuman = decision.recommendation === 'human_review';
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
@@ -62,7 +59,7 @@ export function ClaimDetail({ item, state, onAction, canReview }: ClaimDetailPro
             <QuoteIcon className="mt-1 size-3.5 shrink-0 text-muted-foreground" aria-hidden />
             {String(claim.claim_summary ?? 'No claim summary supplied.')}
           </CardTitle>
-          {claim.case_status === 'closed' && <p className="text-sm text-muted-foreground">Historical closed claim · v1 retained · no action required.</p>}
+          {claim.case_status === 'closed' && <p className="text-sm text-muted-foreground">Historical closed claim · saved {decision.policyVersion} decision retained · no action required.</p>}
           {item.needsRecheck && <Badge variant="outline">Changed under {decision.policyVersion} · needs recheck</Badge>}
           <CardDescription>The summary is descriptive only. Decisions use the structured fields below.</CardDescription>
           <CardAction className="flex flex-wrap justify-end gap-2 max-sm:col-start-1 max-sm:row-span-1 max-sm:row-start-auto max-sm:mt-2 max-sm:justify-self-start">
@@ -71,40 +68,13 @@ export function ClaimDetail({ item, state, onAction, canReview }: ClaimDetailPro
                 <Undo2Icon data-icon="inline-start" /> Revert
               </Button>
             )}
-            {needsHuman ? (
-              <Badge variant="outline" className="gap-1.5">
-                <ClockIcon /> {claim.case_status === 'closed' ? 'Historical decision · no action required' : 'Reviewer decision pending'}
-              </Badge>
-            ) : (
-              <Button disabled={!canReview || claim.case_status === 'closed'} onClick={() => onAction('overridden')}>
-                <PencilLineIcon data-icon="inline-start" /> Override
-              </Button>
-            )}
+            <Button variant="outline" disabled={!canReview || claim.case_status === 'closed'} onClick={() => onAction('confirmed')}>Confirm</Button>
+            <Button disabled={!canReview || claim.case_status === 'closed'} onClick={() => onAction('overridden')}>
+              <PencilLineIcon data-icon="inline-start" /> Override
+            </Button>
           </CardAction>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
-          {needsHuman ? (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className={cn('rounded-lg p-3.5 ring-1', toneSurface.human_review)}>
-              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                <CircleAlertIcon className="size-3.5" /> Why this could not be processed automatically
-              </div>
-              <ul className="mt-2 flex flex-col gap-1">
-                {decision.supportingFacts.map(fact => (
-                  <li key={fact} className="text-base font-semibold tracking-tight">{describeFact(fact)}</li>
-                ))}
-              </ul>
-              <div className="mt-1 font-mono text-xs text-muted-foreground">{decision.ruleId} · policy {decision.policyVersion}</div>
-            </div>
-            <div className="rounded-lg bg-muted/40 p-3.5 ring-1 ring-border">
-              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                <BotIcon className="size-3.5" /> Recommendation
-              </div>
-              <div className="mt-2 text-lg font-semibold tracking-tight text-muted-foreground">To be defined</div>
-              <div className="mt-1 text-xs text-muted-foreground">Placeholder until the reviewer decision step is agreed.</div>
-            </div>
-          </div>
-          ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             <div className={cn('rounded-lg p-3.5 ring-1', toneSurface[decision.recommendation])}>
               <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
@@ -123,24 +93,6 @@ export function ClaimDetail({ item, state, onAction, canReview }: ClaimDetailPro
               </div>
             </div>
           </div>
-          )}
-
-          {needsHuman && (
-            <section aria-labelledby="decision-heading" className="rounded-lg border border-dashed p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 id="decision-heading" className="text-sm font-semibold">Reviewer decision</h3>
-                <Badge variant="secondary">Coming soon</Badge>
-              </div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                This claim needs a human decision. The decision step is still being designed; planned options:
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Button variant="outline" disabled>Request missing information from claimant</Button>
-                <Button variant="outline" disabled>Release to routine processing</Button>
-              </div>
-            </section>
-          )}
-
           <section aria-labelledby="why-heading" className="flex flex-col gap-2.5">
             <h3 id="why-heading" className="text-sm font-semibold">Why this recommendation</h3>
             {decision.supportingFacts.length > 0 && (
@@ -198,7 +150,7 @@ function EvidenceCard({ item, triggered }: { item: CaseItem; triggered: Set<Fiel
     <Card size="sm">
       <CardHeader>
         <CardTitle>Structured evidence</CardTitle>
-        <CardDescription>Values as supplied in the CSV. Highlighted fields fired the rule.</CardDescription>
+        <CardDescription>Recorded structured claim facts. Highlighted fields fired the rule.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {fieldGroups.map((group, index) => (

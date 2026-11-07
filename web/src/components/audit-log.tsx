@@ -13,7 +13,7 @@ const actionLabel = { confirmed: 'Confirmed', overridden: 'Overridden', reverted
 interface AuditLogProps {
   events: ReviewEvent[];
   datasetName: string;
-  onOpenCase: (caseId: string) => void;
+  onOpenCase?: (caseId: string) => void;
   onExport: () => void;
 }
 
@@ -58,7 +58,7 @@ export function AuditLog({ events, datasetName, onOpenCase, onExport }: AuditLog
                 <TableRow key={event.id}>
                   <TableCell className="text-xs whitespace-nowrap text-muted-foreground">{timeFormat.format(new Date(event.at))}</TableCell>
                   <TableCell>
-                    <Button variant="link" className="h-auto p-0 font-mono text-xs" onClick={() => onOpenCase(event.caseId)}>{event.caseId}</Button>
+                    {onOpenCase ? <Button variant="link" className="h-auto p-0 font-mono text-xs" onClick={() => onOpenCase(event.caseId)}>{event.caseId}</Button> : <span className="font-mono text-xs">{event.caseId}</span>}
                   </TableCell>
                   <TableCell><Badge variant={event.action === 'overridden' ? 'default' : 'secondary'}>{actionLabel[event.action]}</Badge></TableCell>
                   <TableCell>

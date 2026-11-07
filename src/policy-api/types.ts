@@ -35,7 +35,7 @@ export interface PolicyRepo {
   /** Only drafts can be deleted; returns false otherwise. */
   deleteDraft(id: string): Promise<boolean>;
   /** Archives the active version and activates this draft atomically. Throws if it is not a draft. */
-  activate(id: string): Promise<PolicyVersionRecord>;
+  activate(id: string, expectedActiveId?: string): Promise<PolicyVersionRecord>;
 }
 
 export type ImpactRecommendation = 'routine_processing' | 'request_information' | 'human_review';

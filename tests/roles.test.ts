@@ -24,7 +24,7 @@ describe('role boundaries', () => {
     const deps = vi.fn();
     for (const role of [null, 'claims_handler', 'reviewer']) {
       const auth = async () => ({ ...user, app_metadata: { hack_muc_role: role } });
-      for (const action of ['create_draft', 'update_draft', 'discard_draft', 'activate']) {
+      for (const action of ['create_draft', 'update_draft', 'discard_draft', 'activate', 'impact']) {
         const request = new Request('https://app.test/api/policy', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action, role: 'admin' }) });
         expect((await handlePolicyRequest(request, 'policy', deps, auth)).status).toBe(403);
       }
@@ -39,12 +39,12 @@ describe('role boundaries', () => {
       expect((await handlePolicyRequest(new Request('https://app.test/api/policy', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'set_role', userId: 'actor', role: 'admin' }) }), 'policy', vi.fn(), auth)).status).toBe(403);
     }
   });
-  it('preserves unrelated app metadata when an admin changes a team role', async () => {
-    const updateUserById = vi.fn(async () => ({ error: null }));
-    const admin = { getUserById: vi.fn(async () => ({ data: { user: { ...user, id: 'target', app_metadata: { provider: 'email', hack_muc_access: true } } }, error: null })), updateUserById } as unknown as ReturnType<typeof createTeamAdmin>;
-    await setTeamRole(user, { userId: 'target', role: 'reviewer' }, admin);
-    expect(updateUserById).toHaveBeenCalledWith('target', { app_metadata: { provider: 'email', hack_muc_access: true, hack_muc_role: 'reviewer' } });
-    await expect(setTeamRole(user, { userId: 'actor', role: 'reviewer' }, admin)).rejects.toMatchObject({ status: 400 });
-    await expect(setTeamRole(user, { userId: 'target', role: 'owner' }, admin)).rejects.toMatchObject({ status: 400 });
+  it('sends the verified actor to the atomic, audited role RPC', async () => {
+    const rpc = vi.fn(async () => ({ error: null }));
+    const db = { rpc } as unknown as NonNullable<Parameters<typeof setTeamRole>[2]>;
+    await setTeamRole(user, { userId: 'target', role: 'reviewer' }, db);
+    expect(rpc).toHaveBeenCalledWith('set_team_role', { p_actor: 'actor', p_user: 'target', p_role: 'reviewer' });
+    await expect(setTeamRole(user, { userId: 'actor', role: 'reviewer' }, db)).rejects.toMatchObject({ status: 400 });
+    await expect(setTeamRole(user, { userId: 'target', role: 'owner' }, db)).rejects.toMatchObject({ status: 400 });
   });
 });
