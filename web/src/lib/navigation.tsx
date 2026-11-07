@@ -2,11 +2,12 @@ import { useSyncExternalStore, type ComponentProps } from 'react';
 
 export const pages = [
   { id: 'queue', path: '/review-queue', label: 'Review queue' },
-  { id: 'examples', path: '/examples', label: 'CSV examples' },
-  { id: 'team', path: '/team', label: 'Team' },
   { id: 'quality', path: '/dashboard', label: 'Dashboard' },
-  { id: 'example-quality', path: '/example-quality', label: 'Example quality' },
   { id: 'policy', path: '/policy', label: 'Policy' },
+  { id: 'examples', path: '/examples', label: 'CSV examples' },
+  { id: 'example-quality', path: '/example-quality', label: 'Example quality' },
+  // Opened from the account menu (admins only), not the main navigation.
+  { id: 'team', path: '/team', label: 'Team', menuOnly: true },
 ] as const;
 const changed = 'app:navigation';
 const snapshot = () => window.location.pathname + window.location.search + window.location.hash;

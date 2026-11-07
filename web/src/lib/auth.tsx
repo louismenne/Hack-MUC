@@ -139,16 +139,21 @@ function SetPassword({ onComplete }: { onComplete: () => void }) {
   </form></AuthCard>;
 }
 
+/** Signs out of this browser. Resolves to an error message, or '' on success. */
+export async function signOut(): Promise<string> {
+  try {
+    const { error } = await supabase.auth.signOut({ scope: 'local' });
+    return error ? 'Could not sign out. Please retry.' : '';
+  } catch { return 'Could not sign out. Please retry.'; }
+}
+
 export function SignOutButton() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  async function signOut() {
+  async function run() {
     setBusy(true);
-    try {
-      const { error } = await supabase.auth.signOut({ scope: 'local' });
-      if (error) setError('Could not sign out. Please retry.');
-    } catch { setError('Could not sign out. Please retry.'); }
-    finally { setBusy(false); }
+    setError(await signOut());
+    setBusy(false);
   }
-  return <><Button type="button" variant="outline" disabled={busy} onClick={() => void signOut()}>Sign out</Button>{error && <span role="alert" className="text-xs text-destructive">{error}</span>}</>;
+  return <><Button type="button" variant="outline" disabled={busy} onClick={() => void run()}>Sign out</Button>{error && <span role="alert" className="text-xs text-destructive">{error}</span>}</>;
 }

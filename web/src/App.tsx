@@ -1,10 +1,12 @@
 import { StoredClaims } from '@/components/stored-claims';
 import { permissions, roleOf, roleLabels } from '../../src/roles';
 import { Team } from '@/components/team';
-import { useAuthUser, SignOutButton } from '@/lib/auth';
+import { useAuthUser, signOut } from '@/lib/auth';
 import { PolicyManager } from '@/components/policy-manager';
+import { TaktileLogo } from '@/components/taktile-logo';
 import { useEffect, useMemo, useRef } from 'react';
-import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, MoonIcon, ShieldCheckIcon, SunIcon, UploadIcon } from 'lucide-react';
+import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, LogOutIcon, MonitorIcon, MoonIcon, SunIcon, UploadIcon, UsersIcon } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useTheme } from '@/lib/theme';
 import { toast } from 'sonner';
 import { buildBuiltinDatasets, downloadFile, exportResultsCsv, loadDataset, type Dataset } from '@/lib/datasets';
@@ -51,6 +53,7 @@ function AppContent() {
   const [selection, setSelection] = usePersistentState<Record<string, string>>('selection', {}, isRecord);
   const route = useRoute();
   const tab = route.page;
+  const navPages = pages.filter(page => !('menuOnly' in page));
   useEffect(() => {
     document.title = `${pages.find(page => page.id === tab)?.label ?? 'Review queue'} · Claims Triage`;
   }, [tab]);
@@ -127,60 +130,31 @@ function AppContent() {
   return (
     <div className="min-h-svh bg-muted/30">
       <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur supports-backdrop-filter:bg-background/75">
-        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-          <div className="flex items-center gap-2.5">
-            <div className="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground">
-              <ShieldCheckIcon className="size-4" />
-            </div>
-            <div className="leading-tight">
-              <div className="text-sm font-semibold">Claims Triage</div>
-              <div className="text-xs text-muted-foreground">Team LLM · motor own damage</div>
-            </div>
-          </div>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge variant="outline" className="font-mono">policy {history.active.label}{source.refreshing ? ' · checking…' : ''}</Badge>
-            </TooltipTrigger>
-            <TooltipContent>
-              {source.origin === 'supabase' ? 'Active policy version from Supabase.' : 'Bundled copy of the policy files (Supabase not reachable).'} CSV examples use these rules. Submitted claims use saved server decisions.
-            </TooltipContent>
-          </Tooltip>
-          <div className="ml-auto flex flex-wrap items-center gap-2">
-            {(tab === 'examples' || tab === 'example-quality') && <>
-            <span className="text-xs text-muted-foreground">CSV examples:</span>
-            <Select value={dataset.id} onValueChange={value => { setDatasetId(value); setFilters(defaultFilters); }}>
-              <SelectTrigger className="w-52" aria-label="Dataset">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent align="end">
-                <SelectGroup>
-                  <SelectLabel>Participant pack</SelectLabel>
-                  {builtinDatasets.map(item => (
-                    <SelectItem key={item.id} value={item.id}>{item.name} ({item.cases.length})</SelectItem>
-                  ))}
-                </SelectGroup>
-                {uploaded && (
-                  <>
-                    <SelectSeparator />
-                    <SelectGroup>
-                      <SelectLabel>Uploaded</SelectLabel>
-                      <SelectItem value={uploaded.id}>{uploaded.name} ({uploaded.cases.length})</SelectItem>
-                    </SelectGroup>
-                  </>
-                )}
-              </SelectContent>
-            </Select>
-            <input ref={fileInput} type="file" accept=".csv,text/csv" className="sr-only" tabIndex={-1} onChange={event => { void onUpload(event.target.files?.[0]); event.target.value = ''; }} />
-            <Button variant="outline" disabled={!access.upload} onClick={() => fileInput.current?.click()}>
-              <UploadIcon data-icon="inline-start" /> Upload CSV
-            </Button>
-            <Button variant="outline" onClick={() => downloadFile(`results-${slug}.csv`, exportResultsCsv(dataset, states))}>
-              <DownloadIcon data-icon="inline-start" /> Export results
-            </Button>
-            </>}
-            <span className="text-xs text-muted-foreground">{user.email} · {role ? roleLabels[role] : 'Unassigned (read only)'}</span>
-            <SignOutButton />
-            <ThemeToggle />
+        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-6 gap-y-2 px-4 py-2.5 md:h-14 md:flex-nowrap md:py-0">
+          <PageLink href={pageHref('queue')} aria-label="Taktile · go to Review queue"
+            className="flex h-8 shrink-0 items-center rounded-sm text-foreground focus-visible:outline-2 focus-visible:outline-ring">
+            <TaktileLogo className="h-3.5 w-auto" aria-hidden />
+          </PageLink>
+
+          <nav aria-label="Main navigation" className="order-last -mx-1 flex w-full gap-1 overflow-x-auto [scrollbar-width:none] md:order-none md:mx-0 md:w-auto [&::-webkit-scrollbar]:hidden">
+            {navPages.map(page => (
+              <PageLink key={page.id} href={page.path} aria-current={tab === page.id ? 'page' : undefined}
+                className={`shrink-0 rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-ring ${tab === page.id ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+                {page.label}
+              </PageLink>
+            ))}
+          </nav>
+
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className="hidden font-mono sm:inline-flex">policy {history.active.label}{source.refreshing ? ' · checking…' : ''}</Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                {source.origin === 'supabase' ? 'Active policy version from Supabase.' : 'Bundled copy of the policy files (Supabase not reachable).'} CSV examples use these rules. Submitted claims use saved server decisions.
+              </TooltipContent>
+            </Tooltip>
+            <AccountMenu email={user.email ?? ''} roleLabel={role ? roleLabels[role] : 'Unassigned (read only)'} canManageTeam={access.team} />
           </div>
         </div>
       </header>
@@ -199,23 +173,45 @@ function AppContent() {
       )}
 
       <main className="mx-auto flex max-w-[1600px] flex-col gap-4 px-4 py-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <nav aria-label="Main navigation" className="flex flex-wrap gap-1 rounded-lg bg-muted p-1">
-            {pages.filter(page => page.id !== 'team' || access.team).map(page => (
-              <PageLink key={page.id} href={page.path} aria-current={tab === page.id ? 'page' : undefined}
-                className={`rounded-md px-3 py-1 text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring ${tab === page.id ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-                {page.label}
-              </PageLink>
-            ))}
-          </nav>
-          <p className="text-xs text-muted-foreground">
-            {tab === 'examples' || tab === 'example-quality' ? dataset.description + '. ' : ''}Recommends a handling step; never approves or pays a claim.
-          </p>
-        </div>
+        {(tab === 'examples' || tab === 'example-quality') && (
+          <div className={`flex w-full flex-wrap items-center justify-between gap-3 ${tab === 'examples' ? 'mx-auto max-w-5xl' : ''}`}>
+            <p className="text-sm text-muted-foreground">{dataset.description}. Read-only examples; submitted claims are reviewed in the Review queue.</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select value={dataset.id} onValueChange={value => { setDatasetId(value); setFilters(defaultFilters); }}>
+                <SelectTrigger className="w-52" aria-label="CSV example dataset">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent align="end">
+                  <SelectGroup>
+                    <SelectLabel>Participant pack</SelectLabel>
+                    {builtinDatasets.map(item => (
+                      <SelectItem key={item.id} value={item.id}>{item.name} ({item.cases.length})</SelectItem>
+                    ))}
+                  </SelectGroup>
+                  {uploaded && (
+                    <>
+                      <SelectSeparator />
+                      <SelectGroup>
+                        <SelectLabel>Uploaded</SelectLabel>
+                        <SelectItem value={uploaded.id}>{uploaded.name} ({uploaded.cases.length})</SelectItem>
+                      </SelectGroup>
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+              <input ref={fileInput} type="file" accept=".csv,text/csv" className="sr-only" tabIndex={-1} onChange={event => { void onUpload(event.target.files?.[0]); event.target.value = ''; }} />
+              <Button variant="outline" disabled={!access.upload} onClick={() => fileInput.current?.click()}>
+                <UploadIcon data-icon="inline-start" /> Upload CSV
+              </Button>
+              <Button variant="outline" onClick={() => downloadFile(`results-${slug}.csv`, exportResultsCsv(dataset, states))}>
+                <DownloadIcon data-icon="inline-start" /> Export results
+              </Button>
+            </div>
+          </div>
+        )}
 
         {tab === 'queue' && <StoredClaims />}
         {tab === 'examples' && <section>
-          <p className="mb-4 text-sm text-muted-foreground">Read-only CSV examples. Review submitted claims in the Review queue.</p>
           {pageOpen ? (
             <div className="mx-auto flex max-w-5xl flex-col gap-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -260,16 +256,59 @@ function AppContent() {
         </section>}
       </main>
 
+      <footer className="mx-auto max-w-[1600px] px-4 pb-6 text-xs text-muted-foreground">
+        Recommends a handling step; never approves or pays a claim.
+      </footer>
     </div>
   );
 }
 
-function ThemeToggle() {
-  const { resolvedTheme, setTheme } = useTheme();
-  const dark = resolvedTheme === 'dark';
+const themes = [
+  { value: 'light', label: 'Light', icon: SunIcon },
+  { value: 'dark', label: 'Dark', icon: MoonIcon },
+  { value: 'system', label: 'System', icon: MonitorIcon },
+] as const;
+
+function initials(email: string) {
+  const parts = email.split('@')[0].split(/[._-]+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || '?';
+}
+
+/** Account, team management, theme and sign-out live here so the top bar stays uncluttered. */
+function AccountMenu({ email, roleLabel, canManageTeam }: { email: string; roleLabel: string; canManageTeam: boolean }) {
+  const { theme, setTheme } = useTheme();
   return (
-    <Button variant="ghost" size="icon" onClick={() => setTheme(dark ? 'light' : 'dark')} aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'}>
-      {dark ? <SunIcon /> : <MoonIcon />}
-    </Button>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="rounded-full" aria-label={`Account menu for ${email}`}>
+          <span className="grid size-8 place-items-center rounded-full bg-muted text-xs font-semibold text-foreground">{initials(email)}</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-60">
+        <div className="px-2 py-1.5">
+          <div className="truncate text-sm font-medium">{email}</div>
+          <div className="text-xs text-muted-foreground">{roleLabel}</div>
+        </div>
+        {canManageTeam && <>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => navigate(pageHref('team'))}>
+            <UsersIcon /> Team &amp; roles
+          </DropdownMenuItem>
+        </>}
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>Theme</DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={theme} onValueChange={value => setTheme(value as typeof theme)}>
+          {themes.map(({ value, label, icon: Icon }) => (
+            <DropdownMenuRadioItem key={value} value={value} onSelect={event => event.preventDefault()}>
+              <Icon /> {label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => void signOut().then(error => { if (error) toast.error(error); })}>
+          <LogOutIcon /> Sign out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
