@@ -28,7 +28,8 @@ const isEvents = (value: unknown): value is ReviewEvent[] => Array.isArray(value
 const isFilters = (value: unknown): value is ListFilters => isRecord(value) && typeof value.query === 'string';
 
 const maxUploadBytes = 2_000_000;
-const defaultFilters: ListFilters = { query: '', recommendation: 'all', status: 'any' };
+// Reviewer inbox by default: only cases routed to human review.
+const defaultFilters: ListFilters = { query: '', recommendation: 'human_review', status: 'any' };
 
 export function App() {
   const [datasetId, setDatasetId] = usePersistentState('dataset', 'development', isString);
