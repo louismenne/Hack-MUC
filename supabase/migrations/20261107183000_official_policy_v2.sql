@@ -1,6 +1,8 @@
 -- Official organizer policy v2. Apply after 20261107120000_policy_versions.sql.
 -- Preserves all experimental versions (including any pre-existing version named v2).
 -- Uses official-v2 to avoid reinterpreting historical user-created labels.
+-- Creates official-v2 as a DRAFT only. It is NOT activated here: a policy owner reviews it in the
+-- Policy tab (diff and impact on open cases) and activates it there.
 begin;
 lock table public.policy_versions in share row exclusive mode;
 insert into public.policy_versions
@@ -206,15 +208,13 @@ $official_v2$::jsonb, 'draft',
   'Organizer policy-v2.pdf: EUR 1,200 limit; all EV high-voltage battery work requires human review; closed claims retain v1.',
   'seed', (select id from public.policy_versions where version_label = 'v1'), 'Organizer v2 notice')
 on conflict (version_label) do nothing;
+-- Safety check only (changes nothing): official-v2 must be the organizer seed, not a user-made policy.
 do $$
 declare target public.policy_versions;
 begin
   select * into target from public.policy_versions where version_label = 'official-v2';
   if target.source <> 'seed' then
     raise exception 'official-v2 is already used by a non-official policy; inspect before migrating';
-  end if;
-  if target.status = 'draft' then
-    perform public.activate_policy_version(target.id);
   end if;
 end $$;
 commit;
