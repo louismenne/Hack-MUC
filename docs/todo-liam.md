@@ -25,6 +25,8 @@ Detail-Backlog zur Reviewer-UI: [backlog-reviewer-ui.md](backlog-reviewer-ui.md)
 - [ ] PR für `liam/quality-dashboard` erstellen + mergen lassen
 - [ ] Reviewer-Bereich neu: Graph „Eingang vs. erledigt“ pro Woche mit % Veränderung (echte Audit-Daten)
 - [ ] Decision Quality → eigener Tab „Quality report“ (v1 vs. v2, geänderte Fälle separat); im Dashboard nur „Wrongly sent to routine“
+- [ ] Audit Log ins Dashboard integrieren: Owner sieht, was der/die Reviewer gemacht haben
+      (wer hat wann welchen Fall wie entschieden, mit Begründung + Policy-Version; filterbar nach Reviewer)
 - [ ] UI-Feinschliff später (erst Sinn, dann schön)
 
 ## 5. Quality Report als laufender Prozess

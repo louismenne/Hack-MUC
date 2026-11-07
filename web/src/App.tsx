@@ -253,7 +253,7 @@ function AppContent() {
           <TabsList>
             <TabsTrigger value="queue">Review queue</TabsTrigger>
             {access.team && <TabsTrigger value="team">Team</TabsTrigger>}
-            <TabsTrigger value="quality">Quality</TabsTrigger>
+            <TabsTrigger value="quality">Dashboard</TabsTrigger>
             <TabsTrigger value="policy">Policy</TabsTrigger>
             <TabsTrigger value="audit">
               Audit log
