@@ -3,14 +3,12 @@ import { parse } from 'csv-parse/sync';
 import { describe, expect, it } from 'vitest';
 import { triageRows } from '../src/claims.js';
 import { computeInsights, quoteBandIndex, suggestedActions, type InsightCase } from '../src/insights.js';
-import { policyV1 } from '../src/triage.js';
 
 const load = (name: string): InsightCase[] => {
   const rows = parse(readFileSync(new URL(`../data/${name}`, import.meta.url), 'utf8'), { columns: true }) as Record<string, string>[];
   return triageRows(rows).map(({ decision, claim }) => ({
     decision,
     quote: typeof claim.quote_eur === 'number' ? claim.quote_eur : null,
-    quoteLimit: policyV1.routineQuoteLimitEur,
     effective: decision.recommendation,
     reviewStatus: 'pending',
   }));

@@ -2,7 +2,8 @@ import {
   ArrowRightIcon, BotIcon, CircleAlertIcon, ClockIcon, CircleCheckIcon, FlaskConicalIcon, PencilLineIcon, QuoteIcon, Undo2Icon, ZapIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { describeFact, euro, fieldGroups, fieldLabels, recommendationMeta, ruleMeta, triggeringFields } from '@/lib/policy';
+import { describeFact, euro, fieldGroups, fieldLabels, recommendationMeta, ruleInfo, triggeringFields } from '@/lib/policy';
+import { usePolicySource } from '@/lib/policy-source';
 import type { CaseItem } from '@/lib/datasets';
 import { fullDate } from '@/components/claims-list';
 import { daysOpen } from '../../../src/received-at';
@@ -32,7 +33,8 @@ interface ClaimDetailProps {
 
 export function ClaimDetail({ item, state, onAction }: ClaimDetailProps) {
   const { decision, claim, label } = item;
-  const rule = ruleMeta[decision.ruleId];
+  const { history } = usePolicySource();
+  const rule = ruleInfo(decision, history);
   const triggered = triggeringFields(decision);
   const overridden = state.status === 'overridden';
   // Cases the engine routed to a human get a dedicated reviewer decision (still being designed);
@@ -59,19 +61,21 @@ export function ClaimDetail({ item, state, onAction }: ClaimDetailProps) {
             <QuoteIcon className="mt-1 size-3.5 shrink-0 text-muted-foreground" aria-hidden />
             {String(claim.claim_summary ?? 'No claim summary supplied.')}
           </CardTitle>
+          {claim.case_status === 'closed' && <p className="text-sm text-muted-foreground">Historical closed claim · v1 retained · no action required.</p>}
+          {item.needsRecheck && <Badge variant="outline">Changed under {decision.policyVersion} · needs recheck</Badge>}
           <CardDescription>The summary is descriptive only. Decisions use the structured fields below.</CardDescription>
           <CardAction className="flex flex-wrap justify-end gap-2 max-sm:col-start-1 max-sm:row-span-1 max-sm:row-start-auto max-sm:mt-2 max-sm:justify-self-start">
             {overridden && (
-              <Button variant="ghost" onClick={() => onAction('reverted')}>
+              <Button variant="ghost" disabled={claim.case_status === 'closed'} onClick={() => onAction('reverted')}>
                 <Undo2Icon data-icon="inline-start" /> Revert
               </Button>
             )}
             {needsHuman ? (
               <Badge variant="outline" className="gap-1.5">
-                <ClockIcon /> Reviewer decision pending
+                <ClockIcon /> {claim.case_status === 'closed' ? 'Historical decision · no action required' : 'Reviewer decision pending'}
               </Badge>
             ) : (
-              <Button onClick={() => onAction('overridden')}>
+              <Button disabled={claim.case_status === 'closed'} onClick={() => onAction('overridden')}>
                 <PencilLineIcon data-icon="inline-start" /> Override
               </Button>
             )}
@@ -160,7 +164,7 @@ export function ClaimDetail({ item, state, onAction }: ClaimDetailProps) {
                 <AlertDescription>
                   <p>
                     {decision.missingFields.map(field => fieldLabels[field]).join(', ')}.{' '}
-                    {decision.ruleId === 'v1.rule1' ? 'A known review trigger already applies, so these do not change the outcome.' : 'No value was invented; the engine asks for the information instead.'}
+                    {decision.ruleId.endsWith('.rule1') ? 'A known review trigger already applies, so these do not change the outcome.' : 'No value was invented; the engine asks for the information instead.'}
                   </p>
                 </AlertDescription>
               </Alert>
@@ -168,7 +172,7 @@ export function ClaimDetail({ item, state, onAction }: ClaimDetailProps) {
             {label && (
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <FlaskConicalIcon className="size-3.5" aria-hidden />
-                Development label <RecommendationBadge value={label} short />
+                {item.frozen ? 'V1 development label (closed claim, decision frozen)' : 'V2 expectation (team-derived for built-in cases)'} <RecommendationBadge value={label} short />
                 {label === decision.recommendation
                   ? <span className="text-rec-routine-foreground">matches the engine</span>
                   : <span className="font-medium text-destructive">differs from the engine</span>}

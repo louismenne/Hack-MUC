@@ -2,7 +2,10 @@ import { useMemo, useState } from 'react';
 import { ActivityIcon, ArrowDownRightIcon, ArrowUpRightIcon, CalendarClockIcon, ChevronLeftIcon, ChevronRightIcon, FlaskConicalIcon, InfoIcon, LightbulbIcon, MinusIcon, OctagonAlertIcon, TriangleAlertIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { euro, fieldLabels, recommendationMeta } from '@/lib/policy';
-import type { CaseItem, Dataset } from '@/lib/datasets';
+import { officialComparison, type CaseItem, type Dataset } from '@/lib/datasets';
+import { usePolicySource } from '@/lib/policy-source';
+import { parseNumber } from '../../../src/policy-engine/values';
+import { reviewQuoteLimit } from '../../../src/policy-engine/reporting';
 import { dotClasses } from '@/components/recommendation-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,16 +19,9 @@ import { qualityReport, type QualityReport } from '../../../src/quality';
 import { daysOpen, V2_PERIOD_START } from '../../../src/received-at';
 import { recommendations, type ReviewState } from '../../../src/review';
 import { bucketEnd, delta, inWindow, isoWeek, previousWindow, rangeLabels, receivedSeries, timeRanges, windowFor, type Bucket, type Delta, type SeriesPoint, type TimeRange, type Window } from '../../../src/timeline';
-import { policyV1, type Field, type Recommendation } from '../../../src/triage';
+import type { Field, Recommendation } from '../../../src/triage';
 
 const pct = (value: number) => `${Math.round(value * 100)}%`;
-
-/**
- * Routine quote limit per policy version. Each claim is compared with the limit of the version
- * that decided it, so v1 and v2 claims can share one chart. Add v2 here (or load it from the
- * policy store) once the new policy is released.
- */
-const quoteLimits: Record<string, number> = { v1: policyV1.routineQuoteLimitEur };
 
 const documentNames: Partial<Record<Field, string>> = {
   incident_report_present: 'Incident report',
@@ -49,29 +45,42 @@ export function QualityView({ dataset, states }: { dataset: Dataset; states: Map
   const window = windowFor(range, now, earliest);
   const previous = range === 'all' ? null : previousWindow(window);
 
-  // Without arrival dates the time filter cannot apply, so every claim counts.
-  const current = hasDates ? dataset.cases.filter(item => item.received && inWindow(item.received.at, window)) : dataset.cases;
-  const before = hasDates && previous ? dataset.cases.filter(item => item.received && inWindow(item.received.at, previous)) : null;
+  // Closed claims are historical, not pending work, so the operational view counts open claims only.
+  const open = dataset.cases.filter(item => !item.frozen);
+  // Without arrival dates the time filter cannot apply, so every open claim counts.
+  const current = hasDates ? open.filter(item => item.received && inWindow(item.received.at, window)) : open;
+  const before = hasDates && previous ? open.filter(item => item.received && inWindow(item.received.at, previous)) : null;
+  const { history } = usePolicySource();
+  // The active policy's quote limit; null when the policy has no single unconditional threshold.
+  const limit = reviewQuoteLimit(history.active.rules);
 
   const toInsight = (item: CaseItem) => {
     const state = states.get(item.decision.caseId)!;
     return {
       decision: item.decision,
-      quote: typeof item.claim.quote_eur === 'number' ? item.claim.quote_eur : null,
-      quoteLimit: quoteLimits[item.decision.policyVersion] ?? policyV1.routineQuoteLimitEur,
+      quote: parseNumber(item.row.quote_eur),
       effective: state.effective,
       reviewStatus: state.status,
     };
   };
-  const insights = computeInsights(current.map(toInsight));
-  const prior = before ? computeInsights(before.map(toInsight)) : null;
-  const backlog = dataset.cases.filter(item => {
+  const insights = computeInsights(current.map(toInsight), limit);
+  const prior = before ? computeInsights(before.map(toInsight), limit) : null;
+  const backlog = open.filter(item => {
     const state = states.get(item.decision.caseId)!;
     return state.effective === 'human_review' && state.status === 'pending';
   });
   const oldestWaiting = backlog.map(item => item.received?.at).filter((at): at is Date => !!at).sort((a, b) => a.getTime() - b.getTime())[0];
 
-  const labelled = dataset.cases.filter(item => item.label !== null);
+  const official = new Map(officialComparison(dataset).map(item => [item.current.caseId, item]));
+  const labelled = dataset.cases.filter(item => item.label !== null && !item.frozen);
+  const v1Cases = dataset.cases.filter(c => c.labelV1 !== null);
+  const v2Cases = dataset.cases.filter(c => c.labelV2 !== null && !c.frozen);
+  const v1Report = qualityReport(v1Cases.map(c => ({ expected: c.labelV1!, predicted: official.get(c.decision.caseId)!.decision.recommendation })));
+  const v1AgainstV2 = qualityReport(v2Cases.map(c => ({ expected: c.labelV2!, predicted: official.get(c.decision.caseId)!.decision.recommendation })));
+  const v2Report = qualityReport(v2Cases.map(c => ({ expected: c.labelV2!, predicted: official.get(c.decision.caseId)!.current.recommendation })));
+  const changed = v2Cases.filter(c => official.get(c.decision.caseId)!.needsRecheck);
+  const changedBefore = qualityReport(changed.map(c => ({ expected: c.labelV2!, predicted: official.get(c.decision.caseId)!.decision.recommendation })));
+  const changedAfter = qualityReport(changed.map(c => ({ expected: c.labelV2!, predicted: official.get(c.decision.caseId)!.current.recommendation })));
   const engine = qualityReport(labelled.map(item => ({ expected: item.label!, predicted: item.decision.recommendation })));
   const reviewed = qualityReport(labelled.map(item => ({ expected: item.label!, predicted: states.get(item.decision.caseId)!.effective })));
   const actions = suggestedActions(insights, labelled.length ? engine : undefined, gapLabel);
@@ -89,7 +98,7 @@ export function QualityView({ dataset, states }: { dataset: Dataset; states: Map
             {simulated && <Badge variant="outline" className="font-normal text-muted-foreground" title="The case CSVs carry no timestamps; arrival dates are simulated for the demo (src/received-at.ts).">Simulated arrival dates</Badge>}
           </h2>
           <p className="text-sm text-muted-foreground">
-            {hasDates ? `${insights.total} claims received · ${formatWindow(window)}` : `${insights.total} claims · no arrival dates in this dataset, time filter off`}
+            {hasDates ? `${insights.total} open claims received · ${formatWindow(window)} · closed claims excluded` : `${insights.total} claims · no arrival dates in this dataset, time filter off`}
           </p>
         </div>
         <ToggleGroup
@@ -155,6 +164,11 @@ export function QualityView({ dataset, states }: { dataset: Dataset; states: Map
         </>
       )}
 
+      <Card><CardHeader><CardTitle>Official policy change · before and after</CardTitle><CardDescription>V1 labels are supplied by the organizer. Built-in v2 expectations are team-derived from the official notice; they are not independent hidden-set validation. Closed claims are excluded from every v2 score.</CardDescription></CardHeader>
+        <CardContent><Table><TableHeader><TableRow><TableHead>Evaluation</TableHead><TableHead>Correct / labelled</TableHead><TableHead>Incorrect routine</TableHead><TableHead>Unnecessary review</TableHead></TableRow></TableHeader><TableBody>
+          {([['V1 vs v1 labels', v1Report], ['V1 vs v2 expectations (before)', v1AgainstV2], ['V2 vs v2 expectations (after)', v2Report], ['Changed open cases · before', changedBefore], ['Changed open cases · after', changedAfter]] as const).map(([name, r]) => <TableRow key={name}><TableCell>{name}</TableCell><TableCell>{r.labelled ? `${r.correct}/${r.labelled}` : 'Not scored'}</TableCell><TableCell>{r.labelled ? `${r.incorrectRoutine} (${Math.round(100 * r.incorrectRoutine / r.labelled)}%)` : '—'}</TableCell><TableCell>{r.labelled ? `${r.unnecessaryReview} (${Math.round(100 * r.unnecessaryReview / r.labelled)}%)` : '—'}</TableCell></TableRow>)}
+        </TableBody></Table><p className="mt-3 text-xs text-muted-foreground">Error-rate denominator: all labelled claims in that row. {dataset.cases.filter(c => c.frozen).length} closed claims retain their v1 recommendation and are historical, not pending work.</p></CardContent>
+      </Card>
       {labelled.length > 0 ? (
         <>
           <div className="mt-2">
@@ -172,7 +186,7 @@ export function QualityView({ dataset, states }: { dataset: Dataset; states: Map
             <Card>
               <CardHeader>
                 <CardTitle>Confusion matrix</CardTitle>
-                <CardDescription>Engine recommendation against the development label, {engine.labelled} cases.</CardDescription>
+                <CardDescription>Active policy recommendation against its matching official expectations, {engine.labelled} cases.</CardDescription>
               </CardHeader>
               <CardContent>
                 <ConfusionTable report={engine} />
@@ -211,8 +225,8 @@ export function QualityView({ dataset, states }: { dataset: Dataset; states: Map
           <Empty>
             <EmptyHeader>
               <EmptyMedia variant="icon"><FlaskConicalIcon /></EmptyMedia>
-              <EmptyTitle>No labels in this dataset</EmptyTitle>
-              <EmptyDescription>Accuracy is measured only where an expected_v1 label exists, such as the 14 development cases. Predictions on this set are not scored.</EmptyDescription>
+              <EmptyTitle>No matching labels for the active policy</EmptyTitle>
+              <EmptyDescription>Active-policy accuracy requires matching official policy rules and corresponding expected labels. Custom policies are not scored against a different policy’s labels. Built-in v2 expectations are team-derived.</EmptyDescription>
             </EmptyHeader>
           </Empty>
         </Card>
@@ -543,14 +557,18 @@ function QuoteChart({ insights }: { insights: Insights }) {
     <Card>
       <CardHeader>
         <CardTitle>Repair quotes vs. quote limit</CardTitle>
-        {insights.unknownQuotes > 0 && <CardDescription>{insights.unknownQuotes} quote(s) unreadable</CardDescription>}
+        {(insights.limit === null || insights.unknownQuotes > 0) && (
+          <CardDescription>
+            {insights.limit === null ? 'The active policy has no single quote limit.' : `${insights.unknownQuotes} quote(s) unreadable`}
+          </CardDescription>
+        )}
       </CardHeader>
       <CardContent>
         <div className="relative flex h-40 items-end gap-2 border-b" role="img" aria-label={insights.quoteBands.map(band => `${band.label}: ${band.count}`).join(', ')}>
           {insights.quoteBands.map((band, index) => (
             <div key={band.label} className="group relative flex h-full flex-1 flex-col justify-end" title={`${band.label} the limit (${band.range}): ${band.count} claim(s)${band.aboveLimit ? ' → human review' : ''}`}>
               {index === limitIndex && (
-                <div className="absolute inset-y-0 -left-1.5 border-l border-dashed border-foreground/50" title={`Each claim is measured against the quote limit of the policy version that decided it (${Object.entries(quoteLimits).map(([v, eur]) => `${v}: ${euro.format(eur)}`).join(', ')}).`}>
+                <div className="absolute inset-y-0 -left-1.5 border-l border-dashed border-foreground/50" title={insights.limit === null ? undefined : `Active policy quote limit: ${euro.format(insights.limit)}`}>
                   <span className="absolute -top-0.5 left-1 text-[10px] whitespace-nowrap text-muted-foreground">Limit</span>
                 </div>
               )}
@@ -570,8 +588,8 @@ function QuoteChart({ insights }: { insights: Insights }) {
           ))}
         </div>
         <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-foreground/25" /> Within limit</span>
-          <span className="flex items-center gap-1.5"><span className={cn('size-2 rounded-sm', dotClasses.human_review)} /> Above limit → human review</span>
+          <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-foreground/25" /> {insights.limit === null ? 'Quote distribution' : 'At or below limit'}</span>
+          <span className="flex items-center gap-1.5">{insights.limit !== null && <><span className={cn('size-2 rounded-sm', dotClasses.human_review)} /> Above limit → human review</>}</span>
         </div>
       </CardContent>
     </Card>

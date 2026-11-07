@@ -1,0 +1,713 @@
+{
+  "note": "Frozen from the former hard-coded rules in src/triage.ts (commit 3ca24f4): v1 = original decision, v2 = official v2 for open claims; closed claims keep v1 (frozen, needsRecheck=false). Rule ids are shown without the version prefix.",
+  "cases": [
+    {
+      "caseId": "DEV-001",
+      "status": "open",
+      "frozen": false,
+      "needsRecheck": false,
+      "v1": {
+        "recommendation": "routine_processing",
+        "rule": "rule3",
+        "missingFields": [],
+        "supportingFactFields": [
+          "quote_eur"
+        ]
+      },
+      "v2": {
+        "recommendation": "routine_processing",
+        "rule": "rule3",
+        "missingFields": [],
+        "supportingFactFields": [
+          "quote_eur"
+        ]
+      },
+      "effective": {
+        "recommendation": "routine_processing",
+        "rule": "rule3",
+        "policyVersion": "v2"
+      }
+    },
+    {
+      "caseId": "DEV-002",
+      "status": "open",
+      "frozen": false,
+      "needsRecheck": false,
+      "v1": {
+        "recommendation": "request_information",
+        "rule": "rule2",
+        "missingFields": [],
+        "supportingFactFields": [
+          "incident_report_present"
+        ]
+      },
+      "v2": {
+        "recommendation": "request_information",
+        "rule": "rule2",
+        "missingFields": [],
+        "supportingFactFields": [
+          "incident_report_present"
+        ]
+      },
+      "effective": {
+        "recommendation": "request_information",
+        "rule": "rule2",
+        "policyVersion": "v2"
+      }
+    },
+    {
+      "caseId": "DEV-003",
+      "status": "open",
+      "frozen": false,
+      "needsRecheck": false,
+      "v1": {
+        "recommendation": "request_information",
+        "rule": "rule2",
+        "missingFields": [],
+        "supportingFactFields": [
+          "itemized_quote_present"
+        ]
+      },
+      "v2": {
+        "recommendation": "request_information",
+        "rule": "rule2",
+        "missingFields": [],
+        "supportingFactFields": [
+          "itemized_quote_present"
+        ]
+      },
+      "effective": {
+        "recommendation": "request_information",
+        "rule": "rule2",
+        "policyVersion": "v2"
+      }
+    },
+    {
+      "caseId": "DEV-004",
+      "status": "open",
+      "frozen": false,
+      "needsRecheck": false,
+      "v1": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "missingFields": [],
+        "supportingFactFields": [
+          "quote_eur"
+        ]
+      },
+      "v2": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "missingFields": [],
+        "supportingFactFields": [
+          "quote_eur"
+        ]
+      },
+      "effective": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "policyVersion": "v2"
+      }
+    },
+    {
+      "caseId": "DEV-005",
+      "status": "open",
+      "frozen": false,
+      "needsRecheck": false,
+      "v1": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "missingFields": [],
+        "supportingFactFields": [
+          "policy_active_on_incident"
+        ]
+      },
+      "v2": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "missingFields": [],
+        "supportingFactFields": [
+          "policy_active_on_incident"
+        ]
+      },
+      "effective": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "policyVersion": "v2"
+      }
+    },
+    {
+      "caseId": "DEV-006",
+      "status": "open",
+      "frozen": false,
+      "needsRecheck": false,
+      "v1": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "missingFields": [],
+        "supportingFactFields": [
+          "injury_reported"
+        ]
+      },
+      "v2": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "missingFields": [],
+        "supportingFactFields": [
+          "injury_reported"
+        ]
+      },
+      "effective": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "policyVersion": "v2"
+      }
+    },
+    {
+      "caseId": "DEV-007",
+      "status": "open",
+      "frozen": false,
+      "needsRecheck": false,
+      "v1": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "missingFields": [],
+        "supportingFactFields": [
+          "liability_disputed"
+        ]
+      },
+      "v2": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "missingFields": [],
+        "supportingFactFields": [
+          "liability_disputed"
+        ]
+      },
+      "effective": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "policyVersion": "v2"
+      }
+    },
+    {
+      "caseId": "DEV-008",
+      "status": "open",
+      "frozen": false,
+      "needsRecheck": false,
+      "v1": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "missingFields": [],
+        "supportingFactFields": [
+          "duplicate_flag"
+        ]
+      },
+      "v2": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "missingFields": [],
+        "supportingFactFields": [
+          "duplicate_flag"
+        ]
+      },
+      "effective": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "policyVersion": "v2"
+      }
+    },
+    {
+      "caseId": "DEV-009",
+      "status": "open",
+      "frozen": false,
+      "needsRecheck": false,
+      "v1": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "missingFields": [],
+        "supportingFactFields": [
+          "evidence_conflict"
+        ]
+      },
+      "v2": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "missingFields": [],
+        "supportingFactFields": [
+          "evidence_conflict"
+        ]
+      },
+      "effective": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "policyVersion": "v2"
+      }
+    },
+    {
+      "caseId": "DEV-010",
+      "status": "open",
+      "frozen": false,
+      "needsRecheck": true,
+      "v1": {
+        "recommendation": "routine_processing",
+        "rule": "rule3",
+        "missingFields": [],
+        "supportingFactFields": [
+          "quote_eur"
+        ]
+      },
+      "v2": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "missingFields": [],
+        "supportingFactFields": [
+          "quote_eur"
+        ]
+      },
+      "effective": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "policyVersion": "v2"
+      }
+    },
+    {
+      "caseId": "DEV-011",
+      "status": "open",
+      "frozen": false,
+      "needsRecheck": true,
+      "v1": {
+        "recommendation": "routine_processing",
+        "rule": "rule3",
+        "missingFields": [],
+        "supportingFactFields": [
+          "quote_eur"
+        ]
+      },
+      "v2": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "missingFields": [],
+        "supportingFactFields": [
+          "repair_type"
+        ]
+      },
+      "effective": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "policyVersion": "v2"
+      }
+    },
+    {
+      "caseId": "DEV-012",
+      "status": "open",
+      "frozen": false,
+      "needsRecheck": false,
+      "v1": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "missingFields": [],
+        "supportingFactFields": [
+          "claim_type"
+        ]
+      },
+      "v2": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "missingFields": [],
+        "supportingFactFields": [
+          "claim_type"
+        ]
+      },
+      "effective": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "policyVersion": "v2"
+      }
+    },
+    {
+      "caseId": "DEV-013",
+      "status": "open",
+      "frozen": false,
+      "needsRecheck": false,
+      "v1": {
+        "recommendation": "request_information",
+        "rule": "missing_input",
+        "missingFields": [
+          "quote_eur"
+        ],
+        "supportingFactFields": []
+      },
+      "v2": {
+        "recommendation": "request_information",
+        "rule": "missing_input",
+        "missingFields": [
+          "quote_eur"
+        ],
+        "supportingFactFields": []
+      },
+      "effective": {
+        "recommendation": "request_information",
+        "rule": "missing_input",
+        "policyVersion": "v2"
+      }
+    },
+    {
+      "caseId": "DEV-014",
+      "status": "open",
+      "frozen": false,
+      "needsRecheck": false,
+      "v1": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "missingFields": [
+          "incident_report_present"
+        ],
+        "supportingFactFields": [
+          "injury_reported"
+        ]
+      },
+      "v2": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "missingFields": [
+          "incident_report_present"
+        ],
+        "supportingFactFields": [
+          "injury_reported"
+        ]
+      },
+      "effective": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "policyVersion": "v2"
+      }
+    },
+    {
+      "caseId": "PRA-001",
+      "status": "open",
+      "frozen": false,
+      "needsRecheck": false,
+      "v1": {
+        "recommendation": "routine_processing",
+        "rule": "rule3",
+        "missingFields": [],
+        "supportingFactFields": [
+          "quote_eur"
+        ]
+      },
+      "v2": {
+        "recommendation": "routine_processing",
+        "rule": "rule3",
+        "missingFields": [],
+        "supportingFactFields": [
+          "quote_eur"
+        ]
+      },
+      "effective": {
+        "recommendation": "routine_processing",
+        "rule": "rule3",
+        "policyVersion": "v2"
+      }
+    },
+    {
+      "caseId": "PRA-002",
+      "status": "open",
+      "frozen": false,
+      "needsRecheck": false,
+      "v1": {
+        "recommendation": "routine_processing",
+        "rule": "rule3",
+        "missingFields": [],
+        "supportingFactFields": [
+          "quote_eur"
+        ]
+      },
+      "v2": {
+        "recommendation": "routine_processing",
+        "rule": "rule3",
+        "missingFields": [],
+        "supportingFactFields": [
+          "quote_eur"
+        ]
+      },
+      "effective": {
+        "recommendation": "routine_processing",
+        "rule": "rule3",
+        "policyVersion": "v2"
+      }
+    },
+    {
+      "caseId": "PRA-003",
+      "status": "open",
+      "frozen": false,
+      "needsRecheck": true,
+      "v1": {
+        "recommendation": "routine_processing",
+        "rule": "rule3",
+        "missingFields": [],
+        "supportingFactFields": [
+          "quote_eur"
+        ]
+      },
+      "v2": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "missingFields": [],
+        "supportingFactFields": [
+          "quote_eur"
+        ]
+      },
+      "effective": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "policyVersion": "v2"
+      }
+    },
+    {
+      "caseId": "PRA-004",
+      "status": "open",
+      "frozen": false,
+      "needsRecheck": true,
+      "v1": {
+        "recommendation": "routine_processing",
+        "rule": "rule3",
+        "missingFields": [],
+        "supportingFactFields": [
+          "quote_eur"
+        ]
+      },
+      "v2": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "missingFields": [],
+        "supportingFactFields": [
+          "quote_eur"
+        ]
+      },
+      "effective": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "policyVersion": "v2"
+      }
+    },
+    {
+      "caseId": "PRA-005",
+      "status": "open",
+      "frozen": false,
+      "needsRecheck": true,
+      "v1": {
+        "recommendation": "routine_processing",
+        "rule": "rule3",
+        "missingFields": [],
+        "supportingFactFields": [
+          "quote_eur"
+        ]
+      },
+      "v2": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "missingFields": [],
+        "supportingFactFields": [
+          "repair_type"
+        ]
+      },
+      "effective": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "policyVersion": "v2"
+      }
+    },
+    {
+      "caseId": "PRA-006",
+      "status": "open",
+      "frozen": false,
+      "needsRecheck": true,
+      "v1": {
+        "recommendation": "request_information",
+        "rule": "rule2",
+        "missingFields": [],
+        "supportingFactFields": [
+          "itemized_quote_present"
+        ]
+      },
+      "v2": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "missingFields": [],
+        "supportingFactFields": [
+          "repair_type"
+        ]
+      },
+      "effective": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "policyVersion": "v2"
+      }
+    },
+    {
+      "caseId": "PRA-007",
+      "status": "open",
+      "frozen": false,
+      "needsRecheck": false,
+      "v1": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "missingFields": [],
+        "supportingFactFields": [
+          "injury_reported"
+        ]
+      },
+      "v2": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "missingFields": [],
+        "supportingFactFields": [
+          "injury_reported"
+        ]
+      },
+      "effective": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "policyVersion": "v2"
+      }
+    },
+    {
+      "caseId": "PRA-008",
+      "status": "open",
+      "frozen": false,
+      "needsRecheck": false,
+      "v1": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "missingFields": [],
+        "supportingFactFields": [
+          "policy_active_on_incident"
+        ]
+      },
+      "v2": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "missingFields": [],
+        "supportingFactFields": [
+          "policy_active_on_incident"
+        ]
+      },
+      "effective": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "policyVersion": "v2"
+      }
+    },
+    {
+      "caseId": "PRA-009",
+      "status": "closed",
+      "frozen": true,
+      "needsRecheck": false,
+      "v1": {
+        "recommendation": "routine_processing",
+        "rule": "rule3",
+        "missingFields": [],
+        "supportingFactFields": [
+          "quote_eur"
+        ]
+      },
+      "v2": {
+        "recommendation": "routine_processing",
+        "rule": "rule3",
+        "missingFields": [],
+        "supportingFactFields": [
+          "quote_eur"
+        ]
+      },
+      "effective": {
+        "recommendation": "routine_processing",
+        "rule": "rule3",
+        "policyVersion": "v1"
+      }
+    },
+    {
+      "caseId": "PRA-010",
+      "status": "closed",
+      "frozen": true,
+      "needsRecheck": false,
+      "v1": {
+        "recommendation": "routine_processing",
+        "rule": "rule3",
+        "missingFields": [],
+        "supportingFactFields": [
+          "quote_eur"
+        ]
+      },
+      "v2": {
+        "recommendation": "routine_processing",
+        "rule": "rule3",
+        "missingFields": [],
+        "supportingFactFields": [
+          "quote_eur"
+        ]
+      },
+      "effective": {
+        "recommendation": "routine_processing",
+        "rule": "rule3",
+        "policyVersion": "v1"
+      }
+    },
+    {
+      "caseId": "PRA-011",
+      "status": "open",
+      "frozen": false,
+      "needsRecheck": false,
+      "v1": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "missingFields": [],
+        "supportingFactFields": [
+          "evidence_conflict"
+        ]
+      },
+      "v2": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "missingFields": [],
+        "supportingFactFields": [
+          "evidence_conflict"
+        ]
+      },
+      "effective": {
+        "recommendation": "human_review",
+        "rule": "rule1",
+        "policyVersion": "v2"
+      }
+    },
+    {
+      "caseId": "PRA-012",
+      "status": "open",
+      "frozen": false,
+      "needsRecheck": false,
+      "v1": {
+        "recommendation": "request_information",
+        "rule": "rule2",
+        "missingFields": [],
+        "supportingFactFields": [
+          "incident_report_present",
+          "itemized_quote_present"
+        ]
+      },
+      "v2": {
+        "recommendation": "request_information",
+        "rule": "rule2",
+        "missingFields": [],
+        "supportingFactFields": [
+          "incident_report_present",
+          "itemized_quote_present"
+        ]
+      },
+      "effective": {
+        "recommendation": "request_information",
+        "rule": "rule2",
+        "policyVersion": "v2"
+      }
+    }
+  ]
+}

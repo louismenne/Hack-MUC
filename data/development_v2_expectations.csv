@@ -1,0 +1,15 @@
+case_id,expected_v2,provenance
+DEV-001,routine_processing,team-derived from organizer v2 notice
+DEV-002,request_information,team-derived from organizer v2 notice
+DEV-003,request_information,team-derived from organizer v2 notice
+DEV-004,human_review,team-derived from organizer v2 notice
+DEV-005,human_review,team-derived from organizer v2 notice
+DEV-006,human_review,team-derived from organizer v2 notice
+DEV-007,human_review,team-derived from organizer v2 notice
+DEV-008,human_review,team-derived from organizer v2 notice
+DEV-009,human_review,team-derived from organizer v2 notice
+DEV-010,human_review,team-derived from organizer v2 notice
+DEV-011,human_review,team-derived from organizer v2 notice
+DEV-012,human_review,team-derived from organizer v2 notice
+DEV-013,request_information,team-derived from organizer v2 notice
+DEV-014,human_review,team-derived from organizer v2 notice

@@ -4,7 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parse } from 'csv-parse/sync';
 import { PolicyStore, validateConfig } from '../src/server/store.js';
-import { evaluatePolicy, parseClaim, policyV1 } from '../src/triage.js';
+import { parseClaim } from '../src/triage.js';
+import { evaluatePolicy, policyV1 } from '../src/server/legacy-policy.js';
 const rows = ['labelled_development_cases.csv', 'unlabelled_practice_cases.csv'].flatMap(n => parse(readFileSync(`data/${n}`, 'utf8'), { columns: true }) as Record<string,string>[]);
 const stores: PolicyStore[] = [];
 afterEach(() => { for (const s of stores.splice(0)) s.close(); });
@@ -15,12 +16,12 @@ describe('policy lifecycle', () => {
     const s = store(); const before = s.claims(); const draft = s.draft(proposed, 'Max'); const p = s.preview(draft.id);
     expect(s.claims()).toEqual(before); expect(p.changed).toBeGreaterThan(0); expect(p.closed).toBe(2);
     s.activate(draft.id, p.token, 'Owner');
-    expect(s.active().id).toBe('v2'); expect(s.history()).toHaveLength(1);
+    expect(s.active().id).toBe(draft.id); expect(s.history()).toHaveLength(1);
     for (const original of before) {
       const current = s.claims().find(c => c.caseId === original.caseId)!;
       expect(current.baseline).toEqual(original.baseline);
       if (original.facts.case_status === 'closed') expect(current).toEqual(original);
-      else expect(current.current.policyVersion).toBe('v2');
+      else expect(current.current.policyVersion).toBe(draft.id);
     }
     expect(s.claims().find(c => c.caseId === 'PRA-003')?.needsRecheck).toBe(true);
     expect(s.claims().find(c => c.caseId === 'PRA-002')?.needsRecheck).toBe(false);
@@ -44,7 +45,7 @@ describe('policy lifecycle', () => {
     const dir = mkdtempSync(join(tmpdir(), 'policy-test-')); const path = join(dir, 'db.sqlite');
     try {
       const a = new PolicyStore(path, rows); const d = a.draft(proposed, 'Max'); a.activate(d.id, a.preview(d.id).token, 'Owner'); a.close();
-      const b = new PolicyStore(path, rows); expect(b.active().id).toBe('v2'); expect(b.history()).toHaveLength(1); expect(b.claims().find(c => c.caseId === 'PRA-003')?.needsRecheck).toBe(true); b.close();
+      const b = new PolicyStore(path, rows); expect(b.active().id).toBe(d.id); expect(b.history()).toHaveLength(1); expect(b.claims().find(c => c.caseId === 'PRA-003')?.needsRecheck).toBe(true); b.close();
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
   it('requires an owner and validates server-side configuration', () => {

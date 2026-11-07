@@ -3,7 +3,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, MoonIcon, ShieldCheckIcon, SunIcon, UploadIcon } from 'lucide-react';
 import { useTheme } from '@/lib/theme';
 import { toast } from 'sonner';
-import { builtinDatasets, downloadFile, exportResultsCsv, loadDataset, toCsv, type Dataset } from '@/lib/datasets';
+import { buildBuiltinDatasets, downloadFile, exportResultsCsv, loadDataset, toCsv, type Dataset } from '@/lib/datasets';
+import { PolicySourceProvider, usePolicySource } from '@/lib/policy-source';
 import { recommendationMeta } from '@/lib/policy';
 import { usePersistentState } from '@/lib/storage';
 import { AuditLog } from '@/components/audit-log';
@@ -11,6 +12,7 @@ import { ClaimDetail } from '@/components/claim-detail';
 import { ClaimsList, filterCases, type ListFilters } from '@/components/claims-list';
 import { QualityView } from '@/components/quality-view';
 import { ReviewDialog } from '@/components/review-dialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -53,7 +55,15 @@ function useOpenCase(): [string | null, (caseId: string | null) => void] {
 // Reviewer inbox by default: only cases routed to human review.
 const defaultFilters: ListFilters = { query: '', recommendation: 'human_review', status: 'any' };
 
+/** The whole app decides with the active policy version from Supabase (see lib/policy-source). */
 export function App() {
+  return <PolicySourceProvider><AppContent /></PolicySourceProvider>;
+}
+
+function AppContent() {
+  const source = usePolicySource();
+  const history = source.history;
+  const builtinDatasets = useMemo(() => buildBuiltinDatasets(history), [history]);
   const [datasetId, setDatasetId] = usePersistentState('dataset', 'development', isString);
   const [upload, setUpload] = usePersistentState<StoredUpload | null>('upload', null, isUpload);
   const [events, setEvents] = usePersistentState<ReviewEvent[]>('audit', [], isEvents);
@@ -68,11 +78,11 @@ export function App() {
   const uploaded = useMemo<Dataset | null>(() => {
     if (!upload) return null;
     try {
-      return loadDataset({ id: `upload:${upload.name}`, name: upload.name, description: 'Uploaded CSV', source: 'upload' }, upload.csv);
+      return loadDataset({ id: `upload:${upload.name}`, name: upload.name, description: 'Uploaded CSV', source: 'upload' }, upload.csv, history);
     } catch {
       return null;
     }
-  }, [upload]);
+  }, [upload, history]);
   const datasets = uploaded ? [...builtinDatasets, uploaded] : builtinDatasets;
   const dataset = datasets.find(item => item.id === datasetId) ?? datasets[0];
 
@@ -80,7 +90,7 @@ export function App() {
   const states = useMemo(() => {
     const byCase = new Map<string, ReviewEvent[]>();
     for (const event of datasetEvents) byCase.set(event.caseId, [...(byCase.get(event.caseId) ?? []), event]);
-    return new Map<string, ReviewState>(dataset.cases.map(item => [item.decision.caseId, reviewState(item.decision, byCase.get(item.decision.caseId) ?? [])]));
+    return new Map<string, ReviewState>(dataset.cases.map(item => [item.decision.caseId, reviewState(item.decision, (byCase.get(item.decision.caseId) ?? []).filter(e => e.policyVersion === item.decision.policyVersion))]));
   }, [dataset, datasetEvents]);
 
   const visible = useMemo(() => filterCases(dataset.cases, states, filters), [dataset, states, filters]);
@@ -117,6 +127,7 @@ export function App() {
 
   const record = (input: ReviewInput) => {
     try {
+      if (selected.claim.case_status === 'closed') throw new Error('Closed claims are historical and cannot be reviewed.');
       const event = createReviewEvent(input, { id: crypto.randomUUID(), at: new Date().toISOString() });
       setEvents(previous => [...previous, event]);
       setReviewer(event.reviewer);
@@ -138,7 +149,7 @@ export function App() {
     }
     const csv = await file.text();
     try {
-      const result = loadDataset({ id: `upload:${file.name}`, name: file.name, description: 'Uploaded CSV', source: 'upload' }, csv);
+      const result = loadDataset({ id: `upload:${file.name}`, name: file.name, description: 'Uploaded CSV', source: 'upload' }, csv, history);
       setUpload({ name: file.name, csv });
       setDatasetId(result.id);
       setFilters(defaultFilters);
@@ -165,9 +176,11 @@ export function App() {
           </div>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Badge variant="outline" className="font-mono">v1 baseline</Badge>
+              <Badge variant="outline" className="font-mono">policy {history.active.label}</Badge>
             </TooltipTrigger>
-            <TooltipContent>The review queue shows the v1 baseline. Manage current policy decisions in the Policy tab.</TooltipContent>
+            <TooltipContent>
+              {source.origin === 'supabase' ? 'Active policy version from Supabase.' : 'Bundled copy of the policy files (Supabase not reachable).'} Open claims follow {history.active.label}. Closed claims keep their original {history.original.label} decision.
+            </TooltipContent>
           </Tooltip>
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <Select value={dataset.id} onValueChange={value => { setDatasetId(value); setFilters(defaultFilters); }}>
@@ -203,6 +216,19 @@ export function App() {
           </div>
         </div>
       </header>
+
+      {(source.origin === 'bundled' || source.problem) && (
+        <div className="mx-auto max-w-[1600px] px-4 pt-4">
+          <Alert variant="destructive">
+            <AlertTitle>{source.origin === 'bundled' ? 'Using the bundled policy files, not the active version' : 'Could not refresh the active policy'}</AlertTitle>
+            <AlertDescription>
+              {source.origin === 'bundled'
+                ? `The active policy could not be loaded from Supabase (${source.problem}). Decisions below come from the copy of policies/*.rules.json (${history.original.label} → ${history.active.label}) and may differ from the active version.`
+                : `${source.problem}. Decisions still follow ${history.active.label}.`}
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
 
       <Tabs value={tab} onValueChange={setTab} className="mx-auto max-w-[1600px] gap-4 px-4 py-4">
         <div className="flex flex-wrap items-center justify-between gap-3">

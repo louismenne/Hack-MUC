@@ -5,10 +5,11 @@ import type { Decision, Field, Recommendation } from './triage.js';
  * Pure and deterministic: every number and every suggested action can be traced back to cases.
  */
 
+export const POLICY_LIMIT_EUR = 1500;
 
 export type ReviewTrigger =
   | 'policy_inactive' | 'not_motor_own_damage' | 'injury' | 'liability_disputed'
-  | 'duplicate' | 'evidence_conflict' | 'quote_above_limit';
+  | 'duplicate' | 'evidence_conflict' | 'quote_above_limit' | 'repair_type';
 
 export const triggerLabels: Record<ReviewTrigger, string> = {
   policy_inactive: 'Policy not active on incident date',
@@ -17,7 +18,8 @@ export const triggerLabels: Record<ReviewTrigger, string> = {
   liability_disputed: 'Liability disputed',
   duplicate: 'Possible duplicate',
   evidence_conflict: 'Conflicting evidence',
-  quote_above_limit: 'Quote above the limit',
+  repair_type: 'Repair type requires review',
+  quote_above_limit: 'Quote above the routine limit',
 };
 
 const triggerByField: Partial<Record<string, ReviewTrigger>> = {
@@ -28,6 +30,7 @@ const triggerByField: Partial<Record<string, ReviewTrigger>> = {
   duplicate_flag: 'duplicate',
   evidence_conflict: 'evidence_conflict',
   quote_eur: 'quote_above_limit',
+  repair_type: 'repair_type',
 };
 
 /** Why a request_information case could not proceed: a document explicitly absent, or an input blank/unreadable. */
@@ -36,8 +39,6 @@ export interface InfoGap { field: Field; kind: 'absent' | 'blank' }
 export interface InsightCase {
   decision: Pick<Decision, 'recommendation' | 'ruleId' | 'supportingFacts' | 'missingFields'> & { caseId: string };
   quote: number | null;
-  /** Routine quote limit of the policy version that decided this case (v1: €1,500; v2 may differ). */
-  quoteLimit: number;
   /** Effective recommendation after reviewer actions; equals the engine's when nobody acted. */
   effective: Recommendation;
   reviewStatus: 'pending' | 'reviewed' | 'overridden';
@@ -45,10 +46,11 @@ export interface InsightCase {
 
 export interface Count<K> { key: K; count: number }
 
-/** Quote bands are relative to each case's own policy limit, so v1 and v2 cases share one chart. */
+/** Quote bands are relative to the active policy's quote limit, so the chart reads the same for v1, v2 and later versions. */
 export interface QuoteBand { label: string; range: string; count: number; aboveLimit: boolean }
 
 export interface Insights {
+  limit: number | null;
   total: number;
   mix: Record<Recommendation, number>;
   /** Share of cases per recommendation, 0–1. */
@@ -59,9 +61,9 @@ export interface Insights {
   casesWithBlankFields: number;
   quoteBands: QuoteBand[];
   unknownQuotes: number;
-  /** Quotes within 20% below the limit — would flip to human review if the limit dropped. */
+  /** Quotes within 20% below the limit, regardless of other triggers. */
   nearLimitBelow: number;
-  /** Quotes within 20% above the limit — the cases a modest limit increase would release. */
+  /** Quotes within 20% above the limit; other review triggers may also apply. */
   nearLimitAbove: number;
   workload: { reviewQueue: number; reviewed: number; overridden: number; overrideRate: number | null };
   overridesByRule: Count<Decision['ruleId']>[];
@@ -76,24 +78,26 @@ export const gapKey = (gap: InfoGap) => `${gap.field}:${gap.kind}`;
 
 export function infoGaps(decision: InsightCase['decision']): InfoGap[] {
   if (decision.recommendation !== 'request_information') return [];
-  if (decision.ruleId === 'v1.rule2') {
-    return decision.supportingFacts.map(factField).filter((field): field is Field => field !== null).map(field => ({ field, kind: 'absent' }));
+  // Facts about an explicitly absent document name the field; blank inputs are reported as `field=(missing)`.
+  const absent = decision.supportingFacts.filter(fact => !fact.includes('(missing)'));
+  if (absent.length > 0) {
+    return absent.map(factField).filter((field): field is Field => field !== null).map(field => ({ field, kind: 'absent' }));
   }
   return decision.missingFields.map(field => ({ field, kind: 'blank' }));
 }
 
 export function reviewTriggers(decision: InsightCase['decision']): ReviewTrigger[] {
-  if (decision.ruleId !== 'v1.rule1') return [];
+  if (decision.recommendation !== 'human_review') return [];
   return decision.supportingFacts.map(fact => triggerByField[factField(fact) ?? '']).filter((t): t is ReviewTrigger => t !== undefined);
 }
 
-/** Share of the limit at which each band ends; a quote exactly at the limit is still routine ("greater than"). */
-const bands: { label: string; range: string; upTo: number; aboveLimit: boolean }[] = [
-  { label: 'Well below', range: '< 50% of limit', upTo: 0.5, aboveLimit: false },
-  { label: 'Below', range: '50–80%', upTo: 0.8, aboveLimit: false },
-  { label: 'Just below', range: '80–100%', upTo: 1, aboveLimit: false },
-  { label: 'Just above', range: '100–120%', upTo: 1.2, aboveLimit: true },
-  { label: 'Well above', range: '> 120%', upTo: Infinity, aboveLimit: true },
+/** Bands as a share of the limit; a quote exactly at the limit is still routine ("greater than"). */
+const bands: { label: string; range: string; aboveLimit: boolean }[] = [
+  { label: 'Well below', range: '< 50% of limit', aboveLimit: false },
+  { label: 'Below', range: '50–80%', aboveLimit: false },
+  { label: 'Just below', range: '80–100%', aboveLimit: false },
+  { label: 'Just above', range: '100–120%', aboveLimit: true },
+  { label: 'Well above', range: '> 120%', aboveLimit: true },
 ];
 
 export function quoteBandIndex(quote: number, limit: number): number {
@@ -102,7 +106,7 @@ export function quoteBandIndex(quote: number, limit: number): number {
   return ratio <= 1.2 ? 3 : 4;
 }
 
-export function computeInsights(cases: InsightCase[]): Insights {
+export function computeInsights(cases: InsightCase[], limit: number | null = POLICY_LIMIT_EUR): Insights {
   const total = cases.length;
   const mix: Record<Recommendation, number> = { routine_processing: 0, request_information: 0, human_review: 0 };
   const triggers = new Map<ReviewTrigger, number>();
@@ -123,10 +127,12 @@ export function computeInsights(cases: InsightCase[]): Insights {
 
     if (item.quote === null) unknownQuotes += 1;
     else {
-      const index = quoteBandIndex(item.quote, item.quoteLimit);
-      bandCounts[index] += 1;
-      if (index === 2) nearLimitBelow += 1;
-      if (index === 3) nearLimitAbove += 1;
+      if (limit !== null) {
+        const index = quoteBandIndex(item.quote, limit);
+        bandCounts[index] += 1;
+        if (index === 2) nearLimitBelow += 1;
+        if (index === 3) nearLimitAbove += 1;
+      }
     }
 
     if (item.effective === 'human_review' && item.reviewStatus === 'pending') reviewQueue += 1;
@@ -140,13 +146,15 @@ export function computeInsights(cases: InsightCase[]): Insights {
   const rate = (n: number) => (total ? n / total : 0);
   return {
     total,
+    limit,
     mix,
     rates: { routine_processing: rate(mix.routine_processing), request_information: rate(mix.request_information), human_review: rate(mix.human_review) },
     reviewTriggers: sortDesc(triggers),
     multiTriggerReviews,
     infoGaps: sortDesc(gaps),
     casesWithBlankFields,
-    quoteBands: bands.map((band, index) => ({ label: band.label, range: band.range, count: bandCounts[index], aboveLimit: band.aboveLimit })),
+    // Without a single limit no quote is known to be above it.
+    quoteBands: bands.map((band, index) => ({ ...band, count: bandCounts[index], aboveLimit: limit !== null && band.aboveLimit })),
     unknownQuotes,
     nearLimitBelow,
     nearLimitAbove,
@@ -161,7 +169,8 @@ export interface SuggestedAction { id: string; severity: ActionSeverity; title: 
 const pct = (value: number) => `${Math.round(value * 100)}%`;
 
 const triggerAdvice: Record<ReviewTrigger, string> = {
-  quote_above_limit: 'Review whether the quote limit still fits repair prices, or add a fast track for quotes slightly above it.',
+  repair_type: 'Route repair types requiring specialist review, including EV high-voltage battery work, to qualified reviewers.',
+  quote_above_limit: 'Review the active quote threshold against repair prices and test proposed changes before activation.',
   injury: 'Route injury claims straight to a specialised bodily-injury team instead of the general review queue.',
   liability_disputed: 'Collect both parties’ statements at intake so reviewers do not have to chase them.',
   duplicate: 'Add a duplicate check (same incident reference) at upload, before the claim reaches triage.',
@@ -215,12 +224,12 @@ export function suggestedActions(insights: Insights, labelled?: { labelled: numb
     });
   }
 
-  if (insights.nearLimitBelow >= 2) {
+  if (insights.limit !== null && insights.nearLimitBelow >= 2) {
     actions.push({
       id: 'near-limit', severity: 'info',
-      title: `${insights.nearLimitBelow} routine quotes sit just below the limit`,
-      detail: 'Lowering the limit would move these into human review. Test any limit change against past cases before release.',
-      evidence: 'Quotes at 80–100% of their policy’s limit',
+      title: `${insights.nearLimitBelow} quotes sit just below the limit`,
+      detail: 'These quotes are within 20% below the limit. Other triggers may already require review; use the policy impact preview before changing the threshold.',
+      evidence: 'Quotes at 80–100% of the active limit',
     });
   }
 

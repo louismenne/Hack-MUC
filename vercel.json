@@ -3,5 +3,13 @@
   "framework": "vite",
   "installCommand": "npm ci",
   "buildCommand": "npm run build",
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "functions": {
+    "api/policy.js": {
+      "includeFiles": "data/**"
+    },
+    "api/policy-ai.js": {
+      "maxDuration": 60
+    }
+  }
 }

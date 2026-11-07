@@ -6,3 +6,9 @@ coverage/
 dist/
 
 .local/
+.vercel
+.env*.local
+
+formal/*.olean
+formal/*.ilean
+formal/.lake/
