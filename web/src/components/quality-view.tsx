@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { ActivityIcon, ArrowDownRightIcon, ArrowUpRightIcon, CalendarClockIcon, ChevronLeftIcon, ChevronRightIcon, FlaskConicalIcon, InfoIcon, LightbulbIcon, MinusIcon, OctagonAlertIcon, TriangleAlertIcon } from 'lucide-react';
+import { ActivityIcon, PiggyBankIcon, SlidersHorizontalIcon, ArrowDownRightIcon, ArrowUpRightIcon, CalendarClockIcon, ChevronLeftIcon, ChevronRightIcon, FlaskConicalIcon, InfoIcon, LightbulbIcon, MinusIcon, OctagonAlertIcon, TriangleAlertIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { euro, fieldLabels, recommendationMeta } from '@/lib/policy';
 import { officialComparison, type CaseItem, type Dataset } from '@/lib/datasets';
@@ -10,11 +10,15 @@ import { dotClasses } from '@/components/recommendation-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { usePersistentState } from '@/lib/storage';
+import { defaultAssumptions, estimateSavings, type SavingsAssumptions } from '../../../src/savings';
 import { computeInsights, suggestedActions, triggerLabels, type ActionSeverity, type Insights } from '../../../src/insights';
 import { qualityReport, type QualityReport } from '../../../src/quality';
 import { daysOpen, V2_PERIOD_START } from '../../../src/received-at';
@@ -131,6 +135,8 @@ export function QualityView({ dataset, states, events, renderLog }: QualityViewP
           {timeRanges.map(r => <ToggleGroupItem key={r} value={r} className="px-3">{r === 'all' ? 'All' : r}</ToggleGroupItem>)}
         </ToggleGroup>
       </div>
+
+      <SavingsCard insights={insights} engine={labelled.length ? engine : null} />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
         <Kpi label="Claims received" value={insights.total} change={delta(insights.total, prior?.total ?? null, 'count')} better="neutral" vs={vs} />
@@ -386,6 +392,101 @@ function TrendCard({ series, window }: { series: SeriesPoint[]; window: Window }
           </div>
         </div>
       </CardContent>
+    </Card>
+  );
+}
+
+const assumptionFields: { key: keyof SavingsAssumptions; label: string; unit: string; step: number; percent?: boolean }[] = [
+  { key: 'manualErrorRate', label: 'Wrongly paid claims in the manual process', unit: '%', step: 0.5, percent: true },
+  { key: 'avgWrongPaymentEur', label: 'Average cost of one wrongly paid claim', unit: '€', step: 100 },
+  { key: 'minutesPerReview', label: 'Staff time per manual review', unit: 'min', step: 5 },
+  { key: 'hourlyCostEur', label: 'Staff cost per hour', unit: '€', step: 5 },
+];
+
+const isAssumptions = (value: unknown): value is SavingsAssumptions =>
+  typeof value === 'object' && value !== null && assumptionFields.every(f => typeof (value as Record<string, unknown>)[f.key] === 'number');
+
+const eur0 = new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+
+/** Business view: what the system saves compared with the fully manual process a year ago. Estimates. */
+function SavingsCard({ insights, engine }: { insights: Insights; engine: QualityReport | null }) {
+  const [assumptions, setAssumptions] = usePersistentState<SavingsAssumptions>('savings-assumptions', defaultAssumptions, isAssumptions);
+  const [editing, setEditing] = useState(false);
+  // Measured error rate of routine recommendations on labelled cases (0 when nothing is labelled).
+  const predictedRoutine = engine ? recommendations.reduce((n, expected) => n + engine.confusion[expected].routine_processing, 0) : 0;
+  const systemWrongRoutineRate = engine && predictedRoutine ? engine.incorrectRoutine / predictedRoutine : 0;
+  const s = estimateSavings({
+    claims: insights.total,
+    automated: insights.mix.routine_processing,
+    humanReview: insights.mix.human_review,
+    systemWrongRoutineRate,
+  }, assumptions);
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <PiggyBankIcon className="size-4" /> Savings vs. manual process (1 year ago)
+          <Badge variant="outline" className="font-normal text-muted-foreground">Estimate</Badge>
+        </CardTitle>
+        <CardAction>
+          <Button variant="outline" size="sm" onClick={() => setEditing(true)}><SlidersHorizontalIcon data-icon="inline-start" /> Assumptions</Button>
+        </CardAction>
+      </CardHeader>
+      <CardContent className="grid gap-6 sm:grid-cols-3">
+        <div>
+          <div className="text-3xl font-semibold tracking-tight tabular-nums">{eur0.format(s.wrongPaymentCostSavedEur)}</div>
+          <div className="text-sm font-medium">saved on wrongly paid claims</div>
+          <div className="text-xs text-muted-foreground">≈ {s.wrongPaymentsBefore.toFixed(1)} → {s.wrongPaymentsNow.toFixed(1)} wrong payments</div>
+        </div>
+        <div>
+          <div className="text-3xl font-semibold tracking-tight tabular-nums text-rec-routine-foreground">−{Math.round(s.manualReviewReduction * 100)}%</div>
+          <div className="text-sm font-medium">manual reviews by staff</div>
+          <div className="text-xs text-muted-foreground">{s.manualReviewsBefore} → {s.manualReviewsNow} reviews · ≈ {Math.round(s.staffHoursSaved)} h · {eur0.format(s.staffCostSavedEur)}</div>
+        </div>
+        <div>
+          <div className="text-3xl font-semibold tracking-tight tabular-nums">{eur0.format(s.totalSavedEur)}</div>
+          <div className="text-sm font-medium">saved in total</div>
+          <div className="text-xs text-muted-foreground">{insights.total} claims in this period</div>
+        </div>
+      </CardContent>
+      <Dialog open={editing} onOpenChange={setEditing}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Savings assumptions</DialogTitle>
+            <DialogDescription>Estimates for a mid-sized European motor insurer. A year ago every claim was reviewed by hand. The system’s error rate comes from the labelled test cases.</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3">
+            {assumptionFields.map(field => {
+              const value = assumptions[field.key];
+              return (
+                <div key={field.key} className="grid grid-cols-[1fr_auto] items-center gap-3">
+                  <Label htmlFor={`assume-${field.key}`} className="text-sm font-normal">{field.label}</Label>
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      id={`assume-${field.key}`}
+                      type="number"
+                      min={0}
+                      step={field.step}
+                      className="w-24 text-right tabular-nums"
+                      value={field.percent ? +(value * 100).toFixed(2) : value}
+                      onChange={event => {
+                        const n = Number(event.target.value);
+                        if (!Number.isFinite(n) || n < 0) return;
+                        setAssumptions(previous => ({ ...previous, [field.key]: field.percent ? n / 100 : n }));
+                      }}
+                    />
+                    <span className="w-6 text-xs text-muted-foreground">{field.unit}</span>
+                  </div>
+                </div>
+              );
+            })}
+            <div className="flex justify-between pt-2 text-xs text-muted-foreground">
+              <span>Measured system error rate on routine: {(systemWrongRoutineRate * 100).toFixed(1)}%</span>
+              <Button variant="ghost" size="sm" onClick={() => setAssumptions(defaultAssumptions)}>Reset</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
