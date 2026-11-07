@@ -15,7 +15,7 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { ReviewAction, ReviewEvent, ReviewState } from '../../../src/review';
-import type { Field } from '../../../src/triage';
+import type { Field, Recommendation } from '../../../src/triage';
 
 export const timeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
@@ -29,10 +29,23 @@ interface ClaimDetailProps {
   item: CaseItem;
   state: ReviewState;
   canReview: boolean;
-  onAction: (action: ReviewAction) => void;
+  /** Opens the review dialog; `next` and `title` preset a reviewer decision (e.g. approve to routine). */
+  onAction: (action: ReviewAction, next?: Recommendation, title?: string) => void;
   /** Optional block shown under the decision card, e.g. the claim's attached documents. */
   documents?: React.ReactNode;
 }
+
+/**
+ * Decisions a reviewer can take on a claim the engine routed to human review. They map onto the
+ * saved review actions (override to a new recommendation / confirm), so every decision is stored
+ * with reviewer, reason and policy version — the live override the jury checks.
+ */
+const reviewerDecisions: { id: string; title: string; hint: string; action: ReviewAction; next?: Recommendation }[] = [
+  { id: 'approve', title: 'Approve → routine processing', hint: 'Checked; the claim can continue normally.', action: 'overridden', next: 'routine_processing' },
+  { id: 'contact', title: 'Contact claimant for details', hint: 'Ask for more detailed information. Say what in the reason.', action: 'overridden', next: 'request_information' },
+  { id: 'return', title: 'Return: missing information', hint: 'Send back because required documents or fields are missing.', action: 'overridden', next: 'request_information' },
+  { id: 'keep', title: 'Keep in human review', hint: 'Needs further work, e.g. a specialist or more checks.', action: 'confirmed' },
+];
 
 export function ClaimDetail({ item, state, onAction, canReview, documents }: ClaimDetailProps) {
   const { decision, claim, label } = item;
@@ -40,6 +53,11 @@ export function ClaimDetail({ item, state, onAction, canReview, documents }: Cla
   const rule = ruleInfo(decision, history);
   const triggered = triggeringFields(decision);
   const overridden = state.status === 'overridden';
+  // Claims the engine routed to a person get a reviewer decision instead of a duplicate
+  // "automated vs. current" view; decided claims can only be overridden.
+  const needsHuman = decision.recommendation === 'human_review';
+  const closed = claim.case_status === 'closed';
+  const lastEvent = state.events.at(-1);
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
@@ -70,13 +88,76 @@ export function ClaimDetail({ item, state, onAction, canReview, documents }: Cla
                 <Undo2Icon data-icon="inline-start" /> Revert
               </Button>
             )}
-            <Button variant="outline" disabled={!canReview || claim.case_status === 'closed'} onClick={() => onAction('confirmed')}>Confirm</Button>
-            <Button disabled={!canReview || claim.case_status === 'closed'} onClick={() => onAction('overridden')}>
-              <PencilLineIcon data-icon="inline-start" /> Override
-            </Button>
+            {needsHuman ? (
+              <Badge variant="outline" className="gap-1.5">
+                <ClockIcon /> {closed ? 'Historical decision · no action required' : state.status === 'pending' ? 'Reviewer decision pending' : 'Decided by reviewer'}
+              </Badge>
+            ) : (
+              <Button disabled={!canReview || closed} onClick={() => onAction('overridden')}>
+                <PencilLineIcon data-icon="inline-start" /> Override
+              </Button>
+            )}
           </CardAction>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
+          {needsHuman ? (
+          <>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className={cn('rounded-lg p-3.5 ring-1', toneSurface.human_review)}>
+              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <CircleAlertIcon className="size-3.5" /> Why this could not be processed automatically
+              </div>
+              <ul className="mt-2 flex flex-col gap-1">
+                {decision.supportingFacts.map(fact => (
+                  <li key={fact} className="text-base font-semibold tracking-tight">{describeFact(fact)}</li>
+                ))}
+              </ul>
+              <div className="mt-1 font-mono text-xs text-muted-foreground">{decision.ruleId} · policy {decision.policyVersion}</div>
+            </div>
+            <div className={cn('rounded-lg p-3.5 ring-1', state.status === 'pending' ? 'bg-muted/40 ring-border' : toneSurface[state.effective])}>
+              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <PencilLineIcon className="size-3.5" /> Reviewer decision
+              </div>
+              {state.status === 'pending' ? (
+                <div className="mt-2 text-lg font-semibold tracking-tight text-muted-foreground">Pending</div>
+              ) : (
+                <>
+                  <div className="mt-2 text-lg font-semibold tracking-tight">{state.status === 'reviewed' ? 'Kept in human review' : recommendationMeta[state.effective].label}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">by {lastEvent?.reviewer}{lastEvent?.reason ? ` · “${lastEvent.reason}”` : ''}</div>
+                </>
+              )}
+            </div>
+          </div>
+          {!closed && (
+            <section aria-labelledby="decision-heading" className="rounded-lg border p-4">
+              <h3 id="decision-heading" className="text-sm font-semibold">Your decision</h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">Recorded with your name, a reason and the policy version.</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {reviewerDecisions.map(option => (
+                  <Button
+                    key={option.id}
+                    variant="outline"
+                    className="h-auto flex-col items-start gap-0.5 px-3 py-2.5 text-left whitespace-normal"
+                    disabled={!canReview}
+                    onClick={() => onAction(option.action, option.next, option.title)}
+                  >
+                    <span className="text-sm font-medium">{option.title}</span>
+                    <span className="text-xs font-normal text-muted-foreground">{option.hint}</span>
+                  </Button>
+                ))}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="sm:col-span-2">
+                      <Button variant="outline" className="w-full justify-start text-destructive" disabled>Reject claim</Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>Needs a “rejected” outcome in the saved review model (planned).</TooltipContent>
+                </Tooltip>
+              </div>
+            </section>
+          )}
+          </>
+          ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             <div className={cn('rounded-lg p-3.5 ring-1', toneSurface[decision.recommendation])}>
               <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
@@ -95,6 +176,7 @@ export function ClaimDetail({ item, state, onAction, canReview, documents }: Cla
               </div>
             </div>
           </div>
+          )}
           <section aria-labelledby="why-heading" className="flex flex-col gap-2.5">
             <h3 id="why-heading" className="text-sm font-semibold">Why this recommendation</h3>
             {decision.supportingFacts.length > 0 && (
