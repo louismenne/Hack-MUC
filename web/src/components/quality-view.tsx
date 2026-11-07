@@ -527,7 +527,7 @@ function MixCard({ insights, changes, vs }: { insights: Insights; changes: Recor
   return (
     <Card size="sm">
       <CardHeader>
-        <CardDescription>Where claims went</CardDescription>
+        <CardDescription className="label-mono">Where claims went</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-wrap items-center gap-5">
         <svg viewBox="0 0 100 100" className="size-28 shrink-0 -rotate-90" role="img" aria-label={recommendations.map(rec => `${mixMeta[rec].label}: ${insights.mix[rec]}`).join(', ')}>
@@ -578,7 +578,7 @@ function Kpi({ label, value, change, better, vs, hint, dot, alert = false }: {
   return (
     <Card size="sm">
       <CardHeader>
-        <CardDescription className="flex items-center gap-1.5">
+        <CardDescription className="label-mono flex items-center gap-1.5">
           {dot && <span aria-hidden className={cn('size-1.5 rounded-full', dotClasses[dot])} />}
           {label}
         </CardDescription>
@@ -916,7 +916,7 @@ function Stat({ label, value, hint, alert = false }: { label: string; value: str
   return (
     <Card size="sm">
       <CardHeader>
-        <CardDescription>{label}</CardDescription>
+        <CardDescription className="label-mono">{label}</CardDescription>
         <div className={cn('text-3xl font-semibold tracking-tight tabular-nums', alert && 'text-destructive')}>{value}</div>
       </CardHeader>
       <CardContent className="text-xs text-muted-foreground">{hint}</CardContent>
