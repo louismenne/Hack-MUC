@@ -16,6 +16,30 @@
     {
       "source": "/claim",
       "destination": "/claim/index.html"
+    },
+    {
+      "source": "/review-queue",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/examples",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/team",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/dashboard",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/example-quality",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/policy",
+      "destination": "/index.html"
     }
   ]
 }

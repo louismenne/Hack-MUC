@@ -1,3 +1,4 @@
+import { navigate, pageHref, useRoute } from '@/lib/navigation';
 import { permissions } from '../../../../src/roles';
 import { useAuthUser } from '@/lib/auth';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -36,8 +37,15 @@ export function PolicyWorkspace() {
   const user = useAuthUser();
   const canManage = permissions(user).policy;
   const owner = user.id;
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [tab, setTab] = useState('overview');
+  const route = useRoute();
+  const openId = route.params.get('version');
+  const tab = route.params.get('view') === 'history' ? 'history' : 'overview';
+  const setOpenId = useCallback((id: string | null) => {
+    const params = new URLSearchParams(window.location.search);
+    if (id) params.set('version', id); else params.delete('version');
+    navigate(pageHref('policy', params));
+  }, []);
+  const setTab = (view: string) => navigate(pageHref('policy', view === 'history' ? new URLSearchParams({ view }) : undefined));
   const [compare, setCompare] = useState<{ from: string; to: string } | null>(null);
   const file = useRef<HTMLInputElement>(null);
 
@@ -49,7 +57,7 @@ export function PolicyWorkspace() {
       setError(null);
       if (open !== undefined) setOpenId(open);
     } catch (e) { setError(e instanceof ApiFailure ? e : new ApiFailure(String(e))); }
-  }, []);
+  }, [setOpenId]);
   useEffect(() => { void load(); }, [load]);
 
   /** Runs one API task with a busy flag; failures become a toast (details listed in the message). */

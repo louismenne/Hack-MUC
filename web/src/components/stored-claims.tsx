@@ -1,3 +1,4 @@
+import { navigate, pageHref, useRoute } from '@/lib/navigation';
 import { cacheScope, cacheEpoch, readCache, writeCache, clearReloadCache } from '@/lib/reload-cache';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -62,7 +63,10 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
   });
   const [initial] = useState(() => cached(0));
   const [items, setItems] = useState<StoredQueueItem[]>(initial?.items ?? []);
-  const [offset, setOffset] = useState(0);
+  const route = useRoute();
+  const requestedOffset = Number(route.params.get('offset') ?? 0);
+  const offset = !dashboard && Number.isSafeInteger(requestedOffset) && requestedOffset >= 0 ? requestedOffset : 0;
+  const setOffset = (next: number) => navigate(pageHref('queue', next ? new URLSearchParams({ offset: String(next) }) : undefined));
   const [total, setTotal] = useState(initial?.total ?? 0);
   const [policy, setPolicy] = useState(initial?.policy ?? '');
   const [loading, setLoading] = useState(true);
@@ -70,7 +74,7 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
   // Background refreshes on window focus keep it true, so a reviewer's open dialog is not interrupted.
   const [verified, setVerified] = useState(false);
   const [error, setError] = useState('');
-  const [selectedId, setSelectedId] = useState('');
+  const selectedId = dashboard ? '' : route.caseId ?? '';
   const [action, setAction] = useState<ReviewAction | null>(null);
   const [filters, setFilters] = useState<ListFilters>({ query: '', recommendation: 'all', status: 'any' });
   const revision = useRef(0);
@@ -169,7 +173,10 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
     setAction(next);
   };
   const openClaim = (caseId: string) => {
-    setSelectedId(caseId);
+    const params = new URLSearchParams();
+    if (offset) params.set('offset', String(offset));
+    if (caseId) params.set('case', caseId);
+    navigate(pageHref('queue', params));
     setAction(null);
     window.scrollTo({ top: 0 });
   };
@@ -444,10 +451,10 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
                 <span className="mr-2 tabular-nums">
                   {offset + 1}–{Math.min(offset + pageSize, total)} of {total}
                 </span>
-                <Button variant="outline" size="icon" disabled={offset === 0 || loading} onClick={() => setOffset((n) => Math.max(0, n - pageSize))} aria-label="Previous page">
+                <Button variant="outline" size="icon" disabled={offset === 0 || loading} onClick={() => setOffset(Math.max(0, offset - pageSize))} aria-label="Previous page">
                   <ChevronLeftIcon />
                 </Button>
-                <Button variant="outline" size="icon" disabled={offset + pageSize >= total || loading} onClick={() => setOffset((n) => n + pageSize)} aria-label="Next page">
+                <Button variant="outline" size="icon" disabled={offset + pageSize >= total || loading} onClick={() => setOffset(offset + pageSize)} aria-label="Next page">
                   <ChevronRightIcon />
                 </Button>
               </div>

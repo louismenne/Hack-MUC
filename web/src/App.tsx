@@ -3,7 +3,7 @@ import { permissions, roleOf, roleLabels } from '../../src/roles';
 import { Team } from '@/components/team';
 import { useAuthUser, SignOutButton } from '@/lib/auth';
 import { PolicyManager } from '@/components/policy-manager';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, MoonIcon, ShieldCheckIcon, SunIcon, UploadIcon } from 'lucide-react';
 import { useTheme } from '@/lib/theme';
 import { toast } from 'sonner';
@@ -17,7 +17,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { navigate, pages, pageHref, PageLink, useRoute } from '@/lib/navigation';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { reviewState, type ReviewState } from '../../src/review';
 
@@ -31,26 +31,6 @@ const isFilters = (value: unknown): value is ListFilters => isRecord(value) && t
 
 const maxUploadBytes = 2_000_000;
 
-/** The open case page lives in the URL (#/case/DEV-004) so the browser back button returns to the inbox. */
-const caseFromHash = () => {
-  const match = /^#\/case\/(.+)$/.exec(window.location.hash);
-  return match ? decodeURIComponent(match[1]) : null;
-};
-function useOpenCase(): [string | null, (caseId: string | null) => void] {
-  const [openId, setOpenId] = useState(caseFromHash);
-  useEffect(() => {
-    const onHash = () => setOpenId(caseFromHash());
-    window.addEventListener('hashchange', onHash);
-    return () => window.removeEventListener('hashchange', onHash);
-  }, []);
-  const open = (caseId: string | null) => {
-    if (caseId) window.location.hash = `/case/${encodeURIComponent(caseId)}`;
-    else if (window.location.hash) history.pushState(null, '', window.location.pathname + window.location.search);
-    setOpenId(caseId);
-    window.scrollTo({ top: 0 });
-  };
-  return [openId, open];
-}
 // Reviewer inbox by default: only cases routed to human review.
 const defaultFilters: ListFilters = { query: '', recommendation: 'human_review', status: 'any' };
 
@@ -69,11 +49,14 @@ function AppContent() {
   const [datasetId, setDatasetId] = usePersistentState('dataset', 'development', isString);
   const [upload, setUpload] = usePersistentState<StoredUpload | null>('upload', null, isUpload);
   const [selection, setSelection] = usePersistentState<Record<string, string>>('selection', {}, isRecord);
-  const [tab, setTab] = usePersistentState('tab', 'queue', isString);
-  // The audit log now lives inside the dashboard; an old saved 'audit' tab opens the dashboard.
-  useEffect(() => { if (tab === 'audit') setTab('quality'); }, [tab, setTab]);
+  const route = useRoute();
+  const tab = route.page;
+  useEffect(() => {
+    document.title = `${pages.find(page => page.id === tab)?.label ?? 'Review queue'} · Claims Triage`;
+  }, [tab]);
   const [filters, setFilters] = usePersistentState<ListFilters>('filters', defaultFilters, isFilters);
-  const [openCaseId, openCase] = useOpenCase();
+  const openCaseId = tab === 'examples' ? route.caseId : null;
+  const openCase = (caseId: string | null) => navigate(pageHref('examples', caseId ? new URLSearchParams({ case: caseId }) : undefined));
   const fileInput = useRef<HTMLInputElement>(null);
 
   const uploaded = useMemo<Dataset | null>(() => {
@@ -215,23 +198,23 @@ function AppContent() {
         </div>
       )}
 
-      <Tabs value={tab} onValueChange={setTab} className="mx-auto max-w-[1600px] gap-4 px-4 py-4">
+      <main className="mx-auto flex max-w-[1600px] flex-col gap-4 px-4 py-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <TabsList>
-            <TabsTrigger value="queue">Review queue</TabsTrigger>
-            <TabsTrigger value="examples">CSV examples</TabsTrigger>
-            {access.team && <TabsTrigger value="team">Team</TabsTrigger>}
-            <TabsTrigger value="quality">Dashboard</TabsTrigger>
-            <TabsTrigger value="example-quality">Example quality</TabsTrigger>
-            <TabsTrigger value="policy">Policy</TabsTrigger>
-          </TabsList>
+          <nav aria-label="Main navigation" className="flex flex-wrap gap-1 rounded-lg bg-muted p-1">
+            {pages.filter(page => page.id !== 'team' || access.team).map(page => (
+              <PageLink key={page.id} href={page.path} aria-current={tab === page.id ? 'page' : undefined}
+                className={`rounded-md px-3 py-1 text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring ${tab === page.id ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+                {page.label}
+              </PageLink>
+            ))}
+          </nav>
           <p className="text-xs text-muted-foreground">
             {tab === 'examples' || tab === 'example-quality' ? dataset.description + '. ' : ''}Recommends a handling step; never approves or pays a claim.
           </p>
         </div>
 
-        <TabsContent value="queue"><StoredClaims /></TabsContent>
-        <TabsContent value="examples">
+        {tab === 'queue' && <StoredClaims />}
+        {tab === 'examples' && <section>
           <p className="mb-4 text-sm text-muted-foreground">Read-only CSV examples. Review submitted claims in the Review queue.</p>
           {pageOpen ? (
             <div className="mx-auto flex max-w-5xl flex-col gap-4">
@@ -266,16 +249,16 @@ function AppContent() {
               />
             </div>
           )}
-        </TabsContent>
+        </section>}
 
-        {access.team && <TabsContent value="team"><Team /></TabsContent>}
-        <TabsContent value="policy"><PolicyManager /></TabsContent>
+        {tab === 'team' && (access.team ? <Team /> : <p>Admin role required to view the team.</p>)}
+        {tab === 'policy' && <PolicyManager />}
 
-        <TabsContent value="quality"><StoredClaims dashboard /></TabsContent>
-        <TabsContent value="example-quality">
+        {tab === 'quality' && <StoredClaims dashboard />}
+        {tab === 'example-quality' && <section>
           <QualityView dataset={dataset} states={states} events={[]} renderLog={() => <p className="text-sm text-muted-foreground">CSV examples are read-only. Submitted-claim review activity is in the Dashboard.</p>} />
-        </TabsContent>
-      </Tabs>
+        </section>}
+      </main>
 
     </div>
   );
