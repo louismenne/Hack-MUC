@@ -70,3 +70,26 @@ The pure evaluator in `src/triage.ts` and the batch rules in `src/claims.ts` are
 ## Verification
 
 Tests cover reviewer override, revert, and confirmation rules, the quality metrics, all 14 labelled development cases, threshold boundaries, missing and unreadable fields, rule precedence, narrative isolation, output serialization, and batch input failures. The 12 unlabelled practice cases are checked for successful processing, not claimed as measured accuracy. Passing this small development set does not establish hidden-set or production performance.
+
+## Local policy management
+
+Requires Node.js **22.13+** (built-in SQLite). Run `npm run dev` to start the Vite UI and the local policy API together. Open the printed Vite URL and select **Policy**. The API binds only to `127.0.0.1:3002`; Vite proxies `/api` to it.
+
+1. Enter the policy owner's name and adjust the quote limit, review repair types, and required documents.
+2. Save a new immutable draft. Existing drafts can be reopened; saving edits creates another version.
+3. Preview the saved version against all 26 participant cases.
+4. Activate after reviewing the impact. Activation rejects previews made against an older active version and runs in a database transaction.
+
+Policies, decision snapshots, activation history, and recheck flags persist in `.local/policies.sqlite` (ignored by Git). The initial policy is the supplied v1. Later versions are user-authored configurations, **not an asserted official v2 policy**. Policy versions retain the creator, activation owner, and timestamps. Closed decisions are preserved byte-for-byte. Affected open claims receive new automated recommendations and a recheck flag; activation does not finalize a claim. Existing unresolved recheck flags survive subsequent activations.
+
+The Policy workspace evaluates the participant cases stored in SQLite. The existing Review queue, Quality view, CSV exports, uploads, and browser-local reviewer overrides remain the **v1 baseline** and are not silently migrated. Recheck completion and integrating reviewer overrides into the database are not implemented in this change. No v2 accuracy score is claimed without v2 ground-truth labels.
+
+API routes:
+
+- `GET /api/policies`: versions, active policy, activation history with saved impact reports.
+- `GET /api/claims`: facts, original v1 decisions, current decisions, recheck flags.
+- `POST /api/policies`: `{ "actor": "Name", "config": { ... } }` creates a validated draft.
+- `POST /api/policies/:id/preview`: `{}` returns impact and a preview token.
+- `POST /api/policies/:id/activate`: `{ "actor": "Name", "token": "preview-token" }` activates that reviewed draft.
+
+This is a **local development backend**, not a hosted production service. Names are audit labels, not authenticated identities. The existing Vercel deployment is static and does not run this SQLite API; hosted use needs an authenticated backend and persistent hosted database. The UI reports API unavailability instead of pretending to save changes. Keep the API on loopback until that work is done.

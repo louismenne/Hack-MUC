@@ -11,9 +11,9 @@ export type Recommendation = 'routine_processing' | 'request_information' | 'hum
 export type Claim = Record<Field, string | boolean | number | null>;
 export interface Decision {
   caseId: string | null;
-  policyVersion: 'v1';
+  policyVersion: string;
   recommendation: Recommendation;
-  ruleId: 'v1.rule1' | 'v1.rule2' | 'v1.missing_input' | 'v1.rule3';
+  ruleId: string;
   supportingFacts: string[];
   missingFields: Field[];
   explanation: string;
@@ -32,17 +32,29 @@ export function parseClaim(row: Record<string, string>): Claim {
   return claim;
 }
 
-export function evaluateV1(claim: Claim): Decision {
-  const missingFields = inputFields.filter(field => claim[field] === null);
+export interface PolicyConfig {
+  routineQuoteLimitEur: number;
+  humanReviewRepairTypes: string[];
+  requireIncidentReport: boolean;
+  requireItemizedQuote: boolean;
+}
+export const policyV1: PolicyConfig = {
+  routineQuoteLimitEur: 1500, humanReviewRepairTypes: [],
+  requireIncidentReport: true, requireItemizedQuote: true,
+};
+export function evaluateV1(claim: Claim): Decision { return evaluatePolicy(claim, policyV1, 'v1'); }
+export function evaluatePolicy(claim: Claim, policy: PolicyConfig, version: string): Decision {
+  const missingFields = inputFields.filter(field => claim[field] === null && (field !== 'incident_report_present' || policy.requireIncidentReport) && (field !== 'itemized_quote_present' || policy.requireItemizedQuote));
   const triggers: string[] = [];
   if (claim.policy_active_on_incident === false) triggers.push('policy_active_on_incident=false');
   if (claim.claim_type !== null && claim.claim_type !== 'motor_own_damage') triggers.push(`claim_type=${claim.claim_type}`);
   for (const field of ['injury_reported', 'liability_disputed', 'duplicate_flag', 'evidence_conflict'] as const) {
     if (claim[field] === true) triggers.push(`${field}=true`);
   }
-  if (typeof claim.quote_eur === 'number' && claim.quote_eur > 1500) triggers.push(`quote_eur=${claim.quote_eur} exceeds 1500`);
+  if (typeof claim.quote_eur === 'number' && claim.quote_eur > policy.routineQuoteLimitEur) triggers.push(`quote_eur=${claim.quote_eur} exceeds ${policy.routineQuoteLimitEur}`);
+  if (typeof claim.repair_type === 'string' && policy.humanReviewRepairTypes.includes(claim.repair_type)) triggers.push(`repair_type=${claim.repair_type}`);
   const absentDocuments = (['incident_report_present', 'itemized_quote_present'] as const)
-    .filter(field => claim[field] === false).map(field => `${field}=false`);
+    .filter(field => claim[field] === false && (field === 'incident_report_present' ? policy.requireIncidentReport : policy.requireItemizedQuote)).map(field => `${field}=false`);
   let recommendation: Recommendation;
   let ruleId: Decision['ruleId'];
   let supportingFacts: string[];
@@ -54,12 +66,13 @@ export function evaluateV1(claim: Claim): Decision {
     recommendation = 'request_information'; ruleId = 'v1.missing_input'; supportingFacts = [];
   } else {
     recommendation = 'routine_processing'; ruleId = 'v1.rule3';
-    supportingFacts = ['Active motor-own-damage policy', 'Both required documents present', 'No review flags', `quote_eur=${claim.quote_eur} is at most 1500`];
+    supportingFacts = ['Active motor-own-damage policy', 'All required documents present', 'No review flags', `quote_eur=${claim.quote_eur} is at most ${policy.routineQuoteLimitEur}`];
   }
+  ruleId = ruleId.replace('v1.', `${version}.`);
   const missingNote = missingFields.length ? ` Missing or unreadable: ${missingFields.join(', ')}.` : '';
   return {
     caseId: typeof claim.case_id === 'string' ? claim.case_id : null,
-    policyVersion: 'v1', recommendation, ruleId, supportingFacts, missingFields,
+    policyVersion: version, recommendation, ruleId, supportingFacts, missingFields,
     explanation: `${ruleId}: ${recommendation}. ${supportingFacts.length ? supportingFacts.join('; ') + '.' : ''}${missingNote}${recommendation === 'routine_processing' ? ' This is a handling recommendation, not payment approval.' : ''}`,
   };
 }

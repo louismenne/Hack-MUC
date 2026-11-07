@@ -1,3 +1,4 @@
+import { PolicyManager } from '@/components/policy-manager';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DownloadIcon, MoonIcon, ShieldCheckIcon, SunIcon, UploadIcon } from 'lucide-react';
 import { useTheme } from '@/lib/theme';
@@ -134,9 +135,9 @@ export function App() {
           </div>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Badge variant="outline" className="font-mono">policy v1</Badge>
+              <Badge variant="outline" className="font-mono">v1 baseline</Badge>
             </TooltipTrigger>
-            <TooltipContent>Recommendations follow policy v1. Policy v2 has not been supplied yet.</TooltipContent>
+            <TooltipContent>The review queue shows the v1 baseline. Manage current policy decisions in the Policy tab.</TooltipContent>
           </Tooltip>
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <Select value={dataset.id} onValueChange={value => { setDatasetId(value); setFilters(defaultFilters); }}>
@@ -178,6 +179,7 @@ export function App() {
           <TabsList>
             <TabsTrigger value="queue">Review queue</TabsTrigger>
             <TabsTrigger value="quality">Quality</TabsTrigger>
+            <TabsTrigger value="policy">Policy</TabsTrigger>
             <TabsTrigger value="audit">
               Audit log
               {datasetEvents.length > 0 && <Badge variant="secondary" className="h-4 px-1.5 font-mono text-[10px]">{datasetEvents.length}</Badge>}
@@ -200,6 +202,8 @@ export function App() {
           />
           <ClaimDetail item={selected} state={selectedState} onAction={setDialog} />
         </TabsContent>
+
+        <TabsContent value="policy"><PolicyManager /></TabsContent>
 
         <TabsContent value="quality">
           <QualityView dataset={dataset} states={states} />
