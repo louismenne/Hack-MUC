@@ -1,0 +1,663 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Hack-MUC claims triage: architecture, built vs planned",
+    "output": "docs/diagrams/architecture.html",
+    "quality_profile": "showcase",
+    "locale": "en",
+    "repository": {
+      "url": "https://github.com/louismenne/Hack-MUC.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "895a5ef203093bc06bd03e178209efe6e091eb22"
+    },
+    "views": [
+      {
+        "id": "v-intake",
+        "label": "Claim intake",
+        "focus": [
+          "staff",
+          "claim",
+          "extract",
+          "claims",
+          "bucket"
+        ],
+        "note": "Login required. Saves the claim and private documents. AI reading of documents is still a stub."
+      },
+      {
+        "id": "v-review",
+        "label": "Review and audit",
+        "focus": [
+          "staff",
+          "queue",
+          "dash",
+          "engine",
+          "csv",
+          "audit"
+        ],
+        "note": "The queue evaluates sample cases in the browser. Reviews are saved to the append-only audit_log."
+      },
+      {
+        "id": "v-policy",
+        "label": "Policy change",
+        "focus": [
+          "policy",
+          "team",
+          "api",
+          "policies",
+          "auth",
+          "claude"
+        ],
+        "note": "Drafts, impact on open cases and activation go through the API. Claude only suggests drafts."
+      },
+      {
+        "id": "v-planned",
+        "label": "Planned",
+        "focus": [
+          "extract",
+          "claude"
+        ],
+        "note": "Dashed line and PLANNED tag: AI reading documents to prefill the form is not built yet."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "csv",
+      "type": "database",
+      "label": "Sample cases",
+      "sublabel": "26 CSV cases",
+      "tag": "files",
+      "pos": [
+        40,
+        145
+      ],
+      "size": [
+        130,
+        64
+      ],
+      "sources": [
+        {
+          "path": "web/src/lib/datasets.ts",
+          "line": 52,
+          "end_line": 56,
+          "label": "built-in datasets"
+        }
+      ]
+    },
+    {
+      "id": "staff",
+      "type": "external",
+      "label": "Invited users",
+      "sublabel": "4 roles · invite-only",
+      "pos": [
+        40,
+        355
+      ],
+      "size": [
+        130,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/roles.ts",
+          "line": 2,
+          "end_line": 13,
+          "label": "roles and permissions"
+        }
+      ]
+    },
+    {
+      "id": "queue",
+      "type": "frontend",
+      "label": "Review queue",
+      "sublabel": "+ case page · override",
+      "pos": [
+        250,
+        145
+      ],
+      "size": [
+        156,
+        64
+      ],
+      "sources": [
+        {
+          "path": "web/src/App.tsx",
+          "line": 140,
+          "end_line": 148,
+          "label": "reviewer saves a review"
+        },
+        {
+          "path": "web/src/components/claims-list.tsx",
+          "line": 41,
+          "end_line": 55,
+          "label": "oldest-first queue"
+        }
+      ]
+    },
+    {
+      "id": "dash",
+      "type": "frontend",
+      "label": "Dashboard",
+      "sublabel": "quality · rechecks · audit",
+      "pos": [
+        250,
+        40
+      ],
+      "size": [
+        156,
+        64
+      ],
+      "sources": [
+        {
+          "path": "web/src/components/quality-view.tsx",
+          "line": 48,
+          "end_line": 52,
+          "label": "quality dashboard"
+        },
+        {
+          "path": "web/src/components/activity-log.tsx",
+          "line": 6,
+          "end_line": 16,
+          "label": "audit log view"
+        }
+      ]
+    },
+    {
+      "id": "policy",
+      "type": "frontend",
+      "label": "Policy tab",
+      "sublabel": "draft · diff · impact",
+      "pos": [
+        250,
+        250
+      ],
+      "size": [
+        156,
+        64
+      ],
+      "sources": [
+        {
+          "path": "web/src/components/policy/workspace.tsx",
+          "line": 31,
+          "end_line": 48,
+          "label": "policy workspace"
+        },
+        {
+          "path": "web/src/components/policy/version-page.tsx",
+          "line": 70,
+          "end_line": 76,
+          "label": "activate a version"
+        }
+      ]
+    },
+    {
+      "id": "team",
+      "type": "frontend",
+      "label": "Team tab",
+      "sublabel": "admin sets roles",
+      "pos": [
+        250,
+        355
+      ],
+      "size": [
+        156,
+        64
+      ],
+      "sources": [
+        {
+          "path": "web/src/components/team.tsx",
+          "line": 9,
+          "end_line": 24,
+          "label": "team roles"
+        }
+      ]
+    },
+    {
+      "id": "extract",
+      "type": "backend",
+      "label": "AI document reading",
+      "sublabel": "PLANNED · stub only",
+      "tag": "PLANNED",
+      "pos": [
+        250,
+        565
+      ],
+      "size": [
+        156,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/claim-intake/extract.ts",
+          "line": 3,
+          "end_line": 18,
+          "label": "extractFromFiles stub"
+        },
+        {
+          "path": "src/claim-intake/ClaimPage.tsx",
+          "line": 93,
+          "end_line": 99,
+          "label": "called after files are added"
+        }
+      ]
+    },
+    {
+      "id": "claim",
+      "type": "frontend",
+      "label": "/claim intake page",
+      "sublabel": "login required · own page",
+      "tag": "login required",
+      "pos": [
+        250,
+        670
+      ],
+      "size": [
+        156,
+        64
+      ],
+      "sources": [
+        {
+          "path": "web/src/claim-main.tsx",
+          "line": 9,
+          "end_line": 16,
+          "label": "own entry with login"
+        },
+        {
+          "path": "src/claim-intake/adapter.ts",
+          "line": 22,
+          "end_line": 47,
+          "label": "saves claim and files"
+        }
+      ]
+    },
+    {
+      "id": "engine",
+      "type": "backend",
+      "label": "Policy engine",
+      "sublabel": "fixed code · rules = data",
+      "pos": [
+        500,
+        250
+      ],
+      "size": [
+        156,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/policy-engine/engine.ts",
+          "line": 82,
+          "end_line": 94,
+          "label": "first matching rule decides"
+        },
+        {
+          "path": "src/policy-engine/history.ts",
+          "line": 56,
+          "end_line": 65,
+          "label": "open: active, closed: frozen"
+        },
+        {
+          "path": "src/policy-engine/schema.ts",
+          "line": 109,
+          "end_line": 126,
+          "label": "rules are validated JSON"
+        }
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "Vercel API · login",
+      "sublabel": "/api/policy · /api/policy-ai",
+      "tag": "login required",
+      "pos": [
+        500,
+        355
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/policy-api/functions/policy.ts",
+          "line": 6,
+          "end_line": 7,
+          "label": "policy function"
+        },
+        {
+          "path": "src/policy-api/functions/policy-ai.ts",
+          "line": 5,
+          "end_line": 5,
+          "label": "AI function"
+        },
+        {
+          "path": "src/policy-api/http.ts",
+          "line": 16,
+          "end_line": 37,
+          "label": "login and role checks"
+        }
+      ]
+    },
+    {
+      "id": "claude",
+      "type": "cloud",
+      "label": "Claude (Anthropic)",
+      "sublabel": "suggests policy drafts",
+      "tag": "AI suggests only",
+      "pos": [
+        500,
+        460
+      ],
+      "size": [
+        156,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/policy-ai/suggest.ts",
+          "line": 39,
+          "end_line": 39,
+          "label": "never decides claims"
+        },
+        {
+          "path": "src/policy-api/server.ts",
+          "line": 17,
+          "end_line": 18,
+          "label": "used only if a key is set"
+        }
+      ]
+    },
+    {
+      "id": "audit",
+      "type": "database",
+      "label": "audit_log",
+      "sublabel": "append-only history",
+      "pos": [
+        760,
+        40
+      ],
+      "size": [
+        156,
+        64
+      ],
+      "sources": [
+        {
+          "path": "supabase/migrations/20261107210000_audit_log.sql",
+          "line": 2,
+          "end_line": 12,
+          "label": "audit table"
+        },
+        {
+          "path": "supabase/migrations/20261107210000_audit_log.sql",
+          "line": 44,
+          "end_line": 50,
+          "label": "record_review function"
+        }
+      ]
+    },
+    {
+      "id": "policies",
+      "type": "database",
+      "label": "policy_versions",
+      "sublabel": "rules as JSON · versions",
+      "pos": [
+        760,
+        355
+      ],
+      "size": [
+        156,
+        64
+      ],
+      "sources": [
+        {
+          "path": "supabase/migrations/20261107120000_policy_versions.sql",
+          "line": 5,
+          "end_line": 19,
+          "label": "draft, active, archived"
+        },
+        {
+          "path": "supabase/migrations/20261107120000_policy_versions.sql",
+          "line": 32,
+          "end_line": 51,
+          "label": "activate_policy_version"
+        }
+      ]
+    },
+    {
+      "id": "auth",
+      "type": "security",
+      "label": "Supabase Auth",
+      "sublabel": "invite-only · roles",
+      "pos": [
+        760,
+        460
+      ],
+      "size": [
+        156,
+        64
+      ],
+      "sources": [
+        {
+          "path": "web/src/lib/auth.tsx",
+          "line": 60,
+          "end_line": 65,
+          "label": "only invited users get in"
+        },
+        {
+          "path": "src/policy-api/auth.ts",
+          "line": 16,
+          "end_line": 28,
+          "label": "API checks every request"
+        }
+      ]
+    },
+    {
+      "id": "claims",
+      "type": "database",
+      "label": "claims",
+      "sublabel": "saved forms · row security",
+      "pos": [
+        760,
+        565
+      ],
+      "size": [
+        156,
+        64
+      ],
+      "sources": [
+        {
+          "path": "supabase/migrations/20261107203000_claims.sql",
+          "line": 14,
+          "end_line": 33,
+          "label": "claims table"
+        },
+        {
+          "path": "supabase/migrations/20261107203000_claims.sql",
+          "line": 36,
+          "end_line": 52,
+          "label": "row security by role"
+        }
+      ]
+    },
+    {
+      "id": "bucket",
+      "type": "database",
+      "label": "claim-documents",
+      "sublabel": "private PDFs and images",
+      "pos": [
+        760,
+        670
+      ],
+      "size": [
+        156,
+        64
+      ],
+      "sources": [
+        {
+          "path": "supabase/migrations/20261107204500_claim_attachments.sql",
+          "line": 18,
+          "end_line": 24,
+          "label": "private bucket, upload rule"
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "security-group",
+      "label": "Main app · invite-only Supabase login",
+      "wraps": [
+        "queue",
+        "dash",
+        "policy",
+        "team"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Supabase project",
+      "wraps": [
+        "audit",
+        "policies",
+        "auth",
+        "claims",
+        "bucket"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "staff-claim",
+      "from": "staff",
+      "to": "claim",
+      "label": "submit",
+      "variant": "emphasis"
+    },
+    {
+      "id": "staff-queue",
+      "from": "staff",
+      "to": "queue",
+      "label": "sign in",
+      "variant": "emphasis"
+    },
+    {
+      "id": "csv-queue",
+      "from": "csv",
+      "to": "queue",
+      "label": "26 cases"
+    },
+    {
+      "id": "queue-engine",
+      "from": "queue",
+      "to": "engine",
+      "label": "evaluate"
+    },
+    {
+      "id": "queue-audit",
+      "from": "queue",
+      "to": "audit",
+      "label": "save review"
+    },
+    {
+      "id": "dash-audit",
+      "from": "dash",
+      "to": "audit",
+      "label": "read log"
+    },
+    {
+      "id": "policy-api",
+      "from": "policy",
+      "to": "api",
+      "label": "activate"
+    },
+    {
+      "id": "team-api",
+      "from": "team",
+      "to": "api",
+      "label": "roles"
+    },
+    {
+      "id": "api-engine",
+      "from": "api",
+      "to": "engine",
+      "label": "active rules"
+    },
+    {
+      "id": "api-policies",
+      "from": "api",
+      "to": "policies",
+      "label": "versions"
+    },
+    {
+      "id": "api-auth",
+      "from": "api",
+      "to": "auth",
+      "label": "verify user"
+    },
+    {
+      "id": "api-claude",
+      "from": "api",
+      "to": "claude",
+      "label": "AI drafts"
+    },
+    {
+      "id": "claim-extract",
+      "from": "claim",
+      "to": "extract",
+      "label": "after upload"
+    },
+    {
+      "id": "extract-claude",
+      "from": "extract",
+      "to": "claude",
+      "label": "planned",
+      "variant": "dashed"
+    },
+    {
+      "id": "claim-claims",
+      "from": "claim",
+      "to": "claims",
+      "label": "insert"
+    },
+    {
+      "id": "claim-bucket",
+      "from": "claim",
+      "to": "bucket",
+      "label": "upload files"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Built and working",
+      "items": [
+        "/claim saves the claim and private documents (login, row security)",
+        "Review queue: confirm or override, saved in audit_log",
+        "Policy tab: draft, diff, impact on open cases, activate",
+        "Invite-only login with 4 roles, checked by the API on every call",
+        "Jury CLI uses the same engine and needs no database"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "PLANNED or not connected yet",
+      "items": [
+        "PLANNED: AI reads documents to prefill the form (stub today)",
+        "Saved claims are not evaluated or shown in the Review queue yet",
+        "Claude key is not set in Vercel: AI drafts are tested only with a mock"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Rules are data",
+      "items": [
+        "The engine is fixed generic code; rules are JSON in the active policy_versions row",
+        "Fallback: policies/*.rules.json (CLI, tests, offline)",
+        "AI only suggests drafts. A human activates. AI never decides."
+      ]
+    }
+  ]
+}
