@@ -13,6 +13,7 @@ import { splitColumns, useClaimListResize } from '../stored/use-claim-list-resiz
 
 /** Shared actions every layout variant offers the policy owner. */
 export interface OwnerActions {
+  voice?: ReactNode;
   canManage: boolean;
   aiAvailable: boolean;
   busy: boolean;
@@ -29,7 +30,7 @@ export interface OwnerActions {
 const ACCEPT = '.txt,.md,.markdown,.pdf,text/plain,text/markdown,application/pdf';
 
 /** One input like a chat box: type a change, or drop / attach a new policy file. */
-export function Composer({ aiAvailable, busy, onFile, onInstruction }: Pick<OwnerActions, 'aiAvailable' | 'busy' | 'onFile' | 'onInstruction'>) {
+export function Composer({ aiAvailable, busy, onFile, onInstruction, voice }: Pick<OwnerActions, 'aiAvailable' | 'busy' | 'onFile' | 'onInstruction' | 'voice'>) {
   const [text, setText] = useState('');
   const [dragging, setDragging] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -37,6 +38,7 @@ export function Composer({ aiAvailable, busy, onFile, onInstruction }: Pick<Owne
   const send = () => { if (!text.trim() || disabled) return; onInstruction(text.trim()); setText(''); };
   return (
     <div className="space-y-1.5">
+      {voice && <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-xs text-muted-foreground">Ask about rules or describe a change</span>{voice}</div>}
       <div
         data-dragging={dragging || undefined}
         onDragOver={e => { e.preventDefault(); if (!disabled) setDragging(true); }}

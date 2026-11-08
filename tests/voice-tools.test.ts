@@ -221,7 +221,7 @@ describe('no secrets and no agent ID in code that ships to the browser', () => {
     expect(text).not.toMatch(/agent_[0-9a-z]{20,}/);
   });
   it('the session is started with a signed URL, never with an agent ID', () => {
-    const text = readFileSync(join(root, 'src/claim-intake/voice/VoicePanel.tsx'), 'utf8');
+    const text = readFileSync(join(root, 'web/src/components/voice/assistant.tsx'), 'utf8');
     expect(text).toMatch(/startSession\(\{ signedUrl/);
     expect(text).not.toMatch(/agentId/);
   });
