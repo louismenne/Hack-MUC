@@ -2,6 +2,7 @@ import { StoredClaims } from '@/components/stored-claims';
 import { permissions, roleOf, roleLabels, canAccessPage, type AppPage } from '../../src/roles';
 import { Team } from '@/components/team';
 import { useAuthUser, signOut } from '@/lib/auth';
+import { BusinessCase } from '@/components/business-case';
 import { PolicyManager } from '@/components/policy-manager';
 import { Overview } from '@/components/overview';
 import { TaktileLogo } from '@/components/taktile-logo';
@@ -300,11 +301,14 @@ function AppContent() {
         {tab === 'overview' && <Overview canOpen={page => canAccessPage(role, page as AppPage)} />}
 
         {tab === 'quality' && <StoredClaims dashboard />}
+        {tab === 'business' && <BusinessCase />}
       </main>
 
-      <footer className="mx-auto max-w-[1600px] px-4 pb-6 text-xs text-muted-foreground">
-        Recommends a handling step; never approves or pays a claim.
-      </footer>
+      {tab !== 'business' && tab !== 'policy' && (
+        <footer className="mx-auto max-w-[1600px] px-4 pb-6 text-xs text-muted-foreground">
+          Recommends a handling step; never approves or pays a claim.
+        </footer>
+      )}
     </div>
   );
 }

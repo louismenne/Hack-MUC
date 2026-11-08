@@ -112,7 +112,7 @@ const topics: Topic[] = [
     title: 'What triage costs today, and with the system',
     text: 'Annual triage cost before and after, payback time, the cost of errors and the cost of a policy change. All assumptions are editable, so the jury can try their own numbers.',
     facts: [['Today', 'vs. with the system'], ['Payback', 'time in months'], ['Errors', 'and policy changes priced']],
-    page: 'quality', cta: 'Open dashboard',
+    page: 'business', cta: 'Open business case',
     mock: (
       <div className="space-y-4 rounded-lg border bg-card p-4">
         <Bar label="Triage cost today" width="100%" tone="bg-muted-foreground/60" />

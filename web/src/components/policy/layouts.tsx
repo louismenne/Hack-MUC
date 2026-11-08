@@ -104,7 +104,7 @@ export function PolicyShell({ active, versions, currentId, onNavigate, actions, 
   const previous = versions.filter(v => v.status === 'archived').sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const label = (text: string) => <div className="px-3 pt-4 pb-1 text-xs text-muted-foreground">{text}</div>;
   return (
-    <div ref={resize.splitRef} className="grid h-[calc(100dvh-7.5rem)] min-h-[420px] gap-5 lg:grid-cols-(--split)" style={{ '--split': splitColumns(resize.listWidth) } as React.CSSProperties}>
+    <div ref={resize.splitRef} className="grid min-h-[420px] flex-1 gap-5 lg:min-h-0 lg:grid-cols-(--split)" style={{ '--split': splitColumns(resize.listWidth) } as React.CSSProperties}>
       {/* The handle sits outside the scrolling nav, so it is not clipped (same as the review inbox). */}
       <div className="relative flex min-h-0 flex-col">
       <SplitHandle resize={resize} label="Resize policy navigation" />
