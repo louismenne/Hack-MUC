@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest';
 import { decideClaim } from '../src/policy-engine/index.js';
 import { bundledHistory, decideV2 } from './support/policies.js';
 import { triageCsv } from '../src/batch.js';
-import { PolicyStore } from '../src/server/store.js';
 const read = (name: string) => parse(readFileSync(`data/${name}`, 'utf8'), { columns: true }) as Record<string,string>[];
 const dev = read('labelled_development_cases.csv');
 const expectations = read('development_v2_expectations.csv');
@@ -46,16 +45,7 @@ describe('official v2 notice', () => {
     }
     expect(rows.filter(r => r.needs_recheck === 'True').map(r => r.case_id)).toEqual(['PRA-003', 'PRA-004', 'PRA-005', 'PRA-006']);
   });
-  it('migrates existing experimental versions without overwriting their history', () => {
-    const s = new PolicyStore(':memory:', read('unlabelled_practice_cases.csv'));
-    try {
-      const original = s.claims().filter(c => c.facts.case_status === 'closed');
-      s.installOfficialV2(); s.installOfficialV2();
-      expect(s.active().id).toBe('official-v2'); expect(s.history()).toHaveLength(1);
-      expect(s.claims().filter(c => c.facts.case_status === 'closed')).toEqual(original);
-      expect(s.claims().find(c => c.caseId === 'PRA-006')?.current.recommendation).toBe('human_review');
-    } finally { s.close(); }
-  });
+
 });
 
 describe('Supabase JSON policy alignment', () => {

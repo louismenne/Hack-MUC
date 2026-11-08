@@ -1,37 +1,44 @@
+import { useClaimSelection } from './stored/use-claim-selection';
+import { StoredDashboard } from './stored/dashboard';
+import { ClaimDocuments } from './stored/claim-documents';
+import { useStoredClaims, pageSize } from './stored/use-stored-claims';
+import { useClaimListResize } from './stored/use-claim-list-resize';
+import { useStoredReview } from './stored/use-stored-review';
 import { followupHref } from '../../../src/claim-intake/followup';
 import { navigate, pageHref, useRoute } from '@/lib/navigation';
-import { cacheScope, cacheEpoch, readCache, writeCache, clearReloadCache } from '@/lib/reload-cache';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { useMemo, useState } from 'react';
 import {
-  ChevronLeftIcon, ChevronRightIcon, CircleAlertIcon, DownloadIcon, FileTextIcon, ImageIcon, InboxIcon, PlusIcon, RefreshCwIcon,
-  XIcon, MousePointerClickIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  CircleAlertIcon,
+  InboxIcon,
+  PlusIcon,
+  RefreshCwIcon,
+  XIcon,
+  MousePointerClickIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { authenticatedFetch, supabase } from '@/lib/supabase';
+
 import { useAuthUser } from '@/lib/auth';
 import { useReviewAudit } from '@/lib/audit';
-import { POLICY_CHANGED_EVENT } from '@/lib/policy-source';
+
 import { permissions, roleOf } from '../../../src/roles';
-import { parseClaim, type Decision, type Recommendation } from '../../../src/triage';
+import { parseClaim, type Decision } from '../../../src/triage';
 import { receivedAt } from '../../../src/received-at';
-import { reviewState, type ReviewAction, type ReviewInput } from '../../../src/review';
+import { reviewState, type ReviewAction } from '../../../src/review';
 import type { StoredQueueItem } from '../../../src/policy-api/stored-claims';
-import { downloadFile, toCsv, type CaseItem } from '@/lib/datasets';
-import { QualityView } from './quality-view';
-import { AuditLog } from './audit-log';
-import { ActivityLog } from './activity-log';
+import { type CaseItem } from '@/lib/datasets';
+
 import { ClaimsList, filterCases, type ListFilters } from './claims-list';
 import { ClaimDetail } from './claim-detail';
 import { ReviewDialog } from './review-dialog';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Card } from './ui/card';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from './ui/empty';
 import { Spinner } from './ui/spinner';
-import { toast } from 'sonner';
-
-const pageSize = 50;
 
 function caseItem(item: StoredQueueItem): CaseItem {
   const row = Object.fromEntries(Object.entries(item.claim).map(([k, v]) => [k, v == null ? '' : String(v)]));
@@ -51,135 +58,22 @@ function caseItem(item: StoredQueueItem): CaseItem {
   };
 }
 
-const isImage = (name: string) => /\.(png|jpe?g|gif|webp|heic|heif|bmp|tiff?)$/i.test(name);
-
 export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
   const user = useAuthUser();
   const access = permissions(user);
   // "File a claim" belongs to claimants only; reviewers, policy owners and admins work the queue.
   const isClaimant = roleOf(user) === 'claims_handler';
-  const scope = cacheScope(user);
-  type Snapshot = { items: StoredQueueItem[]; total: number; policy: string };
-  const cacheKey = (offset: number) => dashboard ? 'claims:dashboard' : `claims:page:${offset}`;
-  const cached = (offset: number) => readCache<Snapshot>(scope, cacheKey(offset), value => {
-    const snapshot = value as Snapshot | null;
-    return !!snapshot && typeof snapshot.total === 'number' && typeof snapshot.policy === 'string' && Array.isArray(snapshot.items) && snapshot.items.every(item => item?.claim && typeof item.claim.case_id === 'string' && item.saved?.decision && Array.isArray(item.saved.decision.supportingFacts) && Array.isArray(item.saved.decision.missingFields));
-  });
-  const [initial] = useState(() => cached(0));
-  const [items, setItems] = useState<StoredQueueItem[]>(initial?.items ?? []);
   const route = useRoute();
   const requestedOffset = Number(route.params.get('offset') ?? 0);
   const offset = !dashboard && Number.isSafeInteger(requestedOffset) && requestedOffset >= 0 ? requestedOffset : 0;
-  const setOffset = (next: number) => navigate(pageHref('queue', next ? new URLSearchParams({ offset: String(next) }) : undefined));
-  const [total, setTotal] = useState(initial?.total ?? 0);
-  const [policy, setPolicy] = useState(initial?.policy ?? '');
-  const [loading, setLoading] = useState(true);
-  // True once the shown claims came from the server (not only from the reload cache) under the current policy.
-  // Background refreshes on window focus keep it true, so a reviewer's open dialog is not interrupted.
-  const [verified, setVerified] = useState(false);
-  const [error, setError] = useState('');
-  const selectedId = dashboard ? '' : route.caseId ?? '';
-  // Gmail-style split view: one claim is always open on the right unless the reviewer closes it (Esc).
-  const [dismissed, setDismissed] = useState(false);
-  // Resizable list column (Apple Mail style). null = default quarter of the width. Remembered per browser.
-  const splitRef = useRef<HTMLDivElement>(null);
-  const [listWidth, setListWidth] = useState<number | null>(() => {
-    try { const v = Number(localStorage.getItem('hackmuc.listWidth')); return Number.isFinite(v) && v > 0 ? v : null; } catch { return null; }
-  });
-  const clampWidth = (px: number) => {
-    const total = splitRef.current?.getBoundingClientRect().width ?? 1200;
-    return Math.round(Math.min(Math.max(px, 220), total * 0.5));
-  };
-  const saveListWidth = (px: number | null) => {
-    setListWidth(px);
-    try { if (px === null) localStorage.removeItem('hackmuc.listWidth'); else localStorage.setItem('hackmuc.listWidth', String(px)); } catch { /* storage unavailable */ }
-  };
-  const startResize = (event: React.PointerEvent<HTMLDivElement>) => {
-    const grid = splitRef.current;
-    if (!grid) return;
-    event.preventDefault();
-    const left = grid.getBoundingClientRect().left;
-    const move = (e: PointerEvent) => setListWidth(clampWidth(e.clientX - left));
-    const up = (e: PointerEvent) => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-      document.body.style.removeProperty('cursor');
-      document.body.style.removeProperty('user-select');
-      saveListWidth(clampWidth(e.clientX - left));
-    };
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-  };
+  const setOffset = (next: number) =>
+    navigate(pageHref('queue', next ? new URLSearchParams({ offset: String(next) }) : undefined));
+  const selectedId = dashboard ? '' : (route.caseId ?? '');
+  const { splitRef, listWidth, clampWidth, saveListWidth, startResize } = useClaimListResize();
   const [action, setAction] = useState<ReviewAction | null>(null);
-  const [preset, setPreset] = useState<{ next?: Recommendation; title?: string }>({});
+  const { items, total, policy, loading, verified, error, refresh } = useStoredClaims(dashboard, offset, setAction);
   const [filters, setFilters] = useState<ListFilters>({ query: '', recommendation: 'all', status: 'any' });
-  const revision = useRef(0);
-  const busy = useRef(false);
-  /** The saved decision a review dialog was opened for; the dialog closes if that decision is replaced. */
-  const dialogDecision = useRef<string | undefined>(undefined);
   const audit = useReviewAudit('stored');
-  const refresh = useCallback(async () => {
-    const request = ++revision.current;
-    const epoch = cacheEpoch();
-    setLoading(true);
-    try {
-      const collected: StoredQueueItem[] = [];
-      let next = dashboard ? 0 : offset;
-      let total = 0;
-      let activePolicy = '';
-      do {
-        const response = await authenticatedFetch('/api/policy', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'evaluate_claims', offset: next }),
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error ?? 'Could not load claims.');
-        if (request !== revision.current) return;
-        if (activePolicy && activePolicy !== data.activePolicy)
-          throw new Error('Policy changed while loading. Refresh to load a consistent dashboard.');
-        collected.push(...data.items);
-        total = data.total;
-        activePolicy = data.activePolicy;
-        next += pageSize;
-      } while (dashboard && next < total);
-      if (request === revision.current) {
-        writeCache(scope, cacheKey(offset), { items: collected, total, policy: activePolicy }, epoch);
-        setItems(collected);
-        setTotal(total);
-        setPolicy(activePolicy);
-        setError('');
-        setVerified(true);
-      }
-    } catch (e) {
-      if (request === revision.current) setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      if (request === revision.current) setLoading(false);
-    }
-  }, [offset, dashboard, scope]);
-  useEffect(() => {
-    const snapshot = cached(offset);
-    setItems(snapshot?.items ?? []); setTotal(snapshot?.total ?? 0); setPolicy(snapshot?.policy ?? '');
-    setVerified(false);
-    void refresh();
-    // Returning to the window re-checks claims quietly; it must not close an open review dialog.
-    const focused = () => void refresh();
-    // A policy change makes every shown decision stale: close the dialog and lock reviews until reloaded.
-    const policyChanged = () => {
-      setAction(null);
-      setVerified(false);
-      void refresh();
-    };
-    window.addEventListener('focus', focused);
-    window.addEventListener(POLICY_CHANGED_EVENT, policyChanged);
-    return () => {
-      revision.current++;
-      window.removeEventListener('focus', focused);
-      window.removeEventListener(POLICY_CHANGED_EVENT, policyChanged);
-    };
-  }, [refresh]);
   const cases = useMemo(() => items.map(caseItem), [items]);
   const states = useMemo(
     () =>
@@ -195,79 +89,42 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
     [items, cases, audit.events],
   );
   const visible = filterCases(cases, states, filters);
+  const { openClaim, setDismissed } = useClaimSelection({
+    dashboard,
+    offset,
+    selectedId,
+    firstVisibleId: visible[0]?.decision.caseId,
+    action,
+    setAction,
+  });
   const selected = cases.find((c) => c.decision.caseId === selectedId);
   const stored = items.find((c) => c.claim.case_id === selectedId);
   const state = states.get(selectedId);
   const canReview = access.review && verified && !error && audit.ready && !audit.error;
-  const savedDecisionId = stored?.saved.id;
-  useEffect(() => {
-    if (action && dialogDecision.current && savedDecisionId !== dialogDecision.current) {
-      setAction(null);
-      toast.info('The saved decision for this claim changed. Check the claim again before reviewing.');
-    }
-  }, [action, savedDecisionId]);
-  const openAction = (next: ReviewAction, presetNext?: Recommendation, title?: string) => {
-    dialogDecision.current = savedDecisionId;
-    setPreset({ next: presetNext, title });
-    setAction(next);
-  };
-  const openClaim = (caseId: string) => {
-    const params = new URLSearchParams();
-    if (offset) params.set('offset', String(offset));
-    if (caseId) params.set('case', caseId);
-    navigate(pageHref('queue', params));
-    setAction(null);
-    window.scrollTo({ top: 0 });
-  };
+  const { preset, openAction, record } = useStoredReview({
+    stored,
+    state,
+    canReview: !!canReview,
+    refresh,
+    refreshAudit: audit.refresh,
+    action,
+    setAction,
+  });
   const refreshAll = () => {
     void refresh();
     void audit.refresh();
   };
-  async function record(input: ReviewInput) {
-    if (busy.current || !stored || !state) return;
-    if (!canReview) {
-      toast.error('Reviews are paused until the queue has refreshed successfully.');
-      return;
-    }
-    busy.current = true;
-    try {
-      const { error } = await supabase.rpc('record_review', {
-        p_event: {
-          decisionId: stored.saved.id,
-          expectedReviewId: state.events.at(-1)?.id ?? null,
-          action: input.action,
-          next: input.next,
-          reason: input.reason,
-        },
-      });
-      if (error) throw new Error(error.message);
-      clearReloadCache();
-      setAction(null);
-      toast.success(input.action === 'rejected' ? 'Claim rejected. Saved to the audit history.' : input.action === 'overridden' ? 'Override saved to the audit history.' : input.action === 'reverted' ? 'Revert saved to the audit history.' : 'Confirmation saved to the audit history.');
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e));
-    } finally {
-      await Promise.all([refresh(), audit.refresh()]);
-      busy.current = false;
-    }
-  }
-  async function download(path: string, name: string) {
-    const { data, error } = await supabase.storage.from('claim-documents').download(path);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    const url = URL.createObjectURL(data);
-    const a = Object.assign(document.createElement('a'), { href: url, download: name });
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
   const problem = error || audit.error;
   const refreshButton = (
     <Button variant="outline" disabled={loading} onClick={refreshAll}>
-      <RefreshCwIcon data-icon="inline-start" className={cn(loading && 'animate-spin')} /> {loading ? 'Refreshing…' : 'Refresh'}
+      <RefreshCwIcon data-icon="inline-start" className={cn(loading && 'animate-spin')} />{' '}
+      {loading ? 'Refreshing…' : 'Refresh'}
     </Button>
   );
+
+  const index = selected ? visible.findIndex((c) => c.decision.caseId === selectedId) : -1;
+  const previousCase = index > 0 ? visible[index - 1] : null;
+  const nextCase = index >= 0 && index < visible.length - 1 ? visible[index + 1] : null;
 
   if (dashboard)
     return (
@@ -283,86 +140,10 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
         {loading && !items.length ? (
           <LoadingState label="Loading all submitted claims…" />
         ) : error ? null : (
-          <QualityView
-            dataset={{
-              id: 'stored',
-              name: 'Submitted claims',
-              description: 'Submitted claims evaluated on the server',
-              source: 'stored',
-              cases,
-              labelled: false,
-            }}
-            states={states}
-            events={audit.events}
-            renderLog={(events) => (
-              <>
-                <AuditLog
-                  events={events}
-                  datasetName="Submitted claims"
-                  onExport={() =>
-                    downloadFile(
-                      'submitted-claim-reviews.csv',
-                      toCsv(
-                        events.map((event) => ({
-                          at: event.at,
-                          case_id: event.caseId,
-                          action: event.action,
-                          reviewer: event.reviewer,
-                          policy_version: event.policyVersion,
-                          rule: event.ruleId,
-                          automated: event.automated,
-                          previous: event.previous,
-                          next: event.next,
-                          reason: event.reason,
-                        })),
-                        [
-                          'at',
-                          'case_id',
-                          'action',
-                          'reviewer',
-                          'policy_version',
-                          'rule',
-                          'automated',
-                          'previous',
-                          'next',
-                          'reason',
-                        ],
-                      ),
-                    )
-                  }
-                />
-                <ActivityLog />
-              </>
-            )}
-          />
+          <StoredDashboard cases={cases} states={states} events={audit.events} />
         )}
       </div>
     );
-
-  const index = selected ? visible.findIndex((c) => c.decision.caseId === selectedId) : -1;
-  useEffect(() => {
-    if (dashboard || selectedId || dismissed || !visible.length) return;
-    openClaim(visible[0].decision.caseId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dashboard, selectedId, dismissed, visible.length]);
-  useEffect(() => {
-    if (dashboard) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || action || !selectedId) return;
-      // A dialog, menu or field handles its own Esc; only a bare Esc closes the claim.
-      if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="listbox"], [role="menu"]')) return;
-      const target = event.target instanceof Element ? event.target : null;
-      if (target?.closest('input, textarea, select')) return;
-      setDismissed(true);
-      openClaim('');
-    };
-    // Capture phase: runs before a dialog closes itself, so an open dialog is still detected.
-    window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dashboard, action, selectedId]);
-  const previousCase = index > 0 ? visible[index - 1] : null;
-  const nextCase = index >= 0 && index < visible.length - 1 ? visible[index + 1] : null;
 
   return (
     <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4">
@@ -370,7 +151,9 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
         <div className="flex min-w-0 flex-col gap-1">
           <h2 className="flex items-center gap-2 text-3xl font-normal tracking-[-0.03em]">
             Submitted claims
-            <Badge variant="secondary" className="tabular-nums">{total}</Badge>
+            <Badge variant="secondary" className="tabular-nums">
+              {total}
+            </Badge>
           </h2>
         </div>
         <div className="flex items-center gap-2">
@@ -404,14 +187,20 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
         <Card>
           <Empty>
             <EmptyHeader>
-              <EmptyMedia variant="icon"><InboxIcon /></EmptyMedia>
+              <EmptyMedia variant="icon">
+                <InboxIcon />
+              </EmptyMedia>
               <EmptyTitle>No submitted claims yet</EmptyTitle>
-              <EmptyDescription>Claims filed through the claim form appear here with the engine’s recommendation.</EmptyDescription>
+              <EmptyDescription>
+                Claims filed through the claim form appear here with the engine’s recommendation.
+              </EmptyDescription>
             </EmptyHeader>
             {isClaimant && (
               <EmptyContent>
                 <Button asChild>
-                  <a href="/claim"><PlusIcon data-icon="inline-start" /> File a claim</a>
+                  <a href="/claim">
+                    <PlusIcon data-icon="inline-start" /> File a claim
+                  </a>
                 </Button>
               </EmptyContent>
             )}
@@ -421,7 +210,11 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
         <div
           ref={splitRef}
           className="grid items-start gap-5 lg:grid-cols-(--split)"
-          style={{ '--split': listWidth ? `${listWidth}px minmax(0,1fr)` : 'minmax(240px,1fr) minmax(0,3fr)' } as React.CSSProperties}
+          style={
+            {
+              '--split': listWidth ? `${listWidth}px minmax(0,1fr)` : 'minmax(240px,1fr) minmax(0,3fr)',
+            } as React.CSSProperties
+          }
         >
           <div className="relative flex min-w-0 flex-col gap-3">
             {/* Apple-Mail-style divider: drag to resize the list, double-click to reset to a quarter. */}
@@ -433,117 +226,132 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
               tabIndex={0}
               onPointerDown={startResize}
               onDoubleClick={() => saveListWidth(null)}
-              onKeyDown={event => {
+              onKeyDown={(event) => {
                 if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
                 event.preventDefault();
-                const current = listWidth ?? (splitRef.current ? splitRef.current.getBoundingClientRect().width / 4 : 300);
+                const current =
+                  listWidth ?? (splitRef.current ? splitRef.current.getBoundingClientRect().width / 4 : 300);
                 saveListWidth(clampWidth(current + (event.key === 'ArrowRight' ? 24 : -24)));
               }}
               className="group absolute inset-y-0 -right-3.5 z-20 hidden w-3 cursor-col-resize touch-none items-center justify-center outline-none lg:flex"
             >
               <span className="h-10 w-1 rounded-full bg-border transition-colors group-hover:bg-foreground/40 group-focus-visible:bg-ring group-active:bg-foreground/60" />
             </div>
-          <ClaimsList
-            cases={cases}
-            visible={visible}
-            states={states}
-            filters={filters}
-            onFiltersChange={setFilters}
-            selectedId={selectedId}
-            onSelect={(caseId) => { setDismissed(false); openClaim(caseId); }}
-            compact
-          />
-          {total > pageSize && (
-            <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
-              <span>Filters and counts apply to this page of {pageSize} claims.</span>
-              <div className="flex items-center gap-1">
-                <span className="mr-2 tabular-nums">
-                  {offset + 1}–{Math.min(offset + pageSize, total)} of {total}
-                </span>
-                <Button variant="outline" size="icon" disabled={offset === 0 || loading} onClick={() => setOffset(Math.max(0, offset - pageSize))} aria-label="Previous page">
-                  <ChevronLeftIcon />
-                </Button>
-                <Button variant="outline" size="icon" disabled={offset + pageSize >= total || loading} onClick={() => setOffset(offset + pageSize)} aria-label="Next page">
-                  <ChevronRightIcon />
-                </Button>
+            <ClaimsList
+              cases={cases}
+              visible={visible}
+              states={states}
+              filters={filters}
+              onFiltersChange={setFilters}
+              selectedId={selectedId}
+              onSelect={(caseId) => {
+                setDismissed(false);
+                openClaim(caseId);
+              }}
+              compact
+            />
+            {total > pageSize && (
+              <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+                <span>Filters and counts apply to this page of {pageSize} claims.</span>
+                <div className="flex items-center gap-1">
+                  <span className="mr-2 tabular-nums">
+                    {offset + 1}–{Math.min(offset + pageSize, total)} of {total}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    disabled={offset === 0 || loading}
+                    onClick={() => setOffset(Math.max(0, offset - pageSize))}
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeftIcon />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    disabled={offset + pageSize >= total || loading}
+                    onClick={() => setOffset(offset + pageSize)}
+                    aria-label="Next page"
+                  >
+                    <ChevronRightIcon />
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
           </div>
           <div data-claim-pane className="flex min-w-0 flex-col gap-3">
             {selected && stored && state ? (
               <>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <Button variant="ghost" size="sm" onClick={() => { setDismissed(true); openClaim(''); }} aria-label="Close claim (Esc)">
-              <XIcon data-icon="inline-start" /> Close <kbd className="ml-1 rounded border px-1 tabular-nums text-[10px] text-muted-foreground">Esc</kbd>
-            </Button>
-            <div className="flex items-center gap-1">
-              {index >= 0 && (
-                <span className="mr-2 text-xs text-muted-foreground tabular-nums">
-                  Claim {index + 1} of {visible.length}
-                </span>
-              )}
-              <Button variant="outline" size="icon" disabled={!previousCase} onClick={() => previousCase && openClaim(previousCase.decision.caseId)} aria-label="Previous claim">
-                <ChevronLeftIcon />
-              </Button>
-              <Button variant="outline" size="icon" disabled={!nextCase} onClick={() => nextCase && openClaim(nextCase.decision.caseId)} aria-label="Next claim">
-                <ChevronRightIcon />
-              </Button>
-            </div>
-          </div>
-          {access.upload && stored.claim.submitted_by === user.id && stored.claim.case_status === 'open' && (
-            <Button asChild variant="outline"><a href={followupHref(stored.claim.id)}>Add information or documents</a></Button>
-          )}
-          <ClaimDetail
-            item={selected}
-            state={state}
-            canReview={!!canReview}
-            onAction={openAction}
-            documents={
-              stored.claim.attachments?.length > 0 && (
-                <Card size="sm">
-                  <CardHeader>
-                    <CardTitle>Documents</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="flex flex-col divide-y">
-                      {stored.claim.attachments.map((file) => {
-                        const Icon = isImage(file.name) ? ImageIcon : FileTextIcon;
-                        return (
-                          <li key={file.path} className="flex items-center gap-3 py-2 first:pt-0 last:pb-0">
-                            <span className="grid size-8 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground">
-                              <Icon className="size-4" aria-hidden />
-                            </span>
-                            <span className="min-w-0 flex-1 truncate text-sm">{file.name}</span>
-                            <Button variant="ghost" size="sm" onClick={() => void download(file.path, file.name)}>
-                              <DownloadIcon data-icon="inline-start" /> Download
-                            </Button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </CardContent>
-                </Card>
-              )
-            }
-          />
-          <ReviewDialog
-            action={action}
-            onOpenChange={(open) => !open && setAction(null)}
-            datasetId="stored"
-            decision={selected.decision}
-            current={state.effective}
-            defaultReviewer={user.email ?? user.id}
-            onSubmit={(input) => void record(input)}
-            presetNext={preset.next}
-            presetTitle={preset.title}
-          />
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setDismissed(true);
+                      openClaim('');
+                    }}
+                    aria-label="Close claim (Esc)"
+                  >
+                    <XIcon data-icon="inline-start" /> Close{' '}
+                    <kbd className="ml-1 rounded border px-1 tabular-nums text-[10px] text-muted-foreground">Esc</kbd>
+                  </Button>
+                  <div className="flex items-center gap-1">
+                    {index >= 0 && (
+                      <span className="mr-2 text-xs text-muted-foreground tabular-nums">
+                        Claim {index + 1} of {visible.length}
+                      </span>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      disabled={!previousCase}
+                      onClick={() => previousCase && openClaim(previousCase.decision.caseId)}
+                      aria-label="Previous claim"
+                    >
+                      <ChevronLeftIcon />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      disabled={!nextCase}
+                      onClick={() => nextCase && openClaim(nextCase.decision.caseId)}
+                      aria-label="Next claim"
+                    >
+                      <ChevronRightIcon />
+                    </Button>
+                  </div>
+                </div>
+                {access.upload && stored.claim.submitted_by === user.id && stored.claim.case_status === 'open' && (
+                  <Button asChild variant="outline">
+                    <a href={followupHref(stored.claim.id)}>Add information or documents</a>
+                  </Button>
+                )}
+                <ClaimDetail
+                  item={selected}
+                  state={state}
+                  canReview={!!canReview}
+                  onAction={openAction}
+                  documents={<ClaimDocuments attachments={stored.claim.attachments} />}
+                />
+                <ReviewDialog
+                  action={action}
+                  onOpenChange={(open) => !open && setAction(null)}
+                  datasetId="stored"
+                  decision={selected.decision}
+                  current={state.effective}
+                  defaultReviewer={user.email ?? user.id}
+                  onSubmit={(input) => void record(input)}
+                  presetNext={preset.next}
+                  presetTitle={preset.title}
+                />
               </>
             ) : (
               <Card>
                 <Empty>
                   <EmptyHeader>
-                    <EmptyMedia variant="icon"><MousePointerClickIcon /></EmptyMedia>
+                    <EmptyMedia variant="icon">
+                      <MousePointerClickIcon />
+                    </EmptyMedia>
                     <EmptyTitle>No claim open</EmptyTitle>
                     <EmptyDescription>Pick a claim from the list to review it.</EmptyDescription>
                   </EmptyHeader>
@@ -562,7 +370,9 @@ function LoadingState({ label }: { label: string }) {
     <Card>
       <Empty>
         <EmptyHeader>
-          <EmptyMedia variant="icon"><Spinner /></EmptyMedia>
+          <EmptyMedia variant="icon">
+            <Spinner />
+          </EmptyMedia>
           <EmptyTitle>{label}</EmptyTitle>
           <EmptyDescription>Each open claim is evaluated against the active policy on the server.</EmptyDescription>
         </EmptyHeader>

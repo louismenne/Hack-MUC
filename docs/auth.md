@@ -4,7 +4,7 @@ The React app requires email/password sign-in before mounting the claims UI. `@s
 
 Both `/api/policy` and `/api/policy-ai` validate the token with Supabase `auth.getUser()` on every request, before reading data or invoking Claude. Missing/invalid sessions receive 401. Accounts without a confirmed email and a server-recorded invitation (or `app_metadata.hack_muc_access = true`, set only by an administrator) receive 403. Anonymous accounts are rejected. User-editable metadata never grants access. Roles come exclusively from server-managed `app_metadata.hack_muc_role`; missing or unknown roles grant read-only access. Policy mutations and Claude drafting require Policy Manager or Admin. Role administration requires Admin. Permission failures return 403 without signing out an otherwise valid session.
 
-The server records the authenticated user UUID as `createdBy`; callers cannot impersonate another creator. Reviewer names in the UI come from the signed-in account. Review events now persist in the append-only Supabase audit log. Reviewer identity/time and permissions are server-verified; the automated decision snapshot still comes from the browser demo engine. CSV uploads remain browser-local data scoped by user UUID. Previous unscoped demo data is not imported into a user's account. Signing out unmounts the app and removes the active session; local per-user demo data remains on that browser.
+The server records the authenticated user UUID as `createdBy`; callers cannot impersonate another creator. Reviewer names in the UI come from the signed-in account. Review events now persist in the append-only Supabase audit log. Reviewer identity/time and permissions are server-verified; the RPC loads the immutable saved server decision and rejects stale policy, input, or review history. CSV examples cannot be reviewed. CSV uploads remain browser-local data scoped by user UUID. Previous unscoped demo data is not imported into a user's account. Signing out unmounts the app and removes the active session; local per-user demo data remains on that browser.
 
 ## Configuration
 
@@ -29,7 +29,7 @@ An administrator-created account without an invitation needs `app_metadata.hack_
 
 ## Local development and verification
 
-`npm run dev` runs Vite and its protected API middleware. It no longer starts the unauthenticated legacy SQLite server; `npm run dev:api` is a separate, opt-in localhost-only legacy demo and is not used by the app.
+`npm run dev` runs Vite and its protected API middleware. The legacy SQLite server and `dev:api` command have been removed.
 
 Run `npm run build:api`, `npm run typecheck`, `npm test`, and `npm run build`. Auth tests cover missing/invalid tokens, invited/admin-granted users, public signup rejection, anonymous/unconfirmed accounts, user-metadata forgery, and creator impersonation. Verify that anonymous requests to `/api/policy` and `/api/policy-ai` return 401 after deployment.
 

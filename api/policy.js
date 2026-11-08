@@ -430,10 +430,11 @@ var ok = (body, status = 200) => ({ status, body });
 function str(body, key, { max, required = true }) {
   const v = body[key];
   if (v === void 0 || v === null || v === "") {
-    if (required) throw new ApiError(400, `"${key}" fehlt.`);
+    if (required) throw new ApiError(400, `"${key}" is required.`);
     return void 0;
   }
-  if (typeof v !== "string" || v.trim().length === 0 || v.length > max) throw new ApiError(400, `"${key}" must be text of at most ${max} characters.`);
+  if (typeof v !== "string" || v.trim().length === 0 || v.length > max)
+    throw new ApiError(400, `"${key}" must be text of at most ${max} characters.`);
   return v.trim();
 }
 function uuid(body, key) {
@@ -465,7 +466,7 @@ async function handleGet(deps, url) {
   return ok({ aiAvailable: deps.ai !== null, versions: await deps.repo.list() });
 }
 async function handlePost(deps, raw) {
-  if (!isObject2(raw)) throw new ApiError(400, "JSON-Objekt erwartet.");
+  if (!isObject2(raw)) throw new ApiError(400, "Expected a JSON object.");
   const { repo } = deps;
   switch (raw.action) {
     case "create_draft": {
@@ -474,21 +475,38 @@ async function handlePost(deps, raw) {
       const parent = raw.parentId === void 0 ? active : await mustGet(repo, uuid(raw, "parentId"));
       const rules = raw.rules === void 0 ? parent.rules : rulesFrom(raw.rules);
       const changeSummary = str(raw, "changeSummary", { max: 1e3, required: false }) ?? null;
-      return ok({ version: await repo.createDraft({ rules, changeSummary, source: "edit", parentVersionId: parent.id, createdBy }) }, 201);
+      return ok(
+        {
+          version: await repo.createDraft({
+            rules,
+            changeSummary,
+            source: "edit",
+            parentVersionId: parent.id,
+            createdBy
+          })
+        },
+        201
+      );
     }
     case "update_draft": {
       const id2 = uuid(raw, "id");
       const patch = {};
       if (raw.rules !== void 0) patch.rules = rulesFrom(raw.rules);
-      if (raw.changeSummary !== void 0) patch.changeSummary = str(raw, "changeSummary", { max: 1e3, required: false }) ?? null;
+      if (raw.changeSummary !== void 0)
+        patch.changeSummary = str(raw, "changeSummary", { max: 1e3, required: false }) ?? null;
       if (!Object.keys(patch).length) throw new ApiError(400, "Nothing to change.");
       const updated = await repo.updateDraft(id2, patch);
-      if (!updated) throw new ApiError(await repo.get(id2) ? 409 : 404, "Only drafts can be edited. Active and archived versions are read-only.");
+      if (!updated)
+        throw new ApiError(
+          await repo.get(id2) ? 409 : 404,
+          "Only drafts can be edited. Active and archived versions are read-only."
+        );
       return ok({ version: updated });
     }
     case "discard_draft": {
       const id2 = uuid(raw, "id");
-      if (!await repo.deleteDraft(id2)) throw new ApiError(await repo.get(id2) ? 409 : 404, "Only drafts can be discarded.");
+      if (!await repo.deleteDraft(id2))
+        throw new ApiError(await repo.get(id2) ? 409 : 404, "Only drafts can be discarded.");
       return ok({ discarded: id2 });
     }
     case "impact": {
@@ -499,18 +517,24 @@ async function handlePost(deps, raw) {
       if (draft.id === active.id) throw new ApiError(400, "The active version cannot be compared with itself.");
       const originalLabel = policyHistoryFrom(versions).original.label;
       const original = versions.find((v) => v.versionLabel === originalLabel) ?? active;
-      return ok({ impact: deps.storedImpact ? await deps.storedImpact(active, draft) : computeImpact(active, draft, deps.loadCases(), original) });
+      return ok({
+        impact: deps.storedImpact ? await deps.storedImpact(active, draft) : computeImpact(active, draft, deps.loadCases(), original)
+      });
     }
     case "activate": {
       const draft = await mustGet(repo, uuid(raw, "id"));
       const expectedActive = uuid(raw, "expectedActiveId");
-      if (draft.status !== "draft") throw new ApiError(409, `Only a draft can be activated (this version is ${draft.status}).`);
+      if (draft.status !== "draft")
+        throw new ApiError(409, `Only a draft can be activated (this version is ${draft.status}).`);
       const expectedRevision = raw.expectedRevision;
-      if (typeof expectedRevision !== "number" || !Number.isSafeInteger(expectedRevision) || expectedRevision < 0) throw new ApiError(400, "A draft revision from the impact preview is required.");
-      if (draft.revision !== expectedRevision) throw new ApiError(409, "The draft has changed. Reload the impact and check again.");
+      if (typeof expectedRevision !== "number" || !Number.isSafeInteger(expectedRevision) || expectedRevision < 0)
+        throw new ApiError(400, "A draft revision from the impact preview is required.");
+      if (draft.revision !== expectedRevision)
+        throw new ApiError(409, "The draft has changed. Reload the impact and check again.");
       rulesFrom(draft.rules);
       const active = await mustActive(repo);
-      if (active.id !== expectedActive) throw new ApiError(409, "The active version has changed in the meantime. Reload the impact and check again.");
+      if (active.id !== expectedActive)
+        throw new ApiError(409, "The active version has changed in the meantime. Reload the impact and check again.");
       return ok({ version: await repo.activate(draft.id, expectedActive, expectedRevision) });
     }
     default:
@@ -518,7 +542,7 @@ async function handlePost(deps, raw) {
   }
 }
 async function handleAi(deps, raw) {
-  if (!isObject2(raw)) throw new ApiError(400, "JSON-Objekt erwartet.");
+  if (!isObject2(raw)) throw new ApiError(400, "Expected a JSON object.");
   if (!deps.ai) throw new ApiError(503, AI_UNAVAILABLE);
   const createdBy = str(raw, "createdBy", { max: 100 });
   const { repo } = deps;
@@ -534,26 +558,47 @@ async function handleAi(deps, raw) {
         const text2 = str(raw, "text", { max: MAX_TEXT_CHARS });
         document = { kind: "text", text: text2, filename };
       }
-      const s = await suggestPolicy(deps.ai, { mode: "document", current: active.rules, document }, { model: deps.aiModel });
-      const version = await repo.createDraft({ rules: s.policy, changeSummary: s.changeSummary, source: "upload", parentVersionId: active.id, createdBy });
+      const s = await suggestPolicy(
+        deps.ai,
+        { mode: "document", current: active.rules, document },
+        { model: deps.aiModel }
+      );
+      const version = await repo.createDraft({
+        rules: s.policy,
+        changeSummary: s.changeSummary,
+        source: "upload",
+        parentVersionId: active.id,
+        createdBy
+      });
       return ok({ version }, 201);
     }
     if (raw.mode === "instruction") {
       const base = await mustGet(repo, uuid(raw, "versionId"));
       const instruction = str(raw, "instruction", { max: 1e3 });
       const ruleId = str(raw, "ruleId", { max: 64, required: false });
-      if (ruleId && !base.rules.rules.some((r) => r.id === ruleId) && base.rules.default.id !== ruleId) throw new ApiError(400, `Rule \u201C${ruleId}\u201D does not exist.`);
-      const s = await suggestPolicy(deps.ai, { mode: "instruction", current: base.rules, instruction, ruleId }, { model: deps.aiModel });
+      if (ruleId && !base.rules.rules.some((r) => r.id === ruleId) && base.rules.default.id !== ruleId)
+        throw new ApiError(400, `Rule \u201C${ruleId}\u201D does not exist.`);
+      const s = await suggestPolicy(
+        deps.ai,
+        { mode: "instruction", current: base.rules, instruction, ruleId },
+        { model: deps.aiModel }
+      );
       if (base.status === "draft") {
         const summary = [base.changeSummary, s.changeSummary].filter(Boolean).join(" ").slice(0, 1e3);
         const updated = await repo.updateDraft(base.id, { rules: s.policy, changeSummary: summary });
-        if (!updated) throw new ApiError(409, "Der Entwurf wurde inzwischen freigegeben oder verworfen.");
+        if (!updated) throw new ApiError(409, "The draft has since been activated or discarded.");
         return ok({ version: updated });
       }
-      const version = await repo.createDraft({ rules: s.policy, changeSummary: s.changeSummary, source: "edit", parentVersionId: base.id, createdBy });
+      const version = await repo.createDraft({
+        rules: s.policy,
+        changeSummary: s.changeSummary,
+        source: "edit",
+        parentVersionId: base.id,
+        createdBy
+      });
       return ok({ version }, 201);
     }
-    throw new ApiError(400, '"mode" muss "document" oder "instruction" sein.');
+    throw new ApiError(400, '"mode" must be "document" or "instruction".');
   } catch (error) {
     if (error instanceof AiError) throw new ApiError(502, error.message, error.details);
     throw error;
@@ -799,7 +844,10 @@ function createAuthenticator(env = process.env) {
 
 // src/policy-api/http.ts
 var MAX_BODY_BYTES = 4e6;
-var json = (result) => new Response(JSON.stringify(result.body), { status: result.status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
+var json = (result) => new Response(JSON.stringify(result.body), {
+  status: result.status,
+  headers: { "Content-Type": "application/json", "Cache-Control": "no-store" }
+});
 async function readJson(request) {
   const text2 = await request.text();
   if (text2.length > MAX_BODY_BYTES) throw new ApiError(413, "Request too large.");
@@ -817,16 +865,20 @@ async function handlePolicyRequest(request, kind, makeDeps, authenticate = creat
       if (!access.team) throw new ApiError(403, "Admin role required.");
       return json(await listTeam());
     }
-    if (kind === "policy" && request.method === "GET") return json(await handleGet(makeDeps(user.id), new URL(request.url)));
+    if (kind === "policy" && request.method === "GET")
+      return json(await handleGet(makeDeps(user.id), new URL(request.url)));
     if (request.method !== "POST") throw new ApiError(405, "Method not allowed.");
-    if (!request.headers.get("content-type")?.includes("application/json")) throw new ApiError(415, "JSON erforderlich.");
+    if (!request.headers.get("content-type")?.includes("application/json"))
+      throw new ApiError(415, "JSON content type required.");
     const input = await readJson(request);
     const action = input && typeof input === "object" && "action" in input ? input.action : void 0;
     if (kind === "policy" && action === "evaluate_claims") {
       const offset = input.offset ?? 0;
-      if (typeof offset !== "number" || !Number.isSafeInteger(offset) || offset < 0) throw new ApiError(400, "Invalid offset.");
+      if (typeof offset !== "number" || !Number.isSafeInteger(offset) || offset < 0)
+        throw new ApiError(400, "Invalid offset.");
       const claimId = input.claimId;
-      if (claimId !== void 0 && (typeof claimId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(claimId))) throw new ApiError(400, "Invalid claim ID.");
+      if (claimId !== void 0 && (typeof claimId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(claimId)))
+        throw new ApiError(400, "Invalid claim ID.");
       return json(await evaluateStoredClaims(user, offset, void 0, claimId));
     }
     if (kind === "policy" && action === "set_role") {
@@ -837,9 +889,13 @@ async function handlePolicyRequest(request, kind, makeDeps, authenticate = creat
     const body = input && typeof input === "object" && !Array.isArray(input) ? { ...input, createdBy: user.id } : input;
     return json(kind === "ai" ? await handleAi(makeDeps(user.id), body) : await handlePost(makeDeps(user.id), body));
   } catch (error) {
-    if (error instanceof ApiError) return json({ status: error.status, body: { error: error.message, ...error.details ? { details: error.details } : {} } });
+    if (error instanceof ApiError)
+      return json({
+        status: error.status,
+        body: { error: error.message, ...error.details ? { details: error.details } : {} }
+      });
     console.error("policy api error", error instanceof Error ? error.message : "unknown");
-    return json({ status: 500, body: { error: "Interner Fehler." } });
+    return json({ status: 500, body: { error: "Internal server error." } });
   }
 }
 

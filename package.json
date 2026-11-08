@@ -12,7 +12,6 @@
     "triage": "tsx src/cli.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
-    "dev:api": "tsx watch src/server/main.ts",
     "dev:web": "vite",
     "proof": "tsx scripts/check-policy-proof.ts"
   },
