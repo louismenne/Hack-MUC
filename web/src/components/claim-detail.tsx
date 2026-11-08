@@ -35,9 +35,8 @@ interface ClaimDetailProps {
  * with reviewer, reason and policy version — the live override the jury checks.
  */
 const reviewerDecisions: { id: ReviewerDecisionId; title: string; hint: string; action: ReviewAction; next?: Recommendation }[] = [
-  { id: 'approve', title: 'Approve', hint: 'Continue in routine processing', action: 'overridden', next: 'routine_processing' },
+  { id: 'routine', title: 'Send to routine', hint: 'Continue in routine processing', action: 'overridden', next: 'routine_processing' },
   { id: 'contact', title: 'Request info', hint: 'Ask the claimant for missing or clearer information', action: 'overridden', next: 'request_information' },
-  { id: 'keep', title: 'Keep in review', hint: 'Needs a specialist or further checks', action: 'confirmed' },
   { id: 'reject', title: 'Reject', hint: 'Decline the claim. You confirm before it is saved.', action: 'rejected' },
 ];
 
@@ -53,8 +52,6 @@ export function ClaimDetail({ item, state, onAction, canReview, showReviewContro
   const lastEvent = state.events.at(-1);
   const guidance = needsHuman ? reviewerGuidance(decision) : null;
   const decided = state.status !== 'pending';
-  // Temporary comparison: ?suggest=below (label under the button) or ?suggest=highlight (outlined button).
-  const suggestStyle = new URLSearchParams(window.location.search).get('suggest') === 'highlight' ? 'highlight' : 'below';
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-4">
@@ -81,7 +78,6 @@ export function ClaimDetail({ item, state, onAction, canReview, showReviewContro
           {showReviewControls && needsHuman && !closed && !decided && (
             <CardAction className="flex flex-wrap items-start justify-end gap-2">
               {reviewerDecisions.map(option => {
-                const recommended = guidance?.decision === option.id || (guidance?.decision === 'return' && option.id === 'contact');
                 return (
                   <div key={option.id} className="flex flex-col items-center gap-1">
                     <Tooltip>
@@ -91,7 +87,6 @@ export function ClaimDetail({ item, state, onAction, canReview, showReviewContro
                           variant="outline"
                           className={cn(
                             option.id === 'reject' && 'text-destructive hover:bg-destructive/10 hover:text-destructive',
-                            recommended && suggestStyle === 'highlight' && 'border-foreground ring-1 ring-foreground',
                           )}
                           disabled={!canReview}
                           onClick={() => onAction(option.action, option.next, option.id === 'reject' ? undefined : option.title)}
@@ -101,7 +96,6 @@ export function ClaimDetail({ item, state, onAction, canReview, showReviewContro
                       </TooltipTrigger>
                       <TooltipContent>{option.hint}</TooltipContent>
                     </Tooltip>
-                    {suggestStyle === 'below' && <span className={cn('h-4 text-[11px] text-muted-foreground', !recommended && 'invisible')}>Suggested</span>}
                   </div>
                 );
               })}
@@ -156,13 +150,8 @@ export function ClaimDetail({ item, state, onAction, canReview, showReviewContro
                 </>
               ) : needsHuman ? (
                 <>
-                  <StepLabel n={2}>Suggested next step</StepLabel>
+                  <StepLabel n={2}>What to check</StepLabel>
                   <p className="mt-1.5 text-base font-semibold text-pretty">{showReviewControls ? (guidance?.action ?? 'Check the facts below.') : 'Awaiting reviewer decision.'}</p>
-                  {showReviewControls && guidance && (
-                    <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-                      <ArrowRightIcon className="size-3.5" /> {reviewerDecisions.find(d => d.id === guidance.decision)?.title}
-                    </p>
-                  )}
                 </>
               ) : (
                 <>
@@ -260,7 +249,7 @@ function FactsSummary({ item, triggered }: { item: CaseItem; triggered: Set<Fiel
   );
 }
 
-/** Small section label: system decision, suggestion, your decision (read top to bottom). */
+/** Small section label: system decision, what to check, your decision (read top to bottom). */
 function StepLabel({ children }: { n?: number; children: React.ReactNode }) {
   return <div className="label-mono">{children}</div>;
 }
