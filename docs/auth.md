@@ -44,8 +44,13 @@ Full invitation/password-recovery delivery and a real authenticated UI session r
 | Policy Manager (`policy_manager`) | No | No | Yes | No |
 | Admin (`admin`) | Yes | Yes | Yes | Yes |
 
-All invited members can read the demo claims, policy versions, comparisons and reports. Submitted claims are owner-scoped for Claims Handlers; Reviewers, Policy Managers and Admins can read all submitted claims. Unassigned users have read-only access until an Admin assigns a role.
+All invited members can read the demo claims, policy versions, comparisons and reports. Submitted claims are owner-scoped for Claims Handlers; Reviewers, Policy Managers and Admins can read all submitted claims. Unassigned users cannot open app pages until an Admin assigns a role.
 
 Admins use the **Team** tab. `GET /api/policy?view=team` lists invited members and `POST /api/policy` with `action: set_role`, `userId`, and `role` updates their server-managed app metadata while preserving other keys. Self-role changes are rejected. Supabase project administrators can bootstrap/recover an Admin via `auth.admin.updateUserById(id, { app_metadata: { hack_muc_role: 'admin' } })` from a trusted server. Role names are validated; neither request-supplied roles nor user_metadata grant permissions.
 
 Policy and team authorization always reads current user metadata from Supabase Auth, so an old JWT does not retain policy-management rights after demotion. The UI refreshes its role display when the window regains focus or the user signs in again. The claim form saves to Supabase under RLS, and review writes use a role-checked database function. The default queue evaluates submitted claims on the server and saves decisions. CSV examples are read-only. Policy and role changes carry the verified actor in the audit log. See docs/claims.md and docs/audit.md.
+
+
+### Role-specific pages
+
+Claims Handlers see only **My claims** and **File a claim**, with their own submissions. They do not mount the staff navigation or policy workspace. Reviewers see the review queue, dashboard, CSV examples and example quality. Policy Managers also see Policy; Admins additionally get Team in the account menu. Direct URLs use the same page-access rules as navigation and return unauthorized roles to their queue. Unassigned accounts show an assignment-required screen. These UI restrictions complement the API and database authorization checks.

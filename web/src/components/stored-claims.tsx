@@ -150,7 +150,7 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1">
           <h2 className="flex items-center gap-2 text-3xl font-normal tracking-[-0.03em]">
-            Submitted claims
+            {isClaimant ? 'My claims' : 'Submitted claims'}
             <Badge variant="secondary" className="tabular-nums">
               {total}
             </Badge>
@@ -330,6 +330,7 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
                   item={selected}
                   state={state}
                   canReview={!!canReview}
+                  showReviewControls={access.review}
                   onAction={openAction}
                   documents={<ClaimDocuments attachments={stored.claim.attachments} />}
                 />

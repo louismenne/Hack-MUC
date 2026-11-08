@@ -11,3 +11,16 @@ export function permissions(user: { app_metadata: Record<string, unknown> }) {
   const role = roleOf(user);
   return { review: role === 'reviewer' || role === 'admin', policy: role === 'policy_manager' || role === 'admin', team: role === 'admin', upload: role === 'claims_handler' || role === 'reviewer' || role === 'admin' };
 }
+
+/** Page visibility and direct-route access use the same role boundary. */
+export const appPages = ['queue', 'quality', 'policy', 'examples', 'example-quality', 'team'] as const;
+export type AppPage = typeof appPages[number];
+const pagesByRole: Record<Role, readonly AppPage[]> = {
+  claims_handler: ['queue'],
+  reviewer: ['queue', 'quality', 'examples', 'example-quality'],
+  policy_manager: ['queue', 'quality', 'policy', 'examples', 'example-quality'],
+  admin: appPages,
+};
+export function canAccessPage(role: Role | null, page: AppPage): boolean {
+  return role !== null && pagesByRole[role].includes(page);
+}

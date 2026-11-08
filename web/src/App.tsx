@@ -1,5 +1,5 @@
 import { StoredClaims } from '@/components/stored-claims';
-import { permissions, roleOf, roleLabels } from '../../src/roles';
+import { permissions, roleOf, roleLabels, canAccessPage } from '../../src/roles';
 import { Team } from '@/components/team';
 import { useAuthUser, signOut } from '@/lib/auth';
 import { PolicyManager } from '@/components/policy-manager';
@@ -36,7 +36,42 @@ const defaultFilters: ListFilters = { query: '', recommendation: 'human_review',
 
 /** The whole app decides with the active policy version from Supabase (see lib/policy-source). */
 export function App() {
+  const user = useAuthUser();
+  const role = roleOf(user);
+  if (role === 'claims_handler') return <PolicySourceProvider><ClaimantApp /></PolicySourceProvider>;
+  if (!role) return (
+    <main className="mx-auto max-w-lg p-8">
+      <h1 className="text-xl">Account awaiting a role</h1>
+      <p className="my-4">Ask an administrator to assign your role before using the app.</p>
+      <Button onClick={() => void signOut()}>Sign out</Button>
+    </main>
+  );
   return <PolicySourceProvider><AppContent /></PolicySourceProvider>;
+}
+
+/** Claimants see their submissions; policy history supplies explanations, not staff tools. */
+function ClaimantApp() {
+  const user = useAuthUser();
+  const route = useRoute();
+  useEffect(() => {
+    document.title = 'My claims · Claims Triage';
+    if (route.page !== 'queue') navigate(pageHref('queue'));
+  }, [route.page]);
+  return (
+    <div className="min-h-svh bg-background">
+      <header className="border-b">
+        <div className="mx-auto flex max-w-[1600px] items-center gap-6 px-4 py-3">
+          <PageLink href={pageHref('queue')} aria-label="My claims"><TaktileLogo className="h-3.5 w-auto" /></PageLink>
+          <nav aria-label="Claims navigation" className="flex items-center gap-4 text-sm">
+            <PageLink href={pageHref('queue')} aria-current="page">My claims</PageLink>
+            <a href="/claim">File a claim</a>
+          </nav>
+          <div className="ml-auto"><AccountMenu email={user.email ?? ''} roleLabel="Claims Handler" canManageTeam={false} /></div>
+        </div>
+      </header>
+      <main className="mx-auto max-w-[1600px] px-4 py-4"><StoredClaims /></main>
+    </div>
+  );
 }
 
 function AppContent() {
@@ -50,8 +85,11 @@ function AppContent() {
   const [upload, setUpload] = usePersistentState<StoredUpload | null>('upload', null, isUpload);
   const [selection, setSelection] = usePersistentState<Record<string, string>>('selection', {}, isRecord);
   const route = useRoute();
-  const tab = route.page;
-  const navPages = pages.filter(page => !('menuOnly' in page));
+  const tab = canAccessPage(role, route.page) ? route.page : 'queue';
+  const navPages = pages.filter(page => !('menuOnly' in page) && canAccessPage(role, page.id));
+  useEffect(() => {
+    if (!canAccessPage(role, route.page)) navigate(pageHref('queue'));
+  }, [role, route.page]);
   useEffect(() => {
     document.title = `${pages.find(page => page.id === tab)?.label ?? 'Review queue'} · Claims Triage`;
   }, [tab]);
@@ -220,7 +258,7 @@ function AppContent() {
                   </Button>
                 </div>
               </div>
-              <ClaimDetail item={selected} state={selectedState} onAction={() => {}} canReview={false} />
+              <ClaimDetail item={selected} state={selectedState} onAction={() => {}} canReview={false} showReviewControls={false} />
             </div>
           ) : (
             <div className="mx-auto w-full max-w-[1600px]">

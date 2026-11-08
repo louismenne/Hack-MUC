@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { permissions, roleOf, roles } from '../src/roles.js';
+import { permissions, roleOf, roles, appPages, canAccessPage } from '../src/roles.js';
 import { handlePolicyRequest } from '../src/policy-api/http.js';
 import { setTeamRole, createTeamAdmin } from '../src/policy-api/team.js';
 import type { AuthUser } from '../src/policy-api/auth.js';
@@ -46,5 +46,18 @@ describe('role boundaries', () => {
     expect(rpc).toHaveBeenCalledWith('set_team_role', { p_actor: 'actor', p_user: 'target', p_role: 'reviewer' });
     await expect(setTeamRole(user, { userId: 'actor', role: 'reviewer' }, db)).rejects.toMatchObject({ status: 400 });
     await expect(setTeamRole(user, { userId: 'target', role: 'owner' }, db)).rejects.toMatchObject({ status: 400 });
+  });
+});
+
+
+describe('role-specific navigation and direct-route access', () => {
+  it.each([
+    ['claims_handler', ['queue']],
+    ['reviewer', ['queue', 'quality', 'examples', 'example-quality']],
+    ['policy_manager', ['queue', 'quality', 'policy', 'examples', 'example-quality']],
+    ['admin', [...appPages]],
+    [null, []],
+  ] as const)('%s can only open its permitted pages', (role, expected) => {
+    expect(appPages.filter(page => canAccessPage(role, page))).toEqual(expected);
   });
 });

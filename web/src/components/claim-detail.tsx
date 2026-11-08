@@ -22,6 +22,7 @@ interface ClaimDetailProps {
   item: CaseItem;
   state: ReviewState;
   canReview: boolean;
+  showReviewControls?: boolean;
   /** Opens the review dialog; `next` and `title` preset a reviewer decision (e.g. approve to routine). */
   onAction: (action: ReviewAction, next?: Recommendation, title?: string) => void;
   /** Optional block shown under the decision card, e.g. the claim's attached documents. */
@@ -48,7 +49,7 @@ const decisionGroups: { label: string; ids: ReviewerDecisionId[] }[] = [
   { label: 'Stop', ids: ['keep', 'reject'] },
 ];
 
-export function ClaimDetail({ item, state, onAction, canReview, documents }: ClaimDetailProps) {
+export function ClaimDetail({ item, state, onAction, canReview, showReviewControls = true, documents }: ClaimDetailProps) {
   const { decision, claim } = item;
   const { history } = usePolicySource();
   const rule = ruleInfo(decision, history);
@@ -82,7 +83,7 @@ export function ClaimDetail({ item, state, onAction, canReview, documents }: Cla
             )}
           </div>
           {closed && <p className="text-xs text-muted-foreground">Closed claim · saved {decision.policyVersion} decision retained · no action required.</p>}
-          {(overridden || !needsHuman) && (
+          {showReviewControls && (overridden || !needsHuman) && (
             <CardAction className="flex gap-2">
               {overridden && (
                 <Button variant="ghost" size="sm" disabled={!canReview || closed} onClick={() => onAction('reverted')}>
@@ -123,7 +124,7 @@ export function ClaimDetail({ item, state, onAction, canReview, documents }: Cla
             <div className={cn('rounded-lg p-4 ring-1', state.status === 'rejected' ? 'bg-card ring-border' : decided ? toneSurface[state.effective] : 'bg-muted/40 ring-border')}>
               {decided ? (
                 <>
-                  <StepLabel n={3}>Your decision</StepLabel>
+                  <StepLabel n={3}>{showReviewControls ? 'Your decision' : 'Reviewer decision'}</StepLabel>
                   <div className="mt-1.5 text-sm font-semibold">
                     {state.status === 'rejected' ? 'Rejected' : state.status === 'reviewed' ? (needsHuman ? 'Kept in review' : 'Confirmed') : recommendationMeta[state.effective].label}
                   </div>
@@ -132,8 +133,8 @@ export function ClaimDetail({ item, state, onAction, canReview, documents }: Cla
               ) : needsHuman ? (
                 <>
                   <StepLabel n={2}>Suggested next step</StepLabel>
-                  <p className="mt-1.5 text-base font-semibold text-pretty">{guidance?.action ?? 'Check the facts below.'}</p>
-                  {guidance && (
+                  <p className="mt-1.5 text-base font-semibold text-pretty">{showReviewControls ? (guidance?.action ?? 'Check the facts below.') : 'Awaiting reviewer decision.'}</p>
+                  {showReviewControls && guidance && (
                     <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
                       <ArrowRightIcon className="size-3.5" /> {reviewerDecisions.find(d => d.id === guidance.decision)?.title}
                     </p>
@@ -143,15 +144,15 @@ export function ClaimDetail({ item, state, onAction, canReview, documents }: Cla
                 <>
                   <StepLabel n={2}>Next step</StepLabel>
                   <div className="mt-1.5 text-base font-semibold">Handled automatically</div>
-                  <div className="mt-0.5 text-sm text-muted-foreground">No reviewer action needed. You can still override.</div>
+                  <div className="mt-0.5 text-sm text-muted-foreground">No reviewer action needed.{showReviewControls && ' You can still override.'}</div>
                 </>
               )}
             </div>
           </div>
 
-          {needsHuman && !closed && !decided && (
+          {showReviewControls && needsHuman && !closed && !decided && (
             <div className="flex flex-col gap-2">
-            <StepLabel n={3}>Your decision</StepLabel>
+            <StepLabel n={3}>{showReviewControls ? 'Your decision' : 'Reviewer decision'}</StepLabel>
             <div className="flex flex-wrap items-stretch gap-x-4 gap-y-3">
               {decisionGroups.map((group, index) => (
                 <div key={group.label} className={cn('flex flex-col gap-1.5', index > 0 && 'border-l pl-4')}>
