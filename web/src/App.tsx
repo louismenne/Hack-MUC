@@ -6,7 +6,7 @@ import { PolicyManager } from '@/components/policy-manager';
 import { Overview } from '@/components/overview';
 import { TaktileLogo } from '@/components/taktile-logo';
 import { useEffect, useMemo, useRef } from 'react';
-import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, LogOutIcon, MonitorIcon, MoonIcon, SunIcon, UploadIcon, UsersIcon } from 'lucide-react';
+import { XIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, LogOutIcon, MonitorIcon, MoonIcon, SunIcon, UploadIcon, UsersIcon } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useTheme } from '@/lib/theme';
 import { toast } from 'sonner';
@@ -121,6 +121,19 @@ function AppContent() {
   const pageOpen = openCaseId !== null && dataset.cases.some(item => item.decision.caseId === openCaseId);
   const showCase = (caseId: string) => { select(caseId); openCase(caseId); };
   useEffect(() => { if (pageOpen && openCaseId !== selectedId) select(openCaseId!); });
+  // Esc closes an open test case, the same as in Review and Policy.
+  useEffect(() => {
+    if (!pageOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="listbox"], [role="menu"]')) return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest('input, textarea, select')) return;
+      openCase(null);
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  });
   const pageIndex = visible.findIndex(item => item.decision.caseId === selectedId);
   const pagePrev = pageIndex > 0 ? visible[pageIndex - 1] : null;
   const pageNext = pageIndex >= 0 && pageIndex < visible.length - 1 ? visible[pageIndex + 1] : null;
@@ -246,8 +259,8 @@ function AppContent() {
           {pageOpen ? (
             <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <Button variant="ghost" onClick={() => openCase(null)}>
-                  <ArrowLeftIcon data-icon="inline-start" /> Back to inbox
+                <Button variant="ghost" size="sm" onClick={() => openCase(null)} aria-label="Close case (Esc)">
+                  <XIcon data-icon="inline-start" /> Close <kbd className="ml-1 rounded border px-1 tabular-nums text-[10px] text-muted-foreground">Esc</kbd>
                 </Button>
                 <div className="flex items-center gap-1">
                   {pageIndex >= 0 && (

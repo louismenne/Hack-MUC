@@ -1,7 +1,7 @@
 import { useAuthUser } from '@/lib/auth';
 import { permissions } from '../../../../src/roles';
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { ArrowLeftIcon } from 'lucide-react';
+import { XIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { diffPolicies } from '../../../../src/policy-view/diff';
 import { setLeafValue, type LeafPath } from '../../../../src/policy-view/edit';
@@ -103,7 +103,7 @@ export function VersionPage({ version, active, aiAvailable, owner, busy, run, on
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeftIcon />Back <kbd className="ml-1 rounded border px-1 tabular-nums text-[10px] text-muted-foreground">Esc</kbd></Button>
+        <Button variant="ghost" size="sm" onClick={onBack} aria-label="Close version (Esc)"><XIcon data-icon="inline-start" /> Close <kbd className="ml-1 rounded border px-1 tabular-nums text-[10px] text-muted-foreground">Esc</kbd></Button>
         <h2 className="text-3xl font-normal tracking-[-0.03em]">{version.versionLabel}</h2>
         <Badge variant={version.status === 'active' ? 'default' : 'secondary'}>{statusLabel[version.status]}</Badge>
         <span className="text-xs text-muted-foreground">{sourceLabel[version.source]} · {formatDate(version.createdAt)}</span>
