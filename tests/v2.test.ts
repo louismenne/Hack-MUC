@@ -73,7 +73,7 @@ describe('Supabase JSON policy alignment', () => {
   it('Supabase impact retains closed v1 decisions even when the active policy is already v2', async () => {
     const { computeImpact } = await import('../src/policy-api/impact.js');
     const rules = JSON.parse(readFileSync('policies/policy-v2.rules.json', 'utf8'));
-    const version = { id: 'base', versionLabel: 'v2', rules, status: 'active' as const, changeSummary: null, source: 'seed' as const, parentVersionId: null, createdBy: 'Organizer', createdAt: '', activatedAt: '' };
+    const version = { revision: 0, id: 'base', versionLabel: 'v2', rules, status: 'active' as const, changeSummary: null, source: 'seed' as const, parentVersionId: null, createdBy: 'Organizer', createdAt: '', activatedAt: '' };
     const original = { ...version, id: 'orig', versionLabel: 'v1', rules: JSON.parse(readFileSync('policies/policy-v1.rules.json', 'utf8')), status: 'archived' as const };
     const impact = computeImpact(version, { ...version, id: 'draft', versionLabel: 'v3', status: 'draft' }, read('unlabelled_practice_cases.csv'), original);
     for (const id of ['PRA-009', 'PRA-010']) {

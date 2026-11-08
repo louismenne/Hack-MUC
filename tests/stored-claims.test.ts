@@ -126,3 +126,30 @@ describe('server evaluation of submitted claims', () => {
     await expect(evaluateStoredClaims({ ...user, app_metadata: {} }, 0, db)).rejects.toMatchObject({ status: 403 });
   });
 });
+
+it('uses the explicit closed decision instead of a newer unrelated historical snapshot', async () => {
+ const latest = { id: 'newer', decision: { ...checkedDecision(policy, claim), recommendation: 'human_review' } };
+ const terminal = { id: 'terminal', decision: { ...checkedDecision(policy, claim), recommendation: 'routine_processing' } };
+ const { db, rpc } = database([latest], null, { ...claim, case_status: 'closed', closed_decision_id: 'terminal' });
+ const originalFrom = db.from.bind(db);
+ const selected: unknown[][] = [];
+ db.from = ((table: string) => {
+   const query = originalFrom(table) as any;
+   if (table === 'claim_decisions') {
+     query.eq = vi.fn((...args) => { selected.push(args); return query; });
+     query.single = vi.fn(async () => ({ data: terminal, error: null }));
+   }
+   return query;
+ }) as typeof db.from;
+ const result = await evaluateStoredClaims(user, 0, db);
+ expect(result.body.items[0].saved.id).toBe('terminal');
+ expect(selected).toContainEqual(['id', 'terminal']);
+ expect(rpc).not.toHaveBeenCalled();
+});
+
+it('a targeted evaluation remains scoped to the submitting handler', async () => {
+ const { db, claimsQuery } = database();
+ await evaluateStoredClaims(user, 0, db, 'specific-claim');
+ expect(claimsQuery.eq).toHaveBeenCalledWith('id', 'specific-claim');
+ expect(claimsQuery.eq).toHaveBeenCalledWith('submitted_by', user.id);
+});

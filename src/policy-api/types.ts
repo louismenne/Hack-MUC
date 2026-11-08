@@ -4,6 +4,7 @@ export type VersionStatus = 'draft' | 'active' | 'archived';
 export type VersionSource = 'upload' | 'edit' | 'seed';
 
 export interface PolicyVersionRecord {
+  revision: number;
   id: string;
   versionLabel: string;
   rules: PolicyDocument;
@@ -35,7 +36,7 @@ export interface PolicyRepo {
   /** Only drafts can be deleted; returns false otherwise. */
   deleteDraft(id: string): Promise<boolean>;
   /** Archives the active version and activates this draft atomically. Throws if it is not a draft. */
-  activate(id: string, expectedActiveId?: string): Promise<PolicyVersionRecord>;
+  activate(id: string, expectedActiveId: string, expectedRevision: number): Promise<PolicyVersionRecord>;
 }
 
 export type ImpactRecommendation = 'routine_processing' | 'request_information' | 'human_review';
@@ -58,7 +59,7 @@ export interface ImpactRow {
 
 export interface ImpactReport {
   base: { id: string; label: string };
-  draft: { id: string; label: string };
+  draft: { id: string; label: string; revision: number };
   rows: ImpactRow[];
   totals: { cases: number; open: number; closed: number; needsRecheck: number; openUnchanged: number; frozenClosed: number; frozenWouldChange: number };
 }

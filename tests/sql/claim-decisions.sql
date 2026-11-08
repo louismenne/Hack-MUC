@@ -43,10 +43,10 @@ do $$ declare p public.policy_versions; draft jsonb; d public.claim_decisions; c
  select * into p from public.policy_versions where status='active';
  draft:=public.write_policy_as('00000000-0000-4000-8000-000000000301','create',jsonb_build_object('version_label','engine-test-policy','rules',p.rules,'source','edit'));
  if not exists(select 1 from public.audit_log where entity_id=draft->>'id' and actor_id='00000000-0000-4000-8000-000000000301') then raise exception 'Policy actor missing';end if;
- perform public.write_policy_as('00000000-0000-4000-8000-000000000301','activate',jsonb_build_object('id',draft->>'id','expected_active_id',p.id));
+ perform public.write_policy_as('00000000-0000-4000-8000-000000000301','activate',jsonb_build_object('id',draft->>'id','expected_active_id',p.id,'expected_revision',0));
  select * into d from public.claim_decisions where claim_id='00000000-0000-4000-8000-000000000310';
  begin perform public.record_review(jsonb_build_object('decisionId',d.id,'action','confirmed'));raise exception 'Old policy accepted';exception when raise_exception then if SQLERRM<>'Decision stale; refresh the queue' then raise;end if;end;
- begin perform public.write_policy_as('00000000-0000-4000-8000-000000000301','activate',jsonb_build_object('id',p.id,'expected_active_id',p.id));raise exception 'Concurrent activation accepted';exception when raise_exception then if SQLERRM<>'Active policy changed; refresh impact' then raise;end if;end;
+ begin perform public.write_policy_as('00000000-0000-4000-8000-000000000301','activate',jsonb_build_object('id',p.id,'expected_active_id',p.id,'expected_revision',0));raise exception 'Concurrent activation accepted';exception when raise_exception then if SQLERRM<>'Active policy changed; refresh impact' then raise;end if;end;
  select * into c from public.claims where id=d.claim_id;
  d:=public.save_claim_decision(c.id,(draft->>'id')::uuid,to_jsonb(c),d.decision||jsonb_build_object('policyVersion','engine-test-policy'));
  update public.claims set case_status='closed' where id=c.id;

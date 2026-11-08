@@ -19,14 +19,31 @@ export function attachmentType(file: { name: string; type: string }) {
 export function claimInsert(payload: ClaimPayload) {
   return Object.fromEntries(fields.map(field => [field.column, payload[field.column] ?? null]));
 }
-export async function submitClaim(payload: ClaimPayload, files: File[]): Promise<SubmitResult> {
+function savedResult(data: Record<string, unknown>, attachments: FileInfo[]): SubmitResult {
+  const payload = Object.fromEntries(Object.entries(data).filter(([, value]) => value === null || ['string','number','boolean'].includes(typeof value))) as ClaimPayload;
+  return { mode: 'saved', payload, files: attachments };
+}
+
+/** Owner-scoped lookup: a reviewer cannot use the claimant form to edit someone else's claim. */
+export async function loadClaimForFollowup(id: string): Promise<SubmitResult> {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new Error('Invalid claim link.');
+  if (!client || !claimIntakeConfig.claimsTable) throw new Error('Claim storage is not configured.');
+  const { data: auth, error: authError } = await client.auth.getUser();
+  if (authError || !auth.user || !permissions(auth.user).upload) throw new Error('Please sign in with the account that submitted this claim.');
+  const { data, error } = await client.from(claimIntakeConfig.claimsTable).select('*').eq('id', id).eq('submitted_by', auth.user.id).eq('case_status', 'open').maybeSingle();
+  if (error || !data) throw new Error('This claim is unavailable, closed, or belongs to another account.');
+  return savedResult(data, data.attachments ?? []);
+}
+
+export async function submitClaim(payload: ClaimPayload, files: File[], existing?: SubmitResult): Promise<SubmitResult> {
   if (isDryRun()) return { mode: 'dry-run', payload, files: files.map(f => ({ name: f.name, size: f.size, type: f.type })) };
   if (!client) throw new Error('Claim storage client is not configured.');
   const db = client;
   const { data: auth, error: authError } = await db.auth.getUser();
   if (authError || !auth.user) throw new Error('Please sign in before submitting a claim.');
   if (!permissions(auth.user).upload) throw new Error('Claims Handler, Reviewer or Admin role required.');
-  if (files.length > 10 || files.some(f => f.size > 10 * 1024 * 1024 || f.name.length > 255)) throw new Error('Attach at most 10 files, each up to 10 MB with a name up to 255 characters.');
+  if (existing && (existing.mode !== 'saved' || !existing.payload.id)) throw new Error('A saved claim is required.');
+  if (files.length + (existing?.files.length ?? 0) > 10 || files.some(f => f.size > 10 * 1024 * 1024 || f.name.length > 255)) throw new Error('Attach at most 10 files, each up to 10 MB with a name up to 255 characters.');
   const types = files.map(attachmentType);
   const bucket = claimIntakeConfig.claimsBucket;
   if (files.length && !bucket) throw new Error('Document storage is not configured.');
@@ -40,11 +57,15 @@ export async function submitClaim(payload: ClaimPayload, files: File[]): Promise
       if (error) throw new Error(`Could not upload ${file.name}: ${error.message}`);
       uploaded.push({ name: file.name, size: file.size, type: types[i], path });
     }
-    const { data, error } = await db.from(claimIntakeConfig.claimsTable!).insert({ ...claimInsert(payload), attachments: uploaded }).select().single();
+    const attachments = [...(existing?.files ?? []), ...uploaded];
+    const table = db.from(claimIntakeConfig.claimsTable!);
+    const write = existing
+      ? table.update({ ...claimInsert(payload), attachments }).eq('id', existing.payload.id).eq('submitted_by', auth.user.id).eq('case_status', 'open').eq('revision', existing.payload.revision ?? 0)
+      : table.insert({ ...claimInsert(payload), attachments });
+    const { data, error } = await write.select().single();
     if (error) throw new Error(`Could not save claim: ${error.message}`);
     // Return confirmed server values, not client-supplied IDs/timestamps or guessed defaults.
-    const saved = Object.fromEntries(Object.entries(data).filter(([, value]) => value === null || ['string','number','boolean'].includes(typeof value))) as ClaimPayload;
-    return { mode: 'saved', payload: saved, files: uploaded };
+    return savedResult(data, attachments);
   } catch (error) {
     if (uploaded.length && bucket) {
       // RLS prevents deletion if an insert succeeded but its network response was lost.

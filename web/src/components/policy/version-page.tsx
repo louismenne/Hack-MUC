@@ -49,9 +49,10 @@ export function VersionPage({ version, active, aiAvailable, owner, busy, run, on
   useEffect(() => {
     if (!isDraft) return;
     let cancelled = false;
+    setImpact(null); setImpactError(null);
     policyApi.impact(version.id).then(r => { if (!cancelled) setImpact(r.impact); }, (e: ApiFailure) => { if (!cancelled) setImpactError(e.message); });
     return () => { cancelled = true; };
-  }, [isDraft, version.id]);
+  }, [isDraft, version.id, version.revision, active.id]);
 
   const onLeaf = (ruleIndex: number) => (path: LeafPath, value: Scalar | Scalar[]) => {
     try { setRules(current => setLeafValue(current, ruleIndex, path, value)); } catch (e) { toast.error(e instanceof Error ? e.message : String(e)); }
@@ -70,7 +71,8 @@ export function VersionPage({ version, active, aiAvailable, owner, busy, run, on
   });
   const discard = () => run(async () => { await policyApi.discardDraft(version.id); toast.success('Draft discarded'); await onReload(null); });
   const activate = () => run(async () => {
-    const { version: done } = await policyApi.activate(version.id, active.id);
+    if (!impact || impact.draft.revision !== version.revision || impact.base.id !== active.id) throw new Error('Reload the draft and its impact before activating.');
+    const { version: done } = await policyApi.activate(version.id, impact.base.id, impact.draft.revision);
     toast.success(`${done.versionLabel} is now active. ${active.versionLabel} archived.`);
     window.dispatchEvent(new Event(POLICY_CHANGED_EVENT)); // the review queue re-evaluates with the new active version
     await onReload(done.id);
@@ -131,7 +133,7 @@ export function VersionPage({ version, active, aiAvailable, owner, busy, run, on
               <div className="flex flex-wrap items-center gap-2 border-t pt-4">
                 {dirty
                   ? <Button disabled={busy} onClick={() => void save()}>Save</Button>
-                  : <Button disabled={busy || !impact || changes.length === 0} onClick={() => setConfirm(true)}>Activate</Button>}
+                  : <Button disabled={busy || !impact || impact.draft.revision !== version.revision || impact.base.id !== active.id || changes.length === 0} onClick={() => setConfirm(true)}>Activate</Button>}
                 <Button variant="ghost" className="text-destructive" disabled={busy} onClick={() => void discard()}>Discard</Button>
               </div>
             </CardContent>

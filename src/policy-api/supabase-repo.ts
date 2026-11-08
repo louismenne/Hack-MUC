@@ -1,15 +1,17 @@
+import { ApiError } from './handlers.js';
 import { createClient } from '@supabase/supabase-js';
 import type { PolicyDocument } from '../policy-engine/schema.js';
 import { nextVersionLabel, type NewDraft, type PolicyRepo, type PolicyVersionRecord } from './types.js';
 
-const COLUMNS = 'id,version_label,rules,status,change_summary,source,parent_version_id,created_by,created_at,activated_at';
+const COLUMNS = 'revision,id,version_label,rules,status,change_summary,source,parent_version_id,created_by,created_at,activated_at';
 
 interface Row {
+  revision: number;
   id: string; version_label: string; rules: PolicyDocument; status: PolicyVersionRecord['status']; change_summary: string | null;
   source: PolicyVersionRecord['source']; parent_version_id: string | null; created_by: string; created_at: string; activated_at: string | null;
 }
 const toRecord = (r: Row): PolicyVersionRecord => ({
-  id: r.id, versionLabel: r.version_label, rules: r.rules, status: r.status, changeSummary: r.change_summary, source: r.source,
+  revision: r.revision, id: r.id, versionLabel: r.version_label, rules: r.rules, status: r.status, changeSummary: r.change_summary, source: r.source,
   parentVersionId: r.parent_version_id, createdBy: r.created_by, createdAt: r.created_at, activatedAt: r.activated_at,
 });
 
@@ -62,8 +64,9 @@ export function createSupabaseRepo(url: string, secretKey: string, actorId?: str
       if (error) fail('deleteDraft', error);
       return Boolean(data?.id);
     },
-    async activate(id, expectedActiveId) {
-      const { data, error } = await write('activate', { id, expected_active_id: expectedActiveId });
+    async activate(id, expectedActiveId, expectedRevision) {
+      const { data, error } = await write('activate', { id, expected_active_id: expectedActiveId, expected_revision: expectedRevision });
+      if (error?.message === 'Draft changed; refresh impact' || error?.message === 'Active policy changed; refresh impact') throw new ApiError(409, error.message);
       if (error) fail('activate', error);
       return toRecord(data as unknown as Row);
     },

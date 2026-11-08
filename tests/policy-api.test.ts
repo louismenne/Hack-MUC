@@ -111,7 +111,7 @@ describe('policy API: versions', () => {
     const draft = body(await post(deps, { action: 'create_draft', createdBy: 'L' })).version;
     const edited = body(await post(deps, { action: 'update_draft', id: draft.id, rules: limit(1200) })).version;
     expect(edited.rules.rules[0].when.any[6].value).toBe(1200);
-    await post(deps, { action: 'activate', id: draft.id, expectedActiveId: active.id });
+    await post(deps, { action: 'activate', id: draft.id, expectedActiveId: active.id, expectedRevision: edited.revision });
     await rejects(post(deps, { action: 'update_draft', id: active.id, changeSummary: 'x' }), 409); // v1 is archived now
     await rejects(post(deps, { action: 'update_draft', id: draft.id, rules: limit(1) }), 409); // v2 is active now
     await rejects(post(deps, { action: 'discard_draft', id: draft.id }), 409);
@@ -139,7 +139,7 @@ describe('policy API: impact and activation', () => {
     const { deps, repo } = setup();
     const [v1rec] = await repo.list();
     const draft = body(await post(deps, { action: 'create_draft', createdBy: 'Louis', rules: limit(1200) })).version;
-    const done = body(await post(deps, { action: 'activate', id: draft.id, expectedActiveId: v1rec.id })).version;
+    const done = body(await post(deps, { action: 'activate', id: draft.id, expectedActiveId: v1rec.id, expectedRevision: 0 })).version;
     expect(done).toMatchObject({ versionLabel: 'v2', status: 'active' });
     expect(done.activatedAt).toBeTruthy();
     const all = await repo.list();
@@ -152,8 +152,8 @@ describe('policy API: impact and activation', () => {
     const [v1rec] = await repo.list();
     const a = body(await post(deps, { action: 'create_draft', createdBy: 'A', rules: limit(1200) })).version;
     const b = body(await post(deps, { action: 'create_draft', createdBy: 'B', rules: limit(1000) })).version;
-    await post(deps, { action: 'activate', id: a.id, expectedActiveId: v1rec.id });
-    const e = await rejects(post(deps, { action: 'activate', id: b.id, expectedActiveId: v1rec.id }), 409);
+    await post(deps, { action: 'activate', id: a.id, expectedActiveId: v1rec.id, expectedRevision: 0 });
+    const e = await rejects(post(deps, { action: 'activate', id: b.id, expectedActiveId: v1rec.id, expectedRevision: 0 }), 409);
     expect(e.message).toContain('has changed');
     await rejects(post(deps, { action: 'activate', id: a.id, expectedActiveId: a.id }), 409); // already active
     expect((await repo.list()).filter(v => v.status === 'active')).toHaveLength(1);
@@ -251,4 +251,24 @@ describe('versions are listed with their metadata', () => {
     expect(v.createdAt).toBeTruthy();
     expect(v.changeSummary).toBeTruthy();
   });
+});
+
+describe('activation binds to the impact draft revision', () => {
+ it('rejects edits after preview and permits a fresh preview', async () => {
+  const { deps, repo } = setup();
+  const draft = body(await post(deps, { action: 'create_draft', createdBy: 'A', rules: limit(1200) })).version;
+  const preview = body(await post(deps, { action: 'impact', id: draft.id })).impact;
+  await post(deps, { action: 'update_draft', id: draft.id, rules: limit(500) });
+  await rejects(post(deps, { action: 'activate', id: draft.id, expectedActiveId: preview.base.id, expectedRevision: preview.draft.revision }), 409);
+  expect((await repo.get(draft.id))?.status).toBe('draft');
+  const fresh = body(await post(deps, { action: 'impact', id: draft.id })).impact;
+  expect(fresh.draft.revision).toBe(preview.draft.revision + 1);
+  const activated = body(await post(deps, { action: 'activate', id: draft.id, expectedActiveId: fresh.base.id, expectedRevision: fresh.draft.revision })).version;
+  expect(activated.status).toBe('active');
+ });
+ it('rejects requests without a preview revision', async () => {
+  const { deps, repo } = setup();
+  const draft = body(await post(deps, { action: 'create_draft', createdBy: 'A' })).version;
+  await rejects(post(deps, { action: 'activate', id: draft.id, expectedActiveId: (await repo.list())[0].id }), 400);
+ });
 });

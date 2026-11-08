@@ -381,7 +381,7 @@ function computeImpact(base, draft, cases, original = base) {
   const needsRecheck = rows.filter((r) => r.needsRecheck).length;
   return {
     base: { id: base.id, label: base.versionLabel },
-    draft: { id: draft.id, label: draft.versionLabel },
+    draft: { id: draft.id, label: draft.versionLabel, revision: draft.revision },
     rows,
     totals: {
       cases: rows.length,
@@ -505,10 +505,13 @@ async function handlePost(deps, raw) {
       const draft = await mustGet(repo, uuid(raw, "id"));
       const expectedActive = uuid(raw, "expectedActiveId");
       if (draft.status !== "draft") throw new ApiError(409, `Only a draft can be activated (this version is ${draft.status}).`);
+      const expectedRevision = raw.expectedRevision;
+      if (typeof expectedRevision !== "number" || !Number.isSafeInteger(expectedRevision) || expectedRevision < 0) throw new ApiError(400, "A draft revision from the impact preview is required.");
+      if (draft.revision !== expectedRevision) throw new ApiError(409, "The draft has changed. Reload the impact and check again.");
       rulesFrom(draft.rules);
       const active = await mustActive(repo);
       if (active.id !== expectedActive) throw new ApiError(409, "The active version has changed in the meantime. Reload the impact and check again.");
-      return ok({ version: await repo.activate(draft.id, expectedActive) });
+      return ok({ version: await repo.activate(draft.id, expectedActive, expectedRevision) });
     }
     default:
       throw new ApiError(400, "Unknown action.");
@@ -567,8 +570,9 @@ function nextVersionLabel(labels) {
 }
 
 // src/policy-api/supabase-repo.ts
-var COLUMNS = "id,version_label,rules,status,change_summary,source,parent_version_id,created_by,created_at,activated_at";
+var COLUMNS = "revision,id,version_label,rules,status,change_summary,source,parent_version_id,created_by,created_at,activated_at";
 var toRecord = (r) => ({
+  revision: r.revision,
   id: r.id,
   versionLabel: r.version_label,
   rules: r.rules,
@@ -631,8 +635,9 @@ function createSupabaseRepo(url, secretKey, actorId) {
       if (error) fail("deleteDraft", error);
       return Boolean(data?.id);
     },
-    async activate(id2, expectedActiveId) {
-      const { data, error } = await write("activate", { id: id2, expected_active_id: expectedActiveId });
+    async activate(id2, expectedActiveId, expectedRevision) {
+      const { data, error } = await write("activate", { id: id2, expected_active_id: expectedActiveId, expected_revision: expectedRevision });
+      if (error?.message === "Draft changed; refresh impact" || error?.message === "Active policy changed; refresh impact") throw new ApiError(409, error.message);
       if (error) fail("activate", error);
       return toRecord(data);
     }
@@ -654,10 +659,11 @@ function checkedDecision(policy, claim) {
   if (!checked.ok) throw new ApiError(503, "The active policy is invalid; processing is disabled.");
   return evaluatePolicyDocument(checked.policy, policy.versionLabel, claim);
 }
-async function evaluateStoredClaims(user, offset, db = serviceClient()) {
+async function evaluateStoredClaims(user, offset, db = serviceClient(), claimId) {
   const role = roleOf(user);
   if (!role) throw new ApiError(403, "A team role is required.");
   let query = db.from("claims").select("*", { count: "exact" }).order("received_at", { ascending: false }).order("id").range(offset, offset + 49);
+  if (claimId) query = query.eq("id", claimId);
   if (role === "claims_handler") query = query.eq("submitted_by", user.id);
   const [{ data, error, count }, versions] = await Promise.all([
     query,
@@ -678,7 +684,11 @@ async function evaluateStoredClaims(user, offset, db = serviceClient()) {
           409,
           `Closed claim ${claim.case_id} has no historical decision; manual migration is required.`
         );
-      saved = latest;
+      if (claim.closed_decision_id && latest.id !== claim.closed_decision_id) {
+        const { data: terminal, error: terminalError } = await db.from("claim_decisions").select("*").eq("id", claim.closed_decision_id).eq("claim_id", claim.id).single();
+        if (terminalError || !terminal) throw new ApiError(409, "Closed claim decision is unavailable.");
+        saved = terminal;
+      } else saved = latest;
     } else {
       const decision = checkedDecision(active, claim);
       const { data: result, error: saveError } = await db.rpc("save_claim_decision", {
@@ -720,7 +730,9 @@ async function storedImpact(base, draft, db = serviceClient()) {
   const report = computeImpact(base, draft, claims.map(claimStrings));
   for (const row of report.rows.filter((r) => r.frozen)) {
     const claim = claims.find((c) => c.case_id === row.caseId);
-    const { data, error } = await db.from("claim_decisions").select("*").eq("claim_id", claim.id).order("created_at", { ascending: false }).limit(1);
+    let query = db.from("claim_decisions").select("*").eq("claim_id", claim.id);
+    if (claim.closed_decision_id) query = query.eq("id", claim.closed_decision_id);
+    const { data, error } = await query.order("created_at", { ascending: false }).limit(1);
     if (error || !data?.length) throw new ApiError(409, "A closed claim has no saved decision.");
     const decision = data[0].decision;
     row.before = row.after = { recommendation: decision.recommendation, ruleId: decision.ruleId };
@@ -813,7 +825,9 @@ async function handlePolicyRequest(request, kind, makeDeps, authenticate = creat
     if (kind === "policy" && action === "evaluate_claims") {
       const offset = input.offset ?? 0;
       if (typeof offset !== "number" || !Number.isSafeInteger(offset) || offset < 0) throw new ApiError(400, "Invalid offset.");
-      return json(await evaluateStoredClaims(user, offset));
+      const claimId = input.claimId;
+      if (claimId !== void 0 && (typeof claimId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(claimId))) throw new ApiError(400, "Invalid claim ID.");
+      return json(await evaluateStoredClaims(user, offset, void 0, claimId));
     }
     if (kind === "policy" && action === "set_role") {
       if (!access.team) throw new ApiError(403, "Admin role required.");

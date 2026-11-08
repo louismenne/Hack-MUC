@@ -1,6 +1,6 @@
 import { expect, it, vi, afterEach } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { claimInsert, configureClaimsClient, submitClaim } from '../src/claim-intake/adapter.js';
+import { claimInsert, configureClaimsClient, loadClaimForFollowup, submitClaim } from '../src/claim-intake/adapter.js';
 import { claimIntakeConfig } from '../src/claim-intake/config.js';
 afterEach(() => { claimIntakeConfig.claimsTable = 'claims'; claimIntakeConfig.claimsBucket = 'claim-documents'; });
 function mockClient(role = 'claims_handler', fail = false) {
@@ -36,4 +36,38 @@ it('rejects unauthorized roles and oversized files before writing', async () => 
  const allowed = mockClient();
  await expect(submitClaim({}, [{ name: 'large.pdf', type: 'application/pdf', size: 11 * 1024 * 1024 } as File])).rejects.toThrow('10 MB');
  expect(allowed.upload).not.toHaveBeenCalled(); expect(allowed.insert).not.toHaveBeenCalled();
+});
+
+it('supplements the existing open claim and preserves its attachments', async () => {
+ const upload = vi.fn(async () => ({ error: null }));
+ const update = vi.fn(() => query);
+ const eq = vi.fn(() => query);
+ const query = { eq, select: () => ({ single: async () => ({ data: { id: 'claim-id', case_id: 'CLM-original' }, error: null }) }) };
+ configureClaimsClient({ auth: { getUser: async () => ({ data: { user: { id: 'user', app_metadata: { hack_muc_role: 'claims_handler' } } } }) }, from: () => ({ update }), storage: { from: () => ({ upload }) } } as unknown as SupabaseClient);
+ const old = { name: 'original.pdf', size: 3, type: 'application/pdf', path: 'user/original' };
+ const result = await submitClaim({ quote_eur: 500 }, [new File(['new'], 'quote.pdf', { type: 'application/pdf' })], { mode: 'saved', payload: { id: 'claim-id' }, files: [old] });
+ expect(eq.mock.calls).toEqual([['id', 'claim-id'], ['submitted_by', 'user'], ['case_status', 'open'], ['revision', 0]]);
+ expect(update).toHaveBeenCalledWith(expect.objectContaining({ quote_eur: 500, attachments: [old, expect.objectContaining({ name: 'quote.pdf' })] }));
+ expect(result.payload.case_id).toBe('CLM-original');
+ expect(result.files).toHaveLength(2);
+});
+
+it('reloads only the owner’s open claim, preserving revision and attachments', async () => {
+ const file = { name: 'old.pdf', path: 'user/old', type: 'application/pdf', size: 10 };
+ const query = { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), maybeSingle: vi.fn().mockResolvedValue({ data: { id: '00000000-0000-4000-8000-000000000001', revision: 4, claimant_name: 'Owner', attachments: [file] }, error: null }) };
+ configureClaimsClient({ auth: { getUser: async () => ({ data: { user: { id: 'user', app_metadata: { hack_muc_role: 'claims_handler' } } } }) }, from: () => query } as unknown as SupabaseClient);
+ const loaded = await loadClaimForFollowup('00000000-0000-4000-8000-000000000001');
+ expect(query.eq.mock.calls).toContainEqual(['submitted_by', 'user']);
+ expect(query.eq.mock.calls).toContainEqual(['case_status', 'open']);
+ expect(loaded.payload.revision).toBe(4);
+ expect(loaded.files).toEqual([file]);
+ query.maybeSingle.mockResolvedValueOnce({ data: null, error: null } as any);
+ await expect(loadClaimForFollowup('00000000-0000-4000-8000-000000000002')).rejects.toThrow('unavailable');
+});
+
+it('rejects stale follow-up writes instead of overwriting another submission', async () => {
+ const query = { eq: vi.fn().mockReturnThis(), select: vi.fn().mockReturnThis(), single: vi.fn().mockResolvedValue({ data: null, error: { message: 'No matching revision' } }) };
+ configureClaimsClient({ auth: { getUser: async () => ({ data: { user: { id: 'user', app_metadata: { hack_muc_role: 'claims_handler' } } } }) }, from: () => ({ update: () => query }) } as unknown as SupabaseClient);
+ await expect(submitClaim({}, [], { mode: 'saved', payload: { id: 'claim', revision: 3 }, files: [] })).rejects.toThrow('Could not save claim');
+ expect(query.eq).toHaveBeenCalledWith('revision', 3);
 });

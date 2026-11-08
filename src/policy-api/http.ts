@@ -30,7 +30,9 @@ export async function handlePolicyRequest(request: Request, kind: 'policy' | 'ai
     if (kind === 'policy' && action === 'evaluate_claims') {
       const offset = (input as { offset?: unknown }).offset ?? 0;
       if (typeof offset !== 'number' || !Number.isSafeInteger(offset) || offset < 0) throw new ApiError(400, 'Invalid offset.');
-      return json(await evaluateStoredClaims(user, offset));
+      const claimId = (input as { claimId?: unknown }).claimId;
+      if (claimId !== undefined && (typeof claimId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(claimId))) throw new ApiError(400, 'Invalid claim ID.');
+      return json(await evaluateStoredClaims(user, offset, undefined, claimId));
     }
     if (kind === 'policy' && action === 'set_role') {
       if (!access.team) throw new ApiError(403, 'Admin role required.');

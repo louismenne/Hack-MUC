@@ -20,6 +20,8 @@ export type StoredClaim = Record<string, unknown> & {
   id: string;
   case_id: string;
   case_status: string;
+  closed_decision_id?: string | null;
+  revision?: number;
   submitted_by: string;
   received_at: string;
   attachments: { path: string; name: string }[];
@@ -48,7 +50,7 @@ export function checkedDecision(policy: PolicyVersionRecord, claim: StoredClaim)
   if (!checked.ok) throw new ApiError(503, 'The active policy is invalid; processing is disabled.');
   return evaluatePolicyDocument(checked.policy, policy.versionLabel, claim);
 }
-export async function evaluateStoredClaims(user: AuthUser, offset: number, db = serviceClient()) {
+export async function evaluateStoredClaims(user: AuthUser, offset: number, db = serviceClient(), claimId?: string) {
   const role = roleOf(user);
   if (!role) throw new ApiError(403, 'A team role is required.');
   let query = db
@@ -57,6 +59,7 @@ export async function evaluateStoredClaims(user: AuthUser, offset: number, db = 
     .order('received_at', { ascending: false })
     .order('id')
     .range(offset, offset + 49);
+  if (claimId) query = query.eq('id', claimId);
   if (role === 'claims_handler') query = query.eq('submitted_by', user.id);
   const [{ data, error, count }, versions] = await Promise.all([
     query,
@@ -82,7 +85,11 @@ export async function evaluateStoredClaims(user: AuthUser, offset: number, db = 
           409,
           `Closed claim ${claim.case_id} has no historical decision; manual migration is required.`,
         );
-      saved = latest;
+      if (claim.closed_decision_id && latest.id !== claim.closed_decision_id) {
+        const { data: terminal, error: terminalError } = await db.from('claim_decisions').select('*').eq('id', claim.closed_decision_id).eq('claim_id', claim.id).single();
+        if (terminalError || !terminal) throw new ApiError(409, 'Closed claim decision is unavailable.');
+        saved = terminal as SavedDecision;
+      } else saved = latest;
     } else {
       const decision = checkedDecision(active, claim);
       const { data: result, error: saveError } = await db.rpc('save_claim_decision', {
@@ -143,12 +150,9 @@ export async function storedImpact(
   const report = computeImpact(base, draft, claims.map(claimStrings));
   for (const row of report.rows.filter((r) => r.frozen)) {
     const claim = claims.find((c) => c.case_id === row.caseId)!;
-    const { data, error } = await db
-      .from('claim_decisions')
-      .select('*')
-      .eq('claim_id', claim.id)
-      .order('created_at', { ascending: false })
-      .limit(1);
+    let query = db.from('claim_decisions').select('*').eq('claim_id', claim.id);
+    if (claim.closed_decision_id) query = query.eq('id', claim.closed_decision_id);
+    const { data, error } = await query.order('created_at', { ascending: false }).limit(1);
     if (error || !data?.length) throw new ApiError(409, 'A closed claim has no saved decision.');
     const decision = (data[0] as SavedDecision).decision;
     row.before = row.after = { recommendation: decision.recommendation, ruleId: decision.ruleId };

@@ -26,7 +26,7 @@ export const policyApi = {
   updateDraft: (b: { id: string; rules?: PolicyDocument; changeSummary?: string }) => post<{ version: PolicyVersionRecord }>('/api/policy', { action: 'update_draft', ...b }),
   discardDraft: (id: string) => post<{ discarded: string }>('/api/policy', { action: 'discard_draft', id }),
   impact: (id: string) => post<{ impact: ImpactReport }>('/api/policy', { action: 'impact', id }),
-  activate: (id: string, expectedActiveId: string) => post<{ version: PolicyVersionRecord }>('/api/policy', { action: 'activate', id, expectedActiveId }),
+  activate: (id: string, expectedActiveId: string, expectedRevision: number) => post<{ version: PolicyVersionRecord }>('/api/policy', { action: 'activate', id, expectedActiveId, expectedRevision }),
   aiFromDocument: (b: { createdBy: string; filename: string; text?: string; pdfBase64?: string }) => post<{ version: PolicyVersionRecord }>('/api/policy-ai', { mode: 'document', ...b }),
   aiInstruction: (b: { createdBy: string; versionId: string; ruleId?: string; instruction: string }) => post<{ version: PolicyVersionRecord }>('/api/policy-ai', { mode: 'instruction', ...b }),
 };

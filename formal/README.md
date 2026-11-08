@@ -13,7 +13,7 @@ LEAN_BIN=/absolute/path/to/lean npm run proof
 
 The command compiles `Policy.lean` (which checks all theorems), prints selected axiom dependencies, then executes the Lean evaluator on the same generated facts used by TypeScript. Intermediate files are placed in a disposable OS temp directory. There are no third-party Lean library dependencies; only Lean's bundled `Std` library is used.
 
-Verified with Lean 4.35.0: **33,055 comparisons agree**, including all 14 labelled development cases and 12 unlabelled practice cases. This is a finite conformance check, not a formal proof of language-to-language equivalence. The labelled cases are also checked against their expected v1 labels.
+Verified with Lean 4.35.0: **945,172 comparisons agree** (630,154 against the current JSON engine; the rest cover legacy configurable-document variants), including all 14 labelled development cases and 12 unlabelled practice cases. This is a finite conformance check, not a formal proof of language-to-language equivalence. The labelled cases are also checked against their expected v1 labels.
 
 ## What is proved
 
@@ -21,6 +21,9 @@ Verified with Lean 4.35.0: **33,055 comparisons agree**, including all 14 labell
 
 | Theorem | Statement |
 |---|---|
+| `first_match_wins` | Given any list of evaluated rule conditions and result payloads, the first true rule wins regardless of later rules. |
+| `no_match_default` | If all evaluated rule conditions are false, the default payload is returned. |
+| `ordered_rules_correct` | Selecting the first match in the three modeled official rules equals the verified decision model. |
 | `correct` | For every modeled claim, policy, and recommendation, the ordered evaluator returns that recommendation **if and only if** the declarative policy permits it. |
 | `unique` | The declarative policy permits at most one recommendation for a claim. |
 | `review_precedence` | A known human-review trigger wins regardless of missing information or documents. |
@@ -41,22 +44,24 @@ The proof has no `sorry`, `admit`, custom axioms, or `native_decide` shortcuts. 
 
 ## How this connects to TypeScript
 
-The operational definition mirrors `src/triage.ts`:
+The operational definition models the official rules in `policies/policy-v1.rules.json` and `policies/policy-v2.rules.json`, evaluated by `src/policy-engine/engine.ts`. The older typed implementation lives in `src/server/legacy-policy.ts`.
 
-- `reviewTrigger` mirrors the nonempty `triggers` list.
-- `absentDocument` mirrors the nonempty `absentDocuments` list.
-- `missingInput` mirrors the nonempty `missingFields` list; the three metadata fields are represented by one presence Boolean.
-- `evaluate` mirrors the four ordered conditional branches.
-- `transition` models the intended recommendation/recheck behavior in `src/server/store.ts`, not database execution.
+- `reviewTrigger` captures the first official rule, including v2's battery trigger and lower limit.
+- `absentDocument` captures the explicit false-document rule.
+- `missingInput` captures the missing-field rule; the three metadata fields are represented by one presence Boolean.
+- `selectFirst` models generic first-match selection **after** conditions have been evaluated. Its theorems do not verify the JSON condition interpreter itself.
+- `transition` models intended recommendation/recheck behavior, not database execution.
 
-`scripts/check-policy-proof.ts` enumerates all 3^7 true/false/unknown combinations of Boolean facts at five quote values under three policy configurations, then adds claim/repair-type, metadata, document-option, and supplied-dataset checks. For official v1/v2 fixtures it also compares the generic JSON engine used by the Supabase workspace against the typed engine. `Conformance.lean` evaluates the serialized fixtures independently in Lean. The TypeScript engine's result is compared for every case.
+`scripts/check-policy-proof.ts` now uses the current engine's `normalizeFacts` to serialize official v1/v2 inputs into Lean, and compares Lean results directly with `evaluatePolicyDocument`. It does not use the legacy engine as the oracle for these policies. Configurable-document variants are checked separately against the legacy evaluator.
+
+For each of three configurations, the checker crosses all 3^7 true/false/unknown Boolean combinations with eight quote values (unknown, zero, and below/at/above both limits), three claim types, three repair types, and present/missing summary. Additional cases exercise each metadata field, optional documents, current-engine currency/Boolean parsing, invalid status values, and all 26 supplied records. The 14 labelled records are also checked against their expected v1 labels. `Conformance.lean` evaluates each serialized fixture independently. The bridge rejects amounts outside safe cent-denominated values rather than silently rounding arbitrary fractions into the proof model.
 
 ## Scope and trust boundaries
 
 1. **Specification:** A human must review that `Allowed`, the predicates, and the modeling choices faithfully represent the written policy. Lean proves implications of these definitions; it does not interpret the PDF.
 2. **Money:** Lean uses nonnegative integer cents. Conformance examples use cent-denominated values. TypeScript uses IEEE-754 numbers and accepts more than two decimal places. Arbitrary fractional-cent input, very large numbers, rounding, and floating-point parsing are **not proved equivalent**. Do not claim numeric equivalence for all JavaScript numbers.
-3. **Parsing and types:** The bridge begins after `parseClaim`. CSV decoding, unreadable-value classification, malformed direct calls to the broad TypeScript `Claim` type, serialization, and the test adapter are not formally verified.
-4. **Implementation:** The generic JSON engine permits additional input formats (such as formatted currency and 1/0 booleans); conformance is checked on the common supported fixture domain, not every possible input format. The TypeScript program is not compiled from Lean and has not been formally translated into Lean semantics. Differential testing gives evidence, not universal implementation equivalence.
+3. **Parsing and types:** The official-policy bridge begins after `normalizeFacts`; legacy variants begin after `parseClaim`. CSV decoding, unreadable-value classification, malformed direct calls to the broad TypeScript `Claim` type, serialization, and the test adapter are not formally verified.
+4. **Implementation:** The generic JSON engine permits additional input formats (such as formatted currency and 1/0 booleans); selected additional formats are checked, but not every possible input format or arbitrary user-authored JSON policy. The TypeScript program is not compiled from Lean and has not been formally translated into Lean semantics. Differential testing gives evidence, not universal implementation equivalence.
 5. **Lifecycle:** The abstract transition theorems do not establish SQL atomicity, authentication, authorization, preview freshness, persistence, or concurrency safety. Those require implementation tests and review.
 6. **Outputs:** Evidence strings, rule IDs, UI behavior, reviewer overrides, quality metrics, and business assumptions are outside the proof.
 7. **Policy scope:** The missing-input model includes metadata/summary presence, matching the current implementation's conservative reading of the participant policy. Policy v1 does not mandate this particular interpretation unambiguously; clarify with the mentor if needed.

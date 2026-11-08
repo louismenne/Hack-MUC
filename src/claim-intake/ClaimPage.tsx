@@ -1,5 +1,7 @@
+import { authenticatedFetch } from '@/lib/supabase';
+import type { StoredQueueItem } from '../policy-api/stored-claims';
 import { clearReloadCache } from '../../web/src/lib/reload-cache';
-import { Fragment, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { CarIcon, CircleAlertIcon, CircleCheckIcon, FileTextIcon, FlaskConicalIcon, ImageIcon, LockIcon, RotateCcwIcon, SendIcon, SparklesIcon } from 'lucide-react';
 import { SignOutButton, useAuthUser } from '@/lib/auth';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -12,7 +14,8 @@ import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, 
 import { Spinner } from '@/components/ui/spinner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { isDryRun, submitClaim, type SubmitResult } from './adapter.js';
+import { followupHref, followupRequirements, savedFormValues } from './followup.js';
+import { isDryRun, loadClaimForFollowup, submitClaim, type SubmitResult } from './adapter.js';
 import { extractFromFiles } from './extract.js';
 import { FieldControl } from './FieldControl.js';
 import { FileDropzone } from './FileDropzone.js';
@@ -82,6 +85,30 @@ export function ClaimPage() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [existing, setExisting] = useState<SubmitResult | undefined>();
+  const [requested, setRequested] = useState<string[]>([]);
+  const [resumeId] = useState(() => new URLSearchParams(window.location.search).get('claim'));
+  const [restoring, setRestoring] = useState(!!resumeId);
+  const [restoreError, setRestoreError] = useState('');
+  const restoreValues = form.restore;
+  useEffect(() => {
+    if (!resumeId) return;
+    let cancelled = false;
+    void loadClaimForFollowup(resumeId).then(async saved => {
+      if (cancelled) return;
+      restoreValues(savedFormValues(saved.payload));
+      setExisting(saved);
+      const response = await authenticatedFetch('/api/policy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'evaluate_claims', claimId: resumeId }) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? 'Could not check the claim.');
+      if (!cancelled && data.items?.[0]) {
+        const needed = followupRequirements(data.items[0].saved.decision);
+        setRequested([...needed.claimant, ...needed.internal]);
+      }
+    }).catch(error => { if (!cancelled) setRestoreError(error instanceof Error ? error.message : String(error)); })
+      .finally(() => { if (!cancelled) setRestoring(false); });
+    return () => { cancelled = true; };
+  }, [resumeId, restoreValues]);
   const [result, setResult] = useState<SubmitResult | null>(null);
   const [voiceDone, setVoiceDone] = useState(false);
   // Completeness check before sending: a short "checking" step, then a nudge if something is missing.
@@ -127,7 +154,7 @@ export function ClaimPage() {
     setChecking(true);
     await new Promise(resolve => setTimeout(resolve, 1500));
     setChecking(false);
-    const gaps = missingInformation(form.values, files.length);
+    const gaps = missingInformation(form.values, files.length + (existing?.files.length ?? 0));
     if (gaps.length) {
       setMissing(gaps);
       return;
@@ -139,9 +166,10 @@ export function ClaimPage() {
   const send = async () => {
     setSubmitting(true);
     try {
-      const saved = await submitClaim(buildPayload(form.values, { isTest: isDryRun() }), files);
+      const saved = await submitClaim(buildPayload(form.values, { isTest: isDryRun() }), files, existing);
       clearReloadCache();
       setResult(saved);
+      if (saved.mode === 'saved') window.history.replaceState(null, '', followupHref(String(saved.payload.id)));
       window.scrollTo({ top: 0 });
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : String(error));
@@ -150,15 +178,17 @@ export function ClaimPage() {
     }
   };
 
-  const startOver = () => { form.reset(); setFiles([]); setErrors({}); setResult(null); setNotice(null); window.scrollTo({ top: 0 }); };
+  const startOver = () => { window.history.replaceState(null, '', '/claim'); setVoiceDone(false); form.reset(); setExisting(undefined); setRequested([]); setFiles([]); setErrors({}); setResult(null); setNotice(null); window.scrollTo({ top: 0 }); };
 
-  if (result) return <Shell><Confirmation result={result} onStartOver={startOver} /></Shell>;
+  if (restoring) return <Shell><p role="status" className="flex items-center gap-2"><Spinner /> Loading your claim…</p></Shell>;
+  if (restoreError) return <Shell><Alert variant="destructive"><CircleAlertIcon /><AlertTitle>Could not resume claim</AlertTitle><AlertDescription>{restoreError}<a className="underline" href="/">Back to your claims</a></AlertDescription></Alert></Shell>;
+  if (result) return <Shell><Confirmation result={result} onStartOver={startOver} onProvideInformation={missing => { setExisting(result); setRequested(missing); setFiles([]); setResult(null); setNotice(null); window.scrollTo({ top: 0 }); }} /></Shell>;
 
   const invalidFields = fields.filter(f => errors[f.key]);
   return (
     <Shell>
       <div className="mb-6 flex flex-col gap-1">
-        <h1 className="text-4xl font-normal tracking-[-0.03em]">Submit a claim</h1>
+        <h1 className="text-4xl font-normal tracking-[-0.03em]">{existing ? 'Provide missing information' : 'Submit a claim'}</h1>
         <p className="text-sm text-muted-foreground">About five minutes.</p>
       </div>
 
@@ -171,6 +201,11 @@ export function ClaimPage() {
         </Alert>
       )}
 
+      {existing && <Alert><CircleAlertIcon /><AlertTitle>Info needed · {String(existing.payload.case_id)}</AlertTitle><AlertDescription>
+        <p>Upload the missing documents and update the answers below, then submit for another check. Your existing documents stay attached.</p>
+        <ul className="list-disc pl-5">{requested.filter(key => fields.some(f => f.column === key)).map(key => <li key={key}>{fields.find(f => f.column === key)?.label ?? key.replaceAll('_', ' ')}</li>)}</ul>
+        {requested.some(key => !fields.some(f => f.column === key)) && <p>The claims team will complete the remaining internal checks. You do not need to answer those checks.</p>}
+      </AlertDescription></Alert>}
       <form ref={formRef} onSubmit={onSubmit} noValidate className="flex flex-col gap-6">
         {isDryRun() && (
           <Alert>
@@ -238,10 +273,11 @@ export function ClaimPage() {
 
         <Card>
           <CardHeader>
-            <SectionTitle index={sections.length + 1}>Documents</SectionTitle>
+            <SectionTitle index={sections.length + 1}>{existing ? 'Upload missing documents' : 'Documents'}</SectionTitle>
             <CardDescription>Up to 10 files, 10 MB each.</CardDescription>
           </CardHeader>
           <CardContent>
+            {existing && <div className="mb-4"><FileItems files={existing.files} /></div>}
             <div data-field="documents"><FileDropzone files={files} reading={reading > 0} notice={notice} onAdd={addFiles} onRemove={index => setFiles(current => current.filter((_, i) => i !== index))} /></div>
           </CardContent>
         </Card>
@@ -357,7 +393,33 @@ function FileItems({ files }: { files: SubmitResult['files'] }) {
   );
 }
 
-function Confirmation({ result, onStartOver }: { result: SubmitResult; onStartOver: () => void }) {
+function Confirmation({ result, onStartOver, onProvideInformation }: { result: SubmitResult; onStartOver: () => void; onProvideInformation: (missing: string[]) => void }) {
+  const [decision, setDecision] = useState<StoredQueueItem['saved']['decision'] | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [checkError, setCheckError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    if (result.mode !== 'saved') return;
+    let cancelled = false;
+    setChecking(true);
+    setCheckError(null);
+    setDecision(null);
+    async function check() {
+      for (let offset = 0; ; offset += 50) {
+        const response = await authenticatedFetch('/api/policy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'evaluate_claims', offset }) });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error ?? 'Could not check the claim.');
+        if (cancelled) return;
+        const item = (data.items as StoredQueueItem[]).find(item => item.claim.id === result.payload.id);
+        if (item) { setDecision(item.saved.decision); return; }
+        if (offset + 50 >= data.total) throw new Error('Your claim is saved, but its decision is not available yet. Please retry.');
+      }
+    }
+    check().catch(error => { if (!cancelled) setCheckError(error instanceof Error ? error.message : String(error)); })
+      .finally(() => { if (!cancelled) setChecking(false); });
+    return () => { cancelled = true; };
+  }, [result, attempt]);
+  const needed = decision ? followupRequirements(decision) : { claimant: [], internal: [] };
   const dry = result.mode === 'dry-run';
   const engine = new Set(engineColumns());
   return (
@@ -377,6 +439,15 @@ function Confirmation({ result, onStartOver }: { result: SubmitResult; onStartOv
         )}
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
+        {checking && <p role="status" className="flex items-center gap-2 text-sm"><Spinner /> Checking your claim…</p>}
+        {checkError && <Alert><CircleAlertIcon /><AlertTitle>Claim saved; decision unavailable</AlertTitle><AlertDescription>{checkError}<Button variant="outline" onClick={() => setAttempt(n => n + 1)}>Retry decision check</Button></AlertDescription></Alert>}
+        {decision?.recommendation === 'request_information' && <Alert><CircleAlertIcon /><AlertTitle>Info needed</AlertTitle><AlertDescription>
+          <p>Complete any missing items listed below so your claim can be checked again.</p>
+          <ul className="list-disc pl-5">{needed.claimant.map(key => <li key={key}>{fields.find(f => f.column === key)?.label ?? key.replaceAll('_', ' ')}</li>)}</ul>
+          {needed.internal.length > 0 && <p>The claims team will complete the remaining internal checks. You do not need to answer those checks.</p>}
+          <Button onClick={() => onProvideInformation([...needed.claimant, ...needed.internal])}>Update information or documents</Button>
+        </AlertDescription></Alert>}
+        {decision && decision.recommendation !== 'request_information' && <p role="status" className="text-sm">{decision.explanation}</p>}
         {dry ? (
           <Tabs defaultValue="record">
             <TabsList>
@@ -423,6 +494,7 @@ function Confirmation({ result, onStartOver }: { result: SubmitResult; onStartOv
               </ItemContent>
             </Item>
             <div className="flex flex-col gap-3">
+              <a href={followupHref(String(result.payload.id))} className="text-sm underline">Return to this claim to add information or documents</a>
               <h2 className="text-sm font-medium">Documents ({result.files.length})</h2>
               <FileItems files={result.files} />
             </div>

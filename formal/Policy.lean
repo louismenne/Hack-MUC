@@ -140,6 +140,45 @@ theorem lower_limit_preserves_amount_review (p : Policy) (c : Claim) (n : Nat)
     have new : n < amount := Nat.lt_of_le_of_lt hn old
     simpa [aboveLimit, q] using new
 
+/-- Generic first-match selection after JSON conditions have been evaluated.
+Payloads can include the recommendation and rule ID; conditions remain outside this model. -/
+def selectFirst {α : Type} (fallback : α) : List (Bool × α) → α
+  | [] => fallback
+  | (matched, result) :: rest => if matched then result else selectFirst fallback rest
+
+/-- All rules before the selected rule must fail; later rules cannot override it. -/
+theorem first_match_wins {α : Type} (fallback result : α)
+    (beforeRules suffix : List (Bool × α))
+    (h : ∀ rule ∈ beforeRules, rule.1 = false) :
+    selectFirst fallback (beforeRules ++ (true, result) :: suffix) = result := by
+  induction beforeRules with
+  | nil => simp [selectFirst]
+  | cons head tail ih =>
+    have hh := h head (by simp)
+    have ht : ∀ rule ∈ tail, rule.1 = false := by
+      intro rule hr
+      exact h rule (by simp [hr])
+    simpa [selectFirst, hh] using ih ht
+
+/-- If every rule fails, selection returns the default payload. -/
+theorem no_match_default {α : Type} (fallback : α) (rules : List (Bool × α))
+    (h : ∀ rule ∈ rules, rule.1 = false) : selectFirst fallback rules = fallback := by
+  induction rules with
+  | nil => rfl
+  | cons head tail ih =>
+    have hh := h head (by simp)
+    have ht : ∀ rule ∈ tail, rule.1 = false := by
+      intro rule hr
+      exact h rule (by simp [hr])
+    simpa [selectFirst, hh] using ih ht
+
+/-- The official three-rule ordering implements the verified decision model. -/
+theorem ordered_rules_correct (p : Policy) (c : Claim) :
+    selectFirst .routine [(reviewTrigger p c, .human),
+      (absentDocument p c, .information), (missingInput p c, .information)] =
+      evaluate p c := by
+  simp [selectFirst, evaluate]
+
 /-- Version labels cannot affect the pure recommendation. -/
 def versioned (version : String) (p : Policy) (c : Claim) := (version, evaluate p c)
 theorem version_label_irrelevant (a b : String) (p : Policy) (c : Claim) :
@@ -162,6 +201,9 @@ theorem pending_recheck_preserved (closed : Bool) (old : Recommendation) (p : Po
     (transition closed true old p c).2 = true := by
   cases closed <;> simp [transition]
 
+#print axioms first_match_wins
+#print axioms no_match_default
+#print axioms ordered_rules_correct
 #print axioms correct
 #print axioms unique
 #print axioms no_unsafe_routine

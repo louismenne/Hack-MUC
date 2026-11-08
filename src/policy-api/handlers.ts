@@ -107,10 +107,13 @@ export async function handlePost(deps: ApiDeps, raw: unknown): Promise<ApiResult
       const draft = await mustGet(repo, uuid(raw, 'id'));
       const expectedActive = uuid(raw, 'expectedActiveId');
       if (draft.status !== 'draft') throw new ApiError(409, `Only a draft can be activated (this version is ${draft.status}).`);
+      const expectedRevision = raw.expectedRevision;
+      if (typeof expectedRevision !== 'number' || !Number.isSafeInteger(expectedRevision) || expectedRevision < 0) throw new ApiError(400, 'A draft revision from the impact preview is required.');
+      if (draft.revision !== expectedRevision) throw new ApiError(409, 'The draft has changed. Reload the impact and check again.');
       rulesFrom(draft.rules);
       const active = await mustActive(repo);
       if (active.id !== expectedActive) throw new ApiError(409, 'The active version has changed in the meantime. Reload the impact and check again.');
-      return ok({ version: await repo.activate(draft.id, expectedActive) });
+      return ok({ version: await repo.activate(draft.id, expectedActive, expectedRevision) });
     }
     default:
       throw new ApiError(400, 'Unknown action.');

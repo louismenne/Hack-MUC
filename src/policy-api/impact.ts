@@ -39,7 +39,7 @@ export function computeImpact(base: PolicyVersionRecord, draft: PolicyVersionRec
   const needsRecheck = rows.filter(r => r.needsRecheck).length;
   return {
     base: { id: base.id, label: base.versionLabel },
-    draft: { id: draft.id, label: draft.versionLabel },
+    draft: { id: draft.id, label: draft.versionLabel, revision: draft.revision },
     rows,
     totals: {
       cases: rows.length, open: rows.length - closed, closed, needsRecheck,

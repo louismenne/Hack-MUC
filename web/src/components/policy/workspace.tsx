@@ -92,7 +92,7 @@ export function PolicyWorkspace() {
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-4">
       {open ? (
-        <VersionPage key={`${open.id}|${open.changeSummary}|${JSON.stringify(open.rules)}`} version={open} active={active} aiAvailable={aiAvailable && canManage} owner={owner} busy={busy} run={run} onBack={() => setOpenId(null)} onReload={load} />
+        <VersionPage key={`${open.id}|${open.revision}|${open.changeSummary}|${JSON.stringify(open.rules)}`} version={open} active={active} aiAvailable={aiAvailable && canManage} owner={owner} busy={busy} run={run} onBack={() => setOpenId(null)} onReload={load} />
       ) : (
         <div className="space-y-4">
           <div className="flex flex-wrap items-baseline gap-3">

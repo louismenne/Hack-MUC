@@ -17,6 +17,7 @@ export function useClaimForm() {
   /** Fills empty fields from AI-extracted values and marks them "Filled by AI, please check". */
   const applyPrefill = useCallback((prefill: Prefill) => setState(s => applyPrefillTo(s, prefill).state), [setState]);
   const reset = useCallback(() => setState(() => initialFormState()), [setState]);
+  const restore = useCallback((values: FormValues) => setState(() => ({ values, aiFilled: {}, agentSet: {} })), [setState]);
   /** Current values, always up to date (also inside callbacks that outlive a render). */
   const getValues = useCallback((): FormValues => latest.current.values, []);
   /** One voice-agent answer; see applyVoiceAnswer in form-state.ts. */
@@ -26,5 +27,5 @@ export function useClaimForm() {
     setStateRaw(result.state);
     return result.outcome;
   }, []);
-  return { values: state.values, aiFilled: state.aiFilled, setValue, confirmAi, applyPrefill, reset, getValues, applyVoiceAnswer };
+  return { values: state.values, aiFilled: state.aiFilled, setValue, confirmAi, applyPrefill, reset, restore, getValues, applyVoiceAnswer };
 }

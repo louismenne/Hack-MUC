@@ -1,3 +1,4 @@
+import { followupHref } from '../../../src/claim-intake/followup';
 import { navigate, pageHref, useRoute } from '@/lib/navigation';
 import { cacheScope, cacheEpoch, readCache, writeCache, clearReloadCache } from '@/lib/reload-cache';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -490,6 +491,9 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
               </Button>
             </div>
           </div>
+          {access.upload && stored.claim.submitted_by === user.id && stored.claim.case_status === 'open' && (
+            <Button asChild variant="outline"><a href={followupHref(stored.claim.id)}>Add information or documents</a></Button>
+          )}
           <ClaimDetail
             item={selected}
             state={state}
