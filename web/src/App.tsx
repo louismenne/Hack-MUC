@@ -64,7 +64,6 @@ function ClaimantApp() {
           <PageLink href={pageHref('queue')} aria-label="My claims"><TaktileLogo className="h-3.5 w-auto" /></PageLink>
           <nav aria-label="Claims navigation" className="flex items-center gap-4 text-sm">
             <PageLink href={pageHref('queue')} aria-current="page">My claims</PageLink>
-            <a href="/claim">File a claim</a>
           </nav>
           <div className="ml-auto"><AccountMenu email={user.email ?? ''} roleLabel="Claims Handler" canManageTeam={false} /></div>
         </div>
