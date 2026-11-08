@@ -1,37 +1,29 @@
-# Backlog: Reviewer UI (Liam) — anschauen Samstagabend, 7. Nov
+# Backlog: Reviewer UI (Liam) — Stand 8. Nov 2026
 
-Stand: Maxi hat bereits eine Reviewer-UI auf `main` (React + shadcn, `web/`):
-Queue mit Filter nach Empfehlung, Detailansicht mit Begründung, Confirm/Override, Audit-Log, Quality-Tab.
-Ziel für Liam: Lücken zum Inbox-Konzept schließen, keine zweite UI bauen.
+Mit dem aktuellen Code auf `main` abgeglichen. Live-Datenbank und Deployment sind damit nicht verifiziert. Gemeinsame Aufgaben stehen in [To-do Liam](todo-liam.md).
 
-## Mit Maxi klären
-- [x] **Eingangsreihenfolge**: Geklärt mit Maxi — Case-IDs sind chronologisch (1 = ältester Fall).
-      Oldest First = aufsteigend nach ID sortieren. Kein `received_at` nötig; Wartezeit in Tagen gibt es damit nicht.
-- [ ] **Reason-Kategorien**: Darf die UI die Rule-1-Auslöser zu Kategorien gruppieren? Vorschlag:
-  - Deckung fraglich: `policy_active_on_incident=false`, `claim_type` ≠ motor_own_damage
-  - Personenschaden: `injury_reported`
-  - Haftung strittig: `liability_disputed`
-  - Betrugs-/Plausibilitätsverdacht: `duplicate_flag`, `evidence_conflict`
-  - Hoher Betrag: `quote_eur` > 1.500 €
-  - Achtung: Ein Claim kann mehrere Kategorien haben. Was passiert mit v2-Regeln?
-- [ ] **Arbeitsteilung in `web/`**: Welche Dateien darf Liam ändern, ohne Maxi in die Quere zu kommen?
-- [ ] **Policy v2 (ca. 18:00)**: Zeigt die Queue danach v2-Empfehlungen und `needs_recheck` für offene Fälle?
+## Implementiert
 
-## Mit dem Taktile-Mentor klären
-- [ ] **Reviewer-Entscheidung bei Human-Review-Fällen**: Sollen wir den Entscheidungsschritt bauen? Geplante Optionen
-      (aktuell als deaktivierte Platzhalter in der Fallseite): „Request missing information from claimant“,
-      „Release to routine processing“. Gibt es weitere (z. B. Ablehnen, Eskalieren)?
-- [ ] **Jury-Override**: Die Jury testet einen Live-Override (Korrektur, Grund, Reviewer, Policy-Version).
-      Override ist aktuell nur bei automatisch entschiedenen Fällen (Routine/Info) möglich — reicht das?
+- [x] Inbox mit Empfehlungs-/Statusfilter und Suche; Sortierung nach Eingangsdatum (`received_at`), bei fehlenden Daten mit Case-ID als Fallback. Case-IDs sind keine allgemeine Zeitquelle.
+- [x] Warteschlangen-Position für offene, noch ausstehende Human-Review-Fälle.
+- [x] Eingangsdatum in der Liste und Wartezeit in Tagen auf der Fallseite; simulierte Demo-Daten sind gekennzeichnet.
+- [x] Fallnavigation mit Zurück/Vor/Weiter und Browser-Zurück; geteilte Ansicht mit verstellbarer Liste.
+- [x] Reviewer-Aktionen für Human-Review-Fälle: Freigabe, Informationsanforderung und Reject. Keine deaktivierten Funktionsplatzhalter mehr.
+- [x] Override für Routine-/Info-Fälle, inklusive Grund und Audit-Historie; Freigabe/Informationsanforderung bei Human-Review-Fällen werden ebenfalls als Reviewer-Korrektur erfasst.
+- [x] Reject-Migration und UI implementiert; Anwendung der Migration und Speicherung im Live-System noch prüfen.
+- [x] Offene Fälle verwenden die aktive Policy; geänderte Ergebnisse werden als Recheck markiert. Geschlossene Fälle behalten ihre gespeicherte Entscheidung.
+- [x] Fallseite mit Klartext-Fakten, regelbasierter Prüfanweisung und farblich getrennten Empfehlungen.
 
-## UI-Lücken gegenüber Liams Inbox-Konzept
-- [x] Fallseite: Human-Review-Fälle zeigen „Reviewer decision pending“ + Platzhalter statt Confirm/Override;
-      bereits entschiedene Fälle haben nur „Override“
-- [ ] Standardansicht = nur Human-Review-Fälle (Inbox), Sortierung Oldest First
-- [ ] Filter nach Reason-Kategorie (nach Klärung mit Maxi)
-- [x] Position in der Warteschlange (#1 = als Nächstes bearbeiten) — gebaut
-- [ ] „Offen seit X Tagen“ pro Fall — braucht ein Eingangsdatum; mit Maxi klären, ob/wie es beim Daten-Merge dazukommt
-- [ ] Daten-Merge mehrerer CSVs (DEV-, PRA-, Hidden): welche Reihenfolge gilt über verschiedene Präfixe hinweg?
-- [x] Klick auf einen Fall öffnet eigene Fallseite (mit „Back to inbox“, Vor/Zurück, Browser-Zurück)
-- [ ] Optik: freundlicher, weniger „technisch“ (z. B. Feldnamen wie `quote_eur=1800` in Klartext, weniger Monospace, mehr Weißraum)
-- [ ] Später: Routine-Fälle stichprobenartig prüfen (Qualitätskontrolle)
+## Offen
+
+- [ ] Review-only als Standardansicht: aktuell sind Empfehlung und Status beim Öffnen auf „alle“ gesetzt.
+- [ ] Eigener Filter nach Reason-Kategorie. Kategorien aus den aktiven Regeln ableiten; mehrere Auslöser pro Claim berücksichtigen. Offizielles v1-Limit: 1.500 €, v2: 1.200 € plus EV-Hochvoltbatterie-Regel.
+- [ ] Gewünschtes Verhalten beim Zusammenführen mehrerer CSVs klären. CSV-Beispiele sind browserlokal und schreibgeschützt; die persistierte Review-Queue ist ein separater Ablauf.
+- [ ] Systematische Stichprobenauswahl für Routine-Fälle; manuelles Öffnen und Override sind bereits möglich.
+- [ ] Abschließendes UI-Feedback und verbleibende Arbeitsteilung im Team abstimmen.
+
+## Vor der Jury live prüfen
+
+- [ ] Human-Review-Fall bearbeiten und Routine-/Info-Fall überschreiben; Korrektur, Grund, Reviewer und Policy-Version in der Audit-Historie kontrollieren.
+- [ ] Reject nach Anwendung aller Migrationen testen.
+- [ ] Policy wechseln: offene Fälle neu bewerten, Recheck anzeigen, geschlossene Entscheidungen unverändert lassen.

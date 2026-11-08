@@ -1,51 +1,45 @@
-# To-do Liam — Hackathon Taktile (Stand: Sa, 7. Nov 2026, nachts)
+# To-do Liam — Hackathon Taktile (Stand: 8. Nov 2026)
 
-Detail-Backlog zur Reviewer-UI: [backlog-reviewer-ui.md](backlog-reviewer-ui.md)
+Mit dem aktuellen Code auf `main` abgeglichen. „Implementiert“ bestätigt den Repository-Stand, nicht den Zustand der gemeinsamen Supabase oder des Live-Deployments.
+Detail-Backlog zur Reviewer-UI: [backlog-reviewer-ui.md](backlog-reviewer-ui.md).
 
 ## Offen
 
-### 1. Reject (b) freischalten
-- [ ] Migration: „rejected“ in `record_review` erlauben (wir schreiben sie, einspielen in die gemeinsame Supabase)
-- [ ] Danach „Reject claim“-Knopf in `claim-detail.tsx` freischalten
+### Business Case
+- [ ] Jahreskosten vorher/nachher einschließlich Implementierungs- und Betriebskosten, Payback, Fehlerkosten-Szenarien und Kosten eines Policy-Wechsels ergänzen. Die Savings-Karte berechnet derzeit nur Zeit- und Personalkostenersparnis im gewählten Zeitraum.
 
-### 2. Savings-Karte
-- [x] Pro Zeitraum (Today/7d/30d…), nur Zeit + Personalkosten, Rechenweg im Dialog — Basis: docs/savings-model.md
+### Reviewer und Dashboard
+- [ ] Review-only als Standardansicht festlegen/umsetzen; aktuell startet die Queue mit allen Empfehlungen und Status.
+- [ ] Review: Chat-/Textbefehl für Entscheidung + Begründung und Beleg nachreichen. Die vorhandenen Reviewer-Aktionen und Voice-Unterstützung ersetzen diese offenen Wünsche nicht.
+- [ ] Dashboard: „Ask your data“-Chat.
+- [ ] Umfang des geplanten Quality-Kreislaufs klären; Versionsvergleich und Reviewer-Auswertung existieren bereits.
+- [ ] Abschließender UI-Feinschliff.
 
-### 4. Dashboard-Feinschliff
-- [ ] Decision Quality / Vorher-Nachher: klären, ob im Dashboard oder im Tab „Example quality“ (Maxi)
-- [ ] Quality-Kreislauf: baut Maxi (So), danach ins Dashboard einbinden
-- [ ] UI-Feinschliff zum Schluss
+### Live-Verifikation und Organisation
+- [ ] Gemeinsame Supabase: Anwendung der Reject-/Review-Lifecycle-Migrationen prüfen; Reject und Override mit Grund, Reviewer und Policy-Version im Live-Demo testen.
+- [ ] Policy-Wechsel live prüfen: betroffene offene Fälle markieren, geschlossene Entscheidungen erhalten.
+- [ ] Mit dem Taktile-Mentor offene fachliche Fragen zu Edge Cases und Kostenannahmen klären; vorhandene Tests sind keine Bestätigung eines Mentor-Gesprächs.
+- [ ] Louis: Vercel-Zugang für `lj-comstruct` prüfen; aktueller Zugangsstatus hier nicht verifiziert.
+- [ ] Nach dem Hackathon: Supabase-Secret-Key und betroffenes Passwort rotieren; Demo-Accounts deaktivieren.
 
-### 4b. Policy-Seite schlanker (Whiteboard: Pfeil Owner → Maxi, schräg rechts unten)
-- [ ] Policy-Tab für den Owner leaner machen: weniger Text, klarer Ablauf Regel ändern → Vorschau → aktivieren
-- [ ] Am Whiteboard-Pfeil orientieren: Owner gibt Policy-Änderung → Engine (Maxi) übernimmt
-
-### 4c. Eingabe per Text/Chat · Datei · Manuell (Voice macht Louis)
-- [ ] Policy: Layout B („Update policy“-Fenster + Versionen links) als Standard, Umschalter entfernen
-- [ ] Review: Chat-/Textfeld auf der Fallseite („approve, quote matches photos“ → Entscheidung + Begründung), Datei (Beleg nachreichen)
-- [ ] Dashboard: „Ask your data“-Chat
-
-### 5. Mit dem Taktile-Mentor klären
-- [ ] Edge Cases: leere/unlesbare Felder, Betrag genau am Limit, mehrere Auslöser, geschlossene Fälle nach Policy-Wechsel
-- [ ] Cost-Cutting: was genau gemeint ist (Kosten pro Review, Einsparung, Kosten einer Policy-Änderung)
-
-### 6. Organisatorisch
-- [ ] Louis: Vercel-Zugang für `lj-comstruct` (sonst werden deine Deployments blockiert)
-- [ ] Nach dem Hackathon: Supabase-Secret-Key rotieren, eigenes Passwort ändern (beides stand im Chat)
+## Zusätzlich im Code erledigt
+- [x] Reject: Migration `20261108010000_review_reject.sql` vorhanden; Reject-Aktion in `claim-detail.tsx` freigeschaltet, mit Bestätigung vor dem Speichern.
+- [x] Decision Quality: offizieller V1/V2-Vergleich und geänderte offene Fälle in „Example quality“; V2-Erwartungen als team-abgeleitet gekennzeichnet.
+- [x] Policy-Seite: gemeinsame Navigation mit Versionen links, Eingabe für Änderungen und manueller Bearbeitung; Entwurf → Impact-Vorschau → Aktivierung. Kein Layout-Umschalter mehr.
 
 ## Erledigt
-- [x] Reviewer-Inbox: nur Review-Fälle, älteste zuerst (nach Eingangsdatum), Warteschlangen-Position
+- [x] Reviewer-Inbox: Filter nach Empfehlung/Status, älteste zuerst (nach Eingangsdatum), Warteschlangen-Position. Standardfilter aktuell: alle Empfehlungen und Status.
 - [x] Fallseite mit Zurück/Vor/Weiter
-- [x] Reviewer-Entscheidung a) Approve, c) Contact claimant, d) Return missing info, Keep in review — gespeichert in Supabase (Jury-Override)
+- [x] Reviewer-Aktionen: Send to routine, Request info und Reject — Speicherung über Supabase implementiert (Jury-Override)
 - [x] Mock-Eingangsdaten (received_at) für DEV-001–014; 14 Testfälle in Supabase eingespielt
 - [x] Dashboard: Zeitfilter, Kreisdiagramm, Wochen-Chart, Where to act, Reasons, Most missing info, Quote vs. Limit (versionsunabhängig)
 - [x] Dashboard: Vergangenheit bleibt (Entscheidung zum Eingang) + „Needs recheck after policy change“
 - [x] Dashboard: Reviewer activity mit Audit Log, Reviewer-Filter, Graph „New vs. completed reviews“
-- [x] Savings-Karte (erste Version, siehe Offen #2)
+- [x] Savings-Karte pro Zeitraum mit editierbaren Minutenwerten und Stundensatz; Rechenweg im Dialog — siehe [Savings-Modell](savings-model.md).
 - [x] Taktile-Design app-weit
 - [x] Claimant-Formular `/claim` (Louis), Reviewer-Aktionen in Supabase (Maxi), Supabase-Login eingerichtet
 - [x] Review Queue wie Gmail: Liste links (max ¼, verschiebbar wie Apple Mail), Claim rechts, Esc schließt
-- [x] Fallseite schlank: „Why it needs you“, „Next step“ (regelbasiert), Knöpfe gruppiert (Release / Ask claimant / Stop), Fakten in 3 Spalten
+- [x] Fallseite schlank: „Why it needs you“, „Next step“ (regelbasiert), Reviewer-Aktionen, Fakten in 3 Spalten
 - [x] Farbsystem: Grün Routine, Gelb fehlende Infos, Rot Human Review, Indigo nur Recheck
 - [x] Claim-Formular: Vollständigkeits-Check mit „Continue filling out“ / „Send anyway“
 - [x] „File a claim“ nur für Claimants

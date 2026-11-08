@@ -47,7 +47,7 @@ const topics: Topic[] = [
     id: 'intake',
     tab: 'Intake & decision',
     title: 'Every claim gets a recommendation, with the rule behind it',
-    text: 'Routine processing, request information or human review. Rules decide; AI may read documents and draft wording but never overrides the policy. A blank field is an unknown fact, never an invented one.',
+    text: 'Routine processing, request information or human review. Rules evaluate the supplied facts; claim documents can be attached, but automatic fact extraction is not implemented. A blank field stays unknown.',
     facts: [['3', 'possible outcomes'], ['1', 'policy rule named per decision'], ['0', 'invented facts']],
     page: 'queue', cta: 'Open review queue',
     mock: (
@@ -94,7 +94,7 @@ const topics: Topic[] = [
     id: 'measurement',
     tab: 'Measurement',
     title: 'Quality is measured per policy version',
-    text: 'Accuracy, wrong-routine rate and unnecessary-escalation rate for every version, with the cases that changed between versions reported separately.',
+    text: 'Accuracy, wrong-routine rate and unnecessary-review rate for official v1 and v2, with changed open cases reported separately. V1 uses organizer labels; v2 expectations are team-derived.',
     facts: [['Accuracy', 'per version'], ['Wrong routine', 'the costly mistake'], ['Changed cases', 'reported separately']],
     page: 'quality', cta: 'Open dashboard',
     mock: (
@@ -109,14 +109,14 @@ const topics: Topic[] = [
   {
     id: 'business',
     tab: 'Business case',
-    title: 'What triage costs today, and with the system',
-    text: 'Annual triage cost before and after, payback time, the cost of errors and the cost of a policy change. All assumptions are editable, so the jury can try their own numbers.',
-    facts: [['Today', 'vs. with the system'], ['Payback', 'time in months'], ['Errors', 'and policy changes priced']],
+    title: 'Estimated triage time and staff-cost savings',
+    text: 'Compare estimated manual triage time with time using the system for claims in the selected period. Minutes per route and hourly staff cost are editable assumptions. Annual costs, payback, error costs and policy-change costs are not yet modeled.',
+    facts: [['Time', 'estimated hours saved'], ['Staff cost', 'estimated savings'], ['Inputs', 'editable time and hourly cost']],
     page: 'quality', cta: 'Open dashboard',
     mock: (
       <div className="space-y-4 rounded-lg border bg-card p-4">
-        <Bar label="Triage cost today" width="100%" tone="bg-muted-foreground/60" />
-        <Bar label="With the system" width="45%" tone="bg-foreground" />
+        <Bar label="Estimated manual triage time" width="100%" tone="bg-muted-foreground/60" />
+        <Bar label="Estimated time with the system" width="45%" tone="bg-foreground" />
         <p className="text-xs text-muted-foreground">Illustration. Assumptions live on the dashboard.</p>
       </div>
     ),
