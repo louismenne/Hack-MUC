@@ -76,10 +76,13 @@ export function QualityView({ dataset, states, events, renderLog }: QualityViewP
   const window = windowFor(range, now, earliest);
   const previous = range === 'all' ? null : previousWindow(window);
 
-  // Closed claims are historical, not pending work, so the operational view counts open claims only.
+  // Received volume includes closed claims; operational metrics count open work only.
+  const received = hasDates
+    ? dataset.cases.filter((item) => item.received && inWindow(item.received.at, window))
+    : dataset.cases;
   const open = dataset.cases.filter((item) => !item.frozen);
-  // Without arrival dates the time filter cannot apply, so every open claim counts.
-  const current = hasDates ? open.filter((item) => item.received && inWindow(item.received.at, window)) : open;
+  const current = received.filter((item) => !item.frozen);
+  const closedReceived = received.length - current.length;
   const before =
     hasDates && previous ? open.filter((item) => item.received && inWindow(item.received.at, previous)) : null;
   const { history } = usePolicySource();
@@ -157,9 +160,7 @@ export function QualityView({ dataset, states, events, renderLog }: QualityViewP
   );
   const series = hasDates
     ? receivedSeries(
-        dated
-          .filter((item) => !item.frozen)
-          .map((item) => ({ at: item.received!.at, recommendation: atArrival(item).recommendation })),
+        dated.map((item) => ({ at: item.received!.at, recommendation: atArrival(item).recommendation })),
         window,
       )
     : [];
@@ -215,10 +216,10 @@ export function QualityView({ dataset, states, events, renderLog }: QualityViewP
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
         <Kpi
           label="Claims received"
-          value={insights.total}
-          change={delta(insights.total, prior?.total ?? null, 'count')}
+          value={received.length}
           better="neutral"
-          vs={vs}
+          vs=""
+          hint={`${current.length} open · ${closedReceived} closed`}
         />
         <MixCard
           insights={insights}
