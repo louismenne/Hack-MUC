@@ -143,13 +143,12 @@ export function RuleRow({ index, rule, fields }: { index: number | null; rule: R
       <button type="button" onClick={() => rule.when && setOpenRow(!openRow)} aria-expanded={rule.when ? openRow : undefined}
         className={cn('flex w-full items-center gap-3 px-3 py-2.5 text-left', rule.when && 'hover:bg-muted/40')}>
         <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-medium">{index === null ? '–' : index + 1}</span>
-        <span className="min-w-0 flex-1 truncate text-sm" title={rule.description}>{index === null ? 'Otherwise' : rule.description}</span>
+        <span className={cn('min-w-0 flex-1 text-sm', openRow ? 'whitespace-normal break-words' : 'truncate')} title={rule.description}>{index === null ? 'Otherwise' : rule.description}</span>
         <OutcomeBadge outcome={rule.outcome} />
         {rule.when && <ChevronRightIcon className={cn('size-4 shrink-0 text-muted-foreground transition-transform', openRow && 'rotate-90')} />}
       </button>
       {openRow && rule.when && (
         <div className="px-11 pb-3">
-          <p className="mb-1 text-sm">{rule.description}</p>
           <ul><ConditionTree cond={rule.when} fields={fields} path={[]} /></ul>
         </div>
       )}
