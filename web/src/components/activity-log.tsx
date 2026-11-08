@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BotIcon, ChevronLeftIcon, ChevronRightIcon, CircleAlertIcon, FileInputIcon, HistoryIcon, RefreshCwIcon, ScaleIcon, UserCheckIcon, UsersIcon } from 'lucide-react';
+import { BotIcon, ChevronLeftIcon, ChevronRightIcon, CircleAlertIcon, FileInputIcon, HistoryIcon, ScaleIcon, UserCheckIcon, UsersIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import type { AuditRow } from '@/lib/audit';
@@ -8,7 +8,7 @@ import { RecommendationBadge } from '@/components/recommendation-badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Spinner } from '@/components/ui/spinner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -100,16 +100,17 @@ export function ActivityLog() {
     })();
     return () => { alive = false; };
   }, [page, revision]);
+  // Reload whenever the window regains focus (there is no manual refresh button).
+  useEffect(() => {
+    const focused = () => refresh(n => n + 1);
+    window.addEventListener('focus', focused);
+    return () => window.removeEventListener('focus', focused);
+  }, []);
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Activity log</CardTitle>
-        <CardAction>
-          <Button variant="outline" disabled={loading} onClick={() => refresh(n => n + 1)}>
-            <RefreshCwIcon data-icon="inline-start" className={cn(loading && 'animate-spin')} /> Refresh
-          </Button>
-        </CardAction>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {error && (

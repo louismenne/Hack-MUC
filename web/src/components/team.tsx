@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react';
-import { CircleAlertIcon, RefreshCwIcon } from 'lucide-react';
+import { CircleAlertIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthUser } from '@/lib/auth';
 import { authenticatedFetch } from '@/lib/supabase';
 import { roles, roleLabels, type Role } from '../../../src/roles';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 
@@ -40,7 +39,13 @@ export function Team() {
       setLoading(false);
     }
   }
-  useEffect(() => { void load(); }, []);
+  // Reload on mount and whenever the window regains focus (there is no manual refresh button).
+  useEffect(() => {
+    void load();
+    const focused = () => void load();
+    window.addEventListener('focus', focused);
+    return () => window.removeEventListener('focus', focused);
+  }, []);
   async function assign(userId: string, role: string) {
     setBusy(true); setError('');
     try {
@@ -55,11 +60,6 @@ export function Team() {
     <Card className="mx-auto w-full max-w-[1600px]">
       <CardHeader>
         <CardTitle>Team roles</CardTitle>
-        <CardAction>
-          <Button variant="outline" disabled={busy || loading} onClick={() => void load()}>
-            <RefreshCwIcon data-icon="inline-start" className={cn(loading && 'animate-spin')} /> Refresh
-          </Button>
-        </CardAction>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <dl className="grid gap-x-4 gap-y-1 rounded-lg bg-muted/50 px-3 py-2.5 text-xs sm:grid-cols-2">

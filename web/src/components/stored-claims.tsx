@@ -14,11 +14,9 @@ import {
   CircleAlertIcon,
   InboxIcon,
   PlusIcon,
-  RefreshCwIcon,
   XIcon,
   MousePointerClickIcon,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 import { useAuthUser } from '@/lib/auth';
 import { useReviewAudit } from '@/lib/audit';
@@ -110,17 +108,8 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
     action,
     setAction,
   });
-  const refreshAll = () => {
-    void refresh();
-    void audit.refresh();
-  };
+  // Claims and audit events reload automatically on load, on window focus and after policy changes.
   const problem = error || audit.error;
-  const refreshButton = (
-    <Button variant="outline" disabled={loading} onClick={refreshAll}>
-      <RefreshCwIcon data-icon="inline-start" className={cn(loading && 'animate-spin')} />{' '}
-      {loading ? 'Refreshing…' : 'Refresh'}
-    </Button>
-  );
 
   const index = selected ? visible.findIndex((c) => c.decision.caseId === selectedId) : -1;
   const previousCase = index > 0 ? visible[index - 1] : null;
@@ -129,7 +118,6 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
   if (dashboard)
     return (
       <div className="flex flex-col gap-4">
-        <div className="flex justify-end">{refreshButton}</div>
         {problem && (
           <Alert variant="destructive">
             <CircleAlertIcon />
@@ -157,7 +145,6 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
           </h2>
         </div>
         <div className="flex items-center gap-2">
-          {refreshButton}
           {/* While the list is empty, the empty state carries the only "File a claim" call to action. */}
           {isClaimant && items.length > 0 && (
             <Button asChild>
@@ -173,7 +160,7 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
         <Alert variant="destructive">
           <CircleAlertIcon />
           <AlertTitle>Could not refresh the review queue</AlertTitle>
-          <AlertDescription>{problem} Reviews are disabled until a refresh succeeds.</AlertDescription>
+          <AlertDescription>{problem} Reviews are disabled until the claims load again. Return to this tab or reload the page to retry.</AlertDescription>
         </Alert>
       )}
       {loading && !verified && items.length > 0 && (
