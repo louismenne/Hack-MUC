@@ -1,8 +1,9 @@
 import { StoredClaims } from '@/components/stored-claims';
-import { permissions, roleOf, roleLabels, canAccessPage } from '../../src/roles';
+import { permissions, roleOf, roleLabels, canAccessPage, type AppPage } from '../../src/roles';
 import { Team } from '@/components/team';
 import { useAuthUser, signOut } from '@/lib/auth';
 import { PolicyManager } from '@/components/policy-manager';
+import { Overview } from '@/components/overview';
 import { TaktileLogo } from '@/components/taktile-logo';
 import { useEffect, useMemo, useRef } from 'react';
 import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, LogOutIcon, MonitorIcon, MoonIcon, SunIcon, UploadIcon, UsersIcon } from 'lucide-react';
@@ -166,7 +167,7 @@ function AppContent() {
     <div className="min-h-svh bg-background">
       <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur supports-backdrop-filter:bg-background/75">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-6 gap-y-2 px-4 py-2.5 md:h-14 md:flex-nowrap md:py-0">
-          <PageLink href={pageHref('queue')} aria-label="Taktile · go to Review queue"
+          <PageLink href={pageHref('overview')} aria-label="Taktile · overview"
             className="flex h-8 shrink-0 items-center rounded-sm text-foreground focus-visible:outline-2 focus-visible:outline-ring">
             <TaktileLogo className="h-3.5 w-auto" aria-hidden />
           </PageLink>
@@ -276,6 +277,7 @@ function AppContent() {
 
         {tab === 'team' && (access.team ? <Team /> : <p>Admin role required to view the team.</p>)}
         {tab === 'policy' && <PolicyManager />}
+        {tab === 'overview' && <Overview canOpen={page => canAccessPage(role, page as AppPage)} />}
 
         {tab === 'quality' && <StoredClaims dashboard />}
         {tab === 'example-quality' && <section>

@@ -26,6 +26,10 @@
       "destination": "/index.html"
     },
     {
+      "source": "/overview",
+      "destination": "/index.html"
+    },
+    {
       "source": "/examples",
       "destination": "/index.html"
     },
