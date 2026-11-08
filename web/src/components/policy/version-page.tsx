@@ -66,6 +66,7 @@ export function VersionPage({ version, active, aiAvailable, owner, busy, run, on
   });
   const askAi = (ruleId: string) => (instruction: string) => run(async () => {
     const r = await policyApi.aiInstruction({ createdBy: owner, versionId: version.id, ruleId, instruction });
+    if (r.answer || !r.version) { toast.info(r.answer ?? 'No change proposed.', { duration: 15000 }); return; }
     toast.success(`Draft ${r.version.versionLabel} ready to review`);
     await onReload(r.version.id);
   });

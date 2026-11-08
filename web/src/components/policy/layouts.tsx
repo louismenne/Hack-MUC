@@ -15,6 +15,9 @@ export interface OwnerActions {
   onFile: (file: File | undefined) => void;
   onInstruction: (instruction: string) => void;
   onManual: () => void;
+  /** Last chat answer to a question about the rules (no draft was created). */
+  reply: { question: string; answer: string } | null;
+  clearReply: () => void;
   drafts: PolicyVersionRecord[];
   openDraft: (id: string) => void;
 }
@@ -42,11 +45,11 @@ export function Composer({ aiAvailable, busy, onFile, onInstruction }: Pick<Owne
         <Textarea
           aria-label="Describe a change" rows={1} maxLength={1000} disabled={disabled}
           className="max-h-32 min-h-8 flex-1 resize-none border-0 bg-transparent px-1 py-1.5 shadow-none focus-visible:ring-0 dark:bg-transparent"
-          placeholder={dragging ? 'Drop to upload' : 'Describe a change or drop a new policy file'}
+          placeholder={dragging ? 'Drop to upload' : 'Ask about the rules, describe a change or drop a new policy file'}
           value={text} onChange={e => setText(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
         />
-        <Button size="icon" className="size-8 shrink-0" aria-label="Create draft" disabled={disabled || !text.trim()} onClick={send}>{busy ? <Spinner /> : <ArrowUpIcon />}</Button>
+        <Button size="icon" className="size-8 shrink-0" aria-label="Send" disabled={disabled || !text.trim()} onClick={send}>{busy ? <Spinner /> : <ArrowUpIcon />}</Button>
       </div>
       {!aiAvailable && <p className="px-1 text-xs text-muted-foreground">AI is unavailable here. Use Edit manually instead.</p>}
     </div>
@@ -139,6 +142,13 @@ export function VariantB({ active, versions, actions, openVersion }: { active: P
           onDrop={e => { e.preventDefault(); setDragging(false); if (canDrop) actions.onFile(e.dataTransfer.files[0]); }}
           className="group/drop flex min-h-0 flex-1 p-4"
         >
+          {actions.reply ? (
+            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto rounded-lg border p-4 text-sm">
+              <p className="ml-auto max-w-[80%] whitespace-pre-wrap rounded-2xl bg-muted px-3 py-2">{actions.reply.question}</p>
+              <p className="max-w-[90%] whitespace-pre-wrap leading-relaxed">{actions.reply.answer}</p>
+              <Button variant="ghost" size="sm" className="h-7 self-start text-muted-foreground" onClick={actions.clearReply}>Clear</Button>
+            </div>
+          ) : (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-dashed text-center transition-colors group-data-dragging/drop:border-foreground group-data-dragging/drop:bg-muted/40">
             <span className="flex size-11 items-center justify-center rounded-full border text-muted-foreground transition-colors group-data-dragging/drop:text-foreground">
               <FileUpIcon className="size-5" />
@@ -148,6 +158,7 @@ export function VariantB({ active, versions, actions, openVersion }: { active: P
               <p className="text-sm text-muted-foreground">or describe the change below · PDF, TXT, Markdown</p>
             </div>
           </div>
+          )}
         </div>
         {actions.canManage ? (
           <div className="space-y-2 border-t p-4">

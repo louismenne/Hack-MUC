@@ -25,6 +25,7 @@ export function PolicyWorkspace() {
   const [aiAvailable, setAiAvailable] = useState(false);
   const [error, setError] = useState<ApiFailure | null>(null);
   const [busy, setBusy] = useState(false);
+  const [reply, setReply] = useState<{ question: string; answer: string } | null>(null);
   const user = useAuthUser();
   const canManage = permissions(user).policy;
   const owner = user.id;
@@ -79,10 +80,12 @@ export function PolicyWorkspace() {
 
   const instruct = (instruction: string) => { if (needName() || !active) return; void run(async () => {
     const r = await policyApi.aiInstruction({ createdBy: owner, versionId: active.id, instruction });
+    if (r.answer || !r.version) { setReply({ question: instruction, answer: r.answer ?? 'No change proposed.' }); return; }
+    setReply(null);
     toast.success(`Draft ${r.version.versionLabel} ready to review`);
     await load(r.version.id);
   }); };
-  const actions: OwnerActions = { canManage, aiAvailable, busy, onFile: fromFile, onInstruction: instruct, onManual: newDraft, drafts, openDraft: id => setOpenId(id) };
+  const actions: OwnerActions = { canManage, aiAvailable, busy, onFile: fromFile, onInstruction: instruct, onManual: newDraft, reply, clearReply: () => setReply(null), drafts, openDraft: id => setOpenId(id) };
 
   if (error && !versions) {
     return <Alert variant="destructive"><AlertTitle>Policy unavailable</AlertTitle><AlertDescription>{error.message}</AlertDescription></Alert>;

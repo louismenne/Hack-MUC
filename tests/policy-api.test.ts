@@ -181,6 +181,17 @@ describe('policy API: AI actions (mocked, no real Claude call)', () => {
     expect(fake.calls).toHaveLength(1);
     expect(fake.calls[0].model).toBe('test-model');
   });
+  it('a pure question is answered in the chat and creates no draft', async () => {
+    const calls: Record<string, unknown>[] = [];
+    const client = { messages: { async create(p: Record<string, unknown>) { calls.push(p); return { content: [{ type: 'tool_use', name: 'answer_question', input: { answer: 'Das Limit liegt bei 1.500 €.' } }] }; } } };
+    const { deps, repo } = setup(client);
+    const [active] = await repo.list();
+    const before = (await repo.list()).length;
+    const r = await handleAi(deps, { mode: 'instruction', createdBy: 'L', versionId: active.id, instruction: 'Was sind die aktuellen Regeln?' });
+    expect(r.status).toBe(200);
+    expect(body(r)).toEqual({ answer: 'Das Limit liegt bei 1.500 €.' });
+    expect((await repo.list()).length).toBe(before);
+  });
   it('instruction on a draft updates that draft in place', async () => {
     const fake = fakeAi(limit(1200), 'Zweite Änderung.');
     const { deps, repo } = setup(fake.client);

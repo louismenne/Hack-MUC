@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { validatePolicy, type PolicyDocument } from '../src/policy-engine/index.js';
-import { AiError, suggestPolicy, TOOL_NAME, type AiClient } from '../src/policy-ai/suggest.js';
+import { AiError, ANSWER_TOOL_NAME, askPolicyAi, suggestPolicy, TOOL_NAME, type AiClient } from '../src/policy-ai/suggest.js';
 
 const v1Json = JSON.parse(readFileSync(new URL('../policies/policy-v1.rules.json', import.meta.url), 'utf8'));
 const v1 = (validatePolicy(v1Json) as { policy: PolicyDocument }).policy;
@@ -84,5 +84,29 @@ describe('suggestPolicy (mocked client, no real API call)', () => {
     const blocks = pdf.calls[0].messages[0].content as any[];
     expect(blocks[0]).toEqual({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: 'QUJD' } });
     expect(blocks[1].type).toBe('text');
+  });
+});
+
+describe('askPolicyAi: questions are answered in the chat, no draft', () => {
+  const answerReply = (answer: string) => ({ content: [{ type: 'tool_use', name: ANSWER_TOOL_NAME, input: { answer } }] });
+  const question = { mode: 'instruction' as const, current: v1, instruction: 'Was sind die aktuellen Regeln?' };
+  it('returns the answer text when the model calls answer_question, and offers both tools', async () => {
+    const { client, calls } = fake(answerReply('Regel 1: ...'));
+    const r = await askPolicyAi(client, question, opts);
+    expect(r).toEqual({ answer: 'Regel 1: ...', attempts: 1 });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].tools.map((t: any) => t.name)).toEqual([TOOL_NAME, ANSWER_TOOL_NAME]);
+    expect(calls[0].system).toContain(ANSWER_TOOL_NAME);
+  });
+  it('still returns a proposal when a change is requested', async () => {
+    const { client } = fake(reply(proposal()));
+    const r = await askPolicyAi(client, instruction, opts);
+    expect('policy' in r).toBe(true);
+  });
+  it('document mode never offers the answer tool, and suggestPolicy refuses an answer', async () => {
+    const { client, calls } = fake(answerReply('hi'), answerReply('hi'));
+    await expect(suggestPolicy(client, { mode: 'document', current: v1, document: { kind: 'text', text: 'x' } }, opts)).rejects.toBeInstanceOf(AiError);
+    expect(calls[0].tools.map((t: any) => t.name)).toEqual([TOOL_NAME]);
+    await expect(suggestPolicy(fake(answerReply('hi')).client, question, opts)).rejects.toBeInstanceOf(AiError);
   });
 });

@@ -28,7 +28,7 @@ export const policyApi = {
   impact: (id: string) => post<{ impact: ImpactReport }>('/api/policy', { action: 'impact', id }),
   activate: (id: string, expectedActiveId: string, expectedRevision: number) => post<{ version: PolicyVersionRecord }>('/api/policy', { action: 'activate', id, expectedActiveId, expectedRevision }),
   aiFromDocument: (b: { createdBy: string; filename: string; text?: string; pdfBase64?: string }) => post<{ version: PolicyVersionRecord }>('/api/policy-ai', { mode: 'document', ...b }),
-  aiInstruction: (b: { createdBy: string; versionId: string; ruleId?: string; instruction: string }) => post<{ version: PolicyVersionRecord }>('/api/policy-ai', { mode: 'instruction', ...b }),
+  aiInstruction: (b: { createdBy: string; versionId: string; ruleId?: string; instruction: string }) => post<{ version?: PolicyVersionRecord; answer?: string }>('/api/policy-ai', { mode: 'instruction', ...b }),
 };
 
 export const AI_UNAVAILABLE = 'AI unavailable. Edit manually instead.';

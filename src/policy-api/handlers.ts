@@ -1,5 +1,5 @@
 import { validatePolicy, type PolicyDocument } from '../policy-engine/schema.js';
-import { AiError, suggestPolicy, type AiClient } from '../policy-ai/suggest.js';
+import { AiError, askPolicyAi, suggestPolicy, type AiClient } from '../policy-ai/suggest.js';
 import { computeImpact } from './impact.js';
 import { policyHistoryFrom } from '../policy-engine/history.js';
 import type { PolicyRepo, PolicyVersionRecord } from './types.js';
@@ -200,11 +200,13 @@ export async function handleAi(deps: ApiDeps, raw: unknown): Promise<ApiResult> 
       const ruleId = str(raw, 'ruleId', { max: 64, required: false });
       if (ruleId && !base.rules.rules.some((r) => r.id === ruleId) && base.rules.default.id !== ruleId)
         throw new ApiError(400, `Rule “${ruleId}” does not exist.`);
-      const s = await suggestPolicy(
+      const s = await askPolicyAi(
         deps.ai,
         { mode: 'instruction', current: base.rules, instruction, ruleId },
         { model: deps.aiModel },
       );
+      // A pure question is answered in the chat: no draft is created or changed.
+      if ('answer' in s) return ok({ answer: s.answer });
       if (base.status === 'draft') {
         const summary = [base.changeSummary, s.changeSummary].filter(Boolean).join(' ').slice(0, 1000);
         const updated = await repo.updateDraft(base.id, { rules: s.policy, changeSummary: summary });
