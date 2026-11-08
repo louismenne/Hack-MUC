@@ -144,14 +144,14 @@ export function BusinessCase() {
   const [a, setA] = usePersistentState<BusinessAssumptions>('business-case-v3', defaultBusinessAssumptions, isAssumptions);
   const measured = useMeasuredRates();
   // Opened from the Overview: Close and Esc go back there, as everywhere else in the app.
-  const close = () => navigate(pageHref('overview'));
+  const close = () => navigate(pageHref('overview', new URLSearchParams({ topic: 'business' })));
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="listbox"], [role="menu"]')) return;
       const target = event.target instanceof Element ? event.target : null;
       if (target?.closest('input, textarea, select')) return;
-      navigate(pageHref('overview'));
+      navigate(pageHref('overview', new URLSearchParams({ topic: 'business' })));
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);

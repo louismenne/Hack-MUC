@@ -124,7 +124,11 @@ const topics: Topic[] = [
 ];
 
 export function Overview({ canOpen }: { canOpen: (page: string) => boolean }) {
-  const [selected, setSelected] = useState(topics[0].id);
+  // ?topic=business reopens a tab, e.g. when closing the Business case page.
+  const [selected, setSelected] = useState(() => {
+    const wanted = new URLSearchParams(window.location.search).get('topic');
+    return topics.some(t => t.id === wanted) ? wanted! : topics[0].id;
+  });
   const topic = topics.find(t => t.id === selected) ?? topics[0];
   return (
     <div className="mx-auto w-full max-w-6xl space-y-10 py-6">
