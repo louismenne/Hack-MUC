@@ -1,3 +1,5 @@
+import { ClaimHeroMedia, ClaimRuler } from '@/components/claim-design';
+import { TaktileLogo } from '@/components/taktile-logo';
 import { clearReloadCache } from './reload-cache';
 import { createContext, useContext, useEffect, useState, type ReactNode, type FormEvent } from 'react';
 import type { User } from '@supabase/supabase-js';
@@ -13,7 +15,12 @@ export function useAuthUser(): User {
   return user;
 }
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+const CustomerFacing = createContext(false);
+export function AuthProvider({ children, customerFacing = false }: { children: ReactNode; customerFacing?: boolean }) {
+  return <CustomerFacing.Provider value={customerFacing}><AuthSession>{children}</AuthSession></CustomerFacing.Provider>;
+}
+
+function AuthSession({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [recovery, setRecovery] = useState(passwordSetupRequested);
@@ -74,6 +81,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 function AuthCard({ title, description, children }: { title: string; description: string; children: ReactNode }) {
+  const customerFacing = useContext(CustomerFacing);
+  if (customerFacing) return <main className="claim-theme auth-editorial">
+    <section className="auth-story"><ClaimHeroMedia /><div className="auth-brand"><TaktileLogo className="h-5 w-auto" /><span>MOTOR CLAIMS / CUSTOMER PORTAL</span></div><div className="auth-story-copy"><p className="editorial-label">A CLEARER WAY FORWARD</p><h1>Clarity.<br />At every turn.</h1><p>Tell us what happened.<br />We’ll help you take the next step.</p></div><div className="auth-story-bottom"><ClaimRuler /><span>MOTOR CLAIMS — TEAM LLM</span></div></section>
+    <section className="auth-form-side"><div className="auth-topline"><span className="editorial-label">YOUR CLAIM STARTS HERE</span><span className="live-dot" /></div><Card className="auth-form-card"><CardHeader><p className="editorial-label">LET’S GET YOU STARTED.</p><CardTitle className="text-3xl font-normal tracking-[-0.03em]">{title === 'Sign in to Team LLM Taktile case' ? 'Welcome back.' : title}</CardTitle><CardDescription>{description}</CardDescription></CardHeader><CardContent>{children}</CardContent></Card><div className="auth-footnote"><span>Clear steps. People in control.</span><span>MOTOR CLAIMS</span></div></section>
+  </main>;
   return <main className="grid min-h-svh place-items-center bg-muted/30 p-6"><Card className="w-full max-w-sm"><CardHeader><CardTitle className="text-3xl font-normal tracking-[-0.03em]">{title}</CardTitle><CardDescription>{description}</CardDescription></CardHeader><CardContent>{children}</CardContent></Card></main>;
 }
 
