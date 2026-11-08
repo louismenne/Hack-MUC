@@ -2,11 +2,11 @@ import { useSyncExternalStore, type ComponentProps } from 'react';
 
 export const pages = [
   { id: 'my-claims', path: '/my-claims', label: 'My claims' },
-  { id: 'queue', path: '/review-queue', label: 'Review queue' },
+  { id: 'policy', path: '/policy', label: 'Policy' },
+  { id: 'queue', path: '/review-queue', label: 'Review' },
+  { id: 'quality', path: '/dashboard', label: 'Dashboard' },
   // Opened from the Taktile logo, not the main navigation.
   { id: 'overview', path: '/overview', label: 'Overview', menuOnly: true },
-  { id: 'quality', path: '/dashboard', label: 'Dashboard' },
-  { id: 'policy', path: '/policy', label: 'Policy' },
   // Jury test area: the labelled CSV cases, their quality report, upload and results export in one page.
   { id: 'examples', path: '/examples', label: 'Test cases' },
   { id: 'example-quality', path: '/example-quality', label: 'Test cases', menuOnly: true },

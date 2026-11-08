@@ -91,7 +91,7 @@ function AppContent() {
     if (!canAccessPage(role, route.page)) navigate(pageHref('queue'));
   }, [role, route.page]);
   useEffect(() => {
-    document.title = `${pages.find(page => page.id === tab)?.label ?? 'Review queue'} · Team LLM Taktile case`;
+    document.title = `${pages.find(page => page.id === tab)?.label ?? 'Review'} · Team LLM Taktile case`;
   }, [tab]);
   const [filters, setFilters] = usePersistentState<ListFilters>('filters', defaultFilters, isFilters);
   const openCaseId = tab === 'examples' ? route.caseId : null;
