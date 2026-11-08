@@ -10,12 +10,12 @@ import type { StoredQueueItem } from '../../../../src/policy-api/stored-claims';
 
 export const pageSize = 50;
 
-export function useStoredClaims(dashboard: boolean, offset: number, onPolicyChange: (action: null) => void) {
+export function useStoredClaims(dashboard: boolean, offset: number, onPolicyChange: (action: null) => void, ownOnly = false) {
   const user = useAuthUser();
   const revision = useRef(0);
   const scope = cacheScope(user);
   type Snapshot = { items: StoredQueueItem[]; total: number; policy: string };
-  const key = dashboard ? 'claims:dashboard' : `claims:page:${offset}`;
+  const key = ownOnly ? `claims:mine:${offset}` : dashboard ? 'claims:dashboard' : `claims:page:${offset}`;
   const cached = useCallback(
     () =>
       readCache<Snapshot>(scope, key, (value) => {
@@ -59,7 +59,7 @@ export function useStoredClaims(dashboard: boolean, offset: number, onPolicyChan
         const response = await authenticatedFetch('/api/policy', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'evaluate_claims', offset: next }),
+          body: JSON.stringify({ action: 'evaluate_claims', offset: next, ownOnly }),
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error ?? 'Could not load claims.');
@@ -84,7 +84,7 @@ export function useStoredClaims(dashboard: boolean, offset: number, onPolicyChan
     } finally {
       if (request === revision.current) setLoading(false);
     }
-  }, [offset, dashboard, scope, key]);
+  }, [offset, dashboard, scope, key, ownOnly]);
   useEffect(() => {
     const snapshot = cached();
     setItems(snapshot?.items ?? []);

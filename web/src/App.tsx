@@ -237,7 +237,7 @@ function AppContent() {
           </div>
         )}
 
-        {tab === 'queue' && <StoredClaims />}
+        {(tab === 'queue' || tab === 'my-claims') && <StoredClaims key={tab} />}
         {tab === 'examples' && <section>
           {pageOpen ? (
             <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4">

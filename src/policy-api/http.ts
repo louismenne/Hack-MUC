@@ -53,7 +53,9 @@ export async function handlePolicyRequest(
           !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(claimId))
       )
         throw new ApiError(400, 'Invalid claim ID.');
-      return json(await evaluateStoredClaims(user, offset, undefined, claimId));
+      const ownOnly = (input as { ownOnly?: unknown }).ownOnly ?? false;
+      if (typeof ownOnly !== 'boolean') throw new ApiError(400, 'Invalid own-claims filter.');
+      return json(await evaluateStoredClaims(user, offset, undefined, claimId, ownOnly));
     }
     if (kind === 'policy' && action === 'set_role') {
       if (!access.team) throw new ApiError(403, 'Admin role required.');

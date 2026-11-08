@@ -19,7 +19,7 @@ const pagesByRole: Record<Role, readonly AppPage[]> = {
   claims_handler: ['my-claims'],
   reviewer: ['queue'],
   policy_manager: ['queue', 'quality', 'policy', 'examples', 'example-quality'],
-  admin: appPages.filter(page => page !== 'my-claims'),
+  admin: appPages,
 };
 export function canAccessPage(role: Role | null, page: AppPage): boolean {
   return role !== null && pagesByRole[role].includes(page);

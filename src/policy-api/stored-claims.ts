@@ -50,7 +50,7 @@ export function checkedDecision(policy: PolicyVersionRecord, claim: StoredClaim)
   if (!checked.ok) throw new ApiError(503, 'The active policy is invalid; processing is disabled.');
   return evaluatePolicyDocument(checked.policy, policy.versionLabel, claim);
 }
-export async function evaluateStoredClaims(user: AuthUser, offset: number, db = serviceClient(), claimId?: string) {
+export async function evaluateStoredClaims(user: AuthUser, offset: number, db = serviceClient(), claimId?: string, ownOnly = false) {
   const role = roleOf(user);
   if (!role) throw new ApiError(403, 'A team role is required.');
   let query = db
@@ -60,7 +60,7 @@ export async function evaluateStoredClaims(user: AuthUser, offset: number, db = 
     .order('id')
     .range(offset, offset + 49);
   if (claimId) query = query.eq('id', claimId);
-  if (role === 'claims_handler') query = query.eq('submitted_by', user.id);
+  if (role === 'claims_handler' || ownOnly) query = query.eq('submitted_by', user.id);
   const [{ data, error, count }, versions] = await Promise.all([
     query,
     createSupabaseRepo(process.env.SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!).list(),

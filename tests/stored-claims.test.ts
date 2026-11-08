@@ -76,6 +76,15 @@ describe('server evaluation of submitted claims', () => {
       'request_information',
     );
   });
+  it('scopes the admin My claims page without restricting the review queue', async () => {
+    const admin = { id: 'admin-user', app_metadata: { hack_muc_role: 'admin' } };
+    const mine = database();
+    await evaluateStoredClaims(admin, 0, mine.db, undefined, true);
+    expect(mine.claimsQuery.eq).toHaveBeenCalledWith('submitted_by', admin.id);
+    const queue = database();
+    await evaluateStoredClaims(admin, 0, queue.db);
+    expect(queue.claimsQuery.eq).not.toHaveBeenCalledWith('submitted_by', admin.id);
+  });
   it('rejects invalid policy instead of falling back', () =>
     expect(() => checkedDecision({ ...policy, rules: {} as typeof policy.rules }, claim)).toThrow('invalid'));
   it('scopes handler claims to their owner and saves exact database facts', async () => {

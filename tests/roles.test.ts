@@ -55,7 +55,7 @@ describe('role-specific navigation and direct-route access', () => {
     ['claims_handler', ['my-claims']],
     ['reviewer', ['queue']],
     ['policy_manager', ['queue', 'quality', 'policy', 'examples', 'example-quality']],
-    ['admin', appPages.filter(page => page !== 'my-claims')],
+    ['admin', [...appPages]],
     [null, []],
   ] as const)('%s can only open its permitted pages', (role, expected) => {
     expect(appPages.filter(page => canAccessPage(role, page))).toEqual(expected);

@@ -59,10 +59,9 @@ function caseItem(item: StoredQueueItem): CaseItem {
 export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
   const user = useAuthUser();
   const access = permissions(user);
-  // "File a claim" belongs to claimants only; reviewers, policy owners and admins work the queue.
-  const isClaimant = roleOf(user) === 'claims_handler';
-  const claimsPage = isClaimant ? 'my-claims' : 'queue';
   const route = useRoute();
+  const isClaimant = route.page === 'my-claims' || roleOf(user) === 'claims_handler';
+  const claimsPage = isClaimant ? 'my-claims' : 'queue';
   const requestedOffset = Number(route.params.get('offset') ?? 0);
   const offset = !dashboard && Number.isSafeInteger(requestedOffset) && requestedOffset >= 0 ? requestedOffset : 0;
   const setOffset = (next: number) =>
@@ -70,7 +69,7 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
   const selectedId = dashboard ? '' : (route.caseId ?? '');
   const { splitRef, listWidth, clampWidth, saveListWidth, startResize } = useClaimListResize();
   const [action, setAction] = useState<ReviewAction | null>(null);
-  const { items, total, policy, loading, verified, error, refresh } = useStoredClaims(dashboard, offset, setAction);
+  const { items, total, policy, loading, verified, error, refresh } = useStoredClaims(dashboard, offset, setAction, isClaimant);
   const [filters, setFilters] = useState<ListFilters>({ query: '', recommendation: 'all', status: 'any' });
   const audit = useReviewAudit('stored');
   const cases = useMemo(() => items.map(caseItem), [items]);
@@ -100,7 +99,7 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
   const selected = cases.find((c) => c.decision.caseId === selectedId);
   const stored = items.find((c) => c.claim.case_id === selectedId);
   const state = states.get(selectedId);
-  const canReview = access.review && verified && !error && audit.ready && !audit.error;
+  const canReview = !isClaimant && access.review && verified && !error && audit.ready && !audit.error;
   const { preset, openAction, record } = useStoredReview({
     stored,
     state,
@@ -320,7 +319,7 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
                   item={selected}
                   state={state}
                   canReview={!!canReview}
-                  showReviewControls={access.review}
+                  showReviewControls={!isClaimant && access.review}
                   onAction={openAction}
                   documents={<ClaimDocuments attachments={stored.claim.attachments} />}
                 />
