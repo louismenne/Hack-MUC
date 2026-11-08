@@ -13,25 +13,25 @@ import type { Decision, Recommendation } from '../../../src/triage';
 const copy: Record<ReviewAction, { title: string; description: string; submit: string; reasonLabel: string }> = {
   overridden: {
     title: 'Override recommendation',
-    description: 'Your correction is recorded next to the automated decision. The original stays in the audit history.',
+    description: 'Saved to the audit history next to the system decision.',
     submit: 'Record override',
     reasonLabel: 'Reason for override',
   },
   reverted: {
     title: 'Revert to automated recommendation',
-    description: 'This restores the engine’s recommendation. The earlier override stays in the audit history.',
+    description: 'Restores the system decision. Your earlier change stays in the history.',
     submit: 'Record revert',
     reasonLabel: 'Reason for revert',
   },
   confirmed: {
     title: 'Confirm recommendation',
-    description: 'Record that you agree with the current recommendation.',
+    description: 'You agree with the current recommendation.',
     submit: 'Confirm',
     reasonLabel: 'Note (optional)',
   },
   rejected: {
     title: 'Reject this claim?',
-    description: 'The claim is declined and leaves the review queue. Your name and reason are saved to the audit history.',
+    description: 'The claim is declined and leaves the queue.',
     submit: 'Reject claim',
     reasonLabel: 'Reason for rejection',
   },
@@ -121,7 +121,7 @@ export function ReviewDialog({ action, onOpenChange, datasetId, decision, curren
               />
               {errors.reason
                 ? <FieldError>{errors.reason}</FieldError>
-                : shown !== 'confirmed' && <FieldDescription>Required, at least {minReasonLength} characters. Stored in the audit history.</FieldDescription>}
+                : shown !== 'confirmed' && <FieldDescription>At least {minReasonLength} characters.</FieldDescription>}
             </Field>
             <Field data-invalid={!!errors.reviewer}>
               <FieldLabel htmlFor="review-reviewer">Reviewer</FieldLabel>

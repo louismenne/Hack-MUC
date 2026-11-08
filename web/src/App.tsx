@@ -16,7 +16,6 @@ import { ClaimDetail } from '@/components/claim-detail';
 import { ClaimsList, filterCases, type ListFilters } from '@/components/claims-list';
 import { QualityView } from '@/components/quality-view';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { navigate, pages, pageHref, PageLink, useRoute } from '@/lib/navigation';
@@ -127,7 +126,7 @@ function AppContent() {
   const slug = dataset.id.replace(/^upload:/, '').replace(/\.csv$/i, '').replace(/[^a-z0-9-]+/gi, '-');
 
   return (
-    <div className="min-h-svh bg-muted/30">
+    <div className="min-h-svh bg-background">
       <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur supports-backdrop-filter:bg-background/75">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-6 gap-y-2 px-4 py-2.5 md:h-14 md:flex-nowrap md:py-0">
           <PageLink href={pageHref('queue')} aria-label="Taktile · go to Review queue"
@@ -138,7 +137,7 @@ function AppContent() {
           <nav aria-label="Main navigation" className="order-last -mx-1 flex w-full gap-1 overflow-x-auto [scrollbar-width:none] md:order-none md:mx-0 md:w-auto [&::-webkit-scrollbar]:hidden">
             {navPages.map(page => (
               <PageLink key={page.id} href={page.path} aria-current={tab === page.id ? 'page' : undefined}
-                className={`shrink-0 rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-ring ${tab === page.id ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+                className={`shrink-0 px-2 py-1.5 text-sm whitespace-nowrap underline-offset-[1.15rem] transition-colors focus-visible:outline-2 focus-visible:outline-ring ${tab === page.id ? 'text-foreground underline decoration-foreground decoration-1' : 'text-muted-foreground hover:text-foreground'}`}>
                 {page.label}
               </PageLink>
             ))}

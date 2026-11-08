@@ -87,7 +87,7 @@ export function VersionPage({ version, active, aiAvailable, owner, busy, run, on
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeftIcon />Back</Button>
-        <h2 className="font-serif text-2xl font-normal tracking-normal">{version.versionLabel}</h2>
+        <h2 className="text-3xl font-normal tracking-[-0.03em]">{version.versionLabel}</h2>
         <Badge variant={version.status === 'active' ? 'default' : 'secondary'}>{statusLabel[version.status]}</Badge>
         <span className="text-xs text-muted-foreground">{sourceLabel[version.source]} · {formatDate(version.createdAt)}</span>
         {!isDraft && canManage && <Button className="ml-auto" variant="outline" size="sm" disabled={busy} onClick={() => void copyToDraft()}>Copy to draft</Button>}
@@ -97,7 +97,7 @@ export function VersionPage({ version, active, aiAvailable, owner, busy, run, on
         <Card className="gap-3">
           <CardHeader>
             <CardTitle>Rules</CardTitle>
-            <CardDescription>{isDraft ? 'Edit values inline. The first matching rule decides.' : version.changeSummary ?? 'The first matching rule decides.'}</CardDescription>
+            <CardDescription>{isDraft ? 'Edit values inline.' : version.changeSummary ?? ''}</CardDescription>
           </CardHeader>
           <CardContent>
             {isDraft ? (

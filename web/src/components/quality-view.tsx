@@ -26,9 +26,6 @@ import { recommendations, type ReviewEvent, type ReviewState } from '../../../sr
 import { bucketEnd, countSeries, delta, inWindow, isoWeek, previousWindow, rangeLabels, receivedSeries, timeRanges, windowFor, type Bucket, type Delta, type SeriesPoint, type TimeRange, type Window } from '../../../src/timeline';
 import type { Field, Recommendation } from '../../../src/triage';
 
-/** Long stored IDs (CLM-<uuid>) shortened for tight labels. */
-const shortId = (id: string) => (id.length > 12 ? `${id.slice(0, 12)}…` : id);
-
 const pct = (value: number) => `${Math.round(value * 100)}%`;
 
 const documentNames: Partial<Record<Field, string>> = {
@@ -122,12 +119,12 @@ export function QualityView({ dataset, states, events, renderLog }: QualityViewP
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="flex items-center gap-2 font-serif text-2xl font-normal tracking-normal">
-            Operations overview
+          <h2 className="flex items-center gap-2 text-3xl font-normal tracking-[-0.03em]">
+            Overview
             {simulated && <Badge variant="outline" className="font-normal text-muted-foreground" title="The case CSVs carry no timestamps; arrival dates are simulated for the demo (src/received-at.ts).">Simulated arrival dates</Badge>}
           </h2>
           <p className="text-sm text-muted-foreground">
-            {hasDates ? `${insights.total} open claims received · ${formatWindow(window)} · closed claims excluded` : `${insights.total} claims · no arrival dates in this dataset, time filter off`}
+            {hasDates ? formatWindow(window) : 'No arrival dates, time filter off'}
           </p>
         </div>
         <ToggleGroup
@@ -155,7 +152,7 @@ export function QualityView({ dataset, states, events, renderLog }: QualityViewP
         />
         <Kpi
           label="Needs recheck after policy change" value={recheck.length} better="neutral" vs="" accent="text-recheck"
-          hint={recheck.length ? `${recheck.map(item => shortId(item.decision.caseId)).join(', ')} · open, result changes under ${history.active.label}` : 'No open claim changes outcome'}
+          hint={recheck.length ? `Open claims with a new result under ${history.active.label}` : 'No open claim changes outcome'}
         />
       </div>
 
@@ -189,7 +186,7 @@ export function QualityView({ dataset, states, events, renderLog }: QualityViewP
                 <CardTitle>Most missing information</CardTitle>
               </CardHeader>
               <CardContent>
-                <BarList items={insights.infoGaps.map(({ key, count }) => ({ label: gapLabel(key), count }))} total={insights.mix.request_information} barClass={dotClasses.request_information} empty="No information requests in this period." />
+                <BarList items={insights.infoGaps.slice(0, 5).map(({ key, count }) => ({ label: gapLabel(key), count }))} total={insights.mix.request_information} barClass={dotClasses.request_information} empty="No information requests in this period." />
               </CardContent>
             </Card>
           </div>
@@ -218,7 +215,7 @@ export function QualityView({ dataset, states, events, renderLog }: QualityViewP
       {labelled.length > 0 ? (
         <>
           <div className="mt-2">
-            <h2 className="font-serif text-2xl font-normal tracking-normal">Decision quality</h2>
+            <h2 className="text-3xl font-normal tracking-[-0.03em]">Decision quality</h2>
             <p className="text-sm text-muted-foreground">All {engine.labelled} labelled development cases, independent of the time filter. Labels are for measurement only, never decision inputs.</p>
           </div>
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -326,7 +323,6 @@ function TrendCard({ series, window, showDemoPolicyMarker }: { series: SeriesPoi
     <Card>
       <CardHeader>
         <CardTitle>Claims received per {bucketNames[window.bucket]}</CardTitle>
-        <CardDescription>By the engine’s recommendation · hover a bar for the exact numbers</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="flex flex-wrap gap-4 pb-4 text-xs text-muted-foreground">
@@ -440,17 +436,17 @@ function SavingsCard({ insights, range }: { insights: Insights; range: TimeRange
         ) : (
           <>
             <div>
-              <div className="text-3xl font-semibold tracking-tight tabular-nums">≈ {hours(s.hoursSaved)} h</div>
+              <div className="text-4xl font-light tracking-[-0.03em] tabular-nums">≈ {hours(s.hoursSaved)} h</div>
               <div className="text-sm font-medium">staff time saved</div>
               <div className="text-xs text-muted-foreground">≈ {Math.round(s.minutesSavedPerClaim)} min per claim · {s.claims} {s.claims === 1 ? 'claim' : 'claims'}</div>
             </div>
             <div>
-              <div className="text-3xl font-semibold tracking-tight tabular-nums text-rec-routine-foreground">−{Math.round(s.timeReduction * 100)}%</div>
+              <div className="text-4xl font-light tracking-[-0.03em] tabular-nums">−{Math.round(s.timeReduction * 100)}%</div>
               <div className="text-sm font-medium">manual triage time</div>
               <div className="text-xs text-muted-foreground">{s.fullReviewsBefore} → {s.fullReviewsNow} full reviews</div>
             </div>
             <div>
-              <div className="text-3xl font-semibold tracking-tight tabular-nums">≈ {eur0.format(s.staffCostSavedEur)}</div>
+              <div className="text-4xl font-light tracking-[-0.03em] tabular-nums">≈ {eur0.format(s.staffCostSavedEur)}</div>
               <div className="text-sm font-medium">staff cost saved</div>
               <div className="text-xs text-muted-foreground">at {eur0.format(assumptions.hourlyCostEur)}/h</div>
             </div>
@@ -563,7 +559,6 @@ function MixCard({ insights, changes, vs }: { insights: Insights; changes: Recor
                 <span aria-hidden className={cn('mt-1.5 size-2 shrink-0 rounded-full', dotClasses[rec])} />
                 <div>
                   <div className="text-sm font-medium">{mixMeta[rec].label}</div>
-                  <div className="text-xs text-muted-foreground">{mixMeta[rec].meaning}</div>
                 </div>
               </div>
               <div className="text-right">
@@ -575,7 +570,6 @@ function MixCard({ insights, changes, vs }: { insights: Insights; changes: Recor
               </div>
             </li>
           ))}
-          {vs && insights.total > 0 && <li className="text-xs text-muted-foreground">Changes in percentage points {vs}</li>}
         </ul>
       </CardContent>
     </Card>
@@ -592,7 +586,7 @@ function Kpi({ label, value, change, better, vs, hint, dot, alert = false, accen
           {dot && <span aria-hidden className={cn('size-1.5 rounded-full', dotClasses[dot])} />}
           {label}
         </CardDescription>
-        <div className={cn('text-3xl font-semibold tracking-tight tabular-nums', alert && 'text-destructive', accent)}>{value}</div>
+        <div className={cn('text-4xl font-light tracking-[-0.03em] tabular-nums', alert && 'text-destructive', accent)}>{value}</div>
       </CardHeader>
       <CardContent className="text-xs text-muted-foreground">
         {hint ?? (change ? (
@@ -604,8 +598,8 @@ function Kpi({ label, value, change, better, vs, hint, dot, alert = false, accen
 }
 
 const severityMeta: Record<ActionSeverity, { icon: typeof InfoIcon; label: string; className: string }> = {
-  critical: { icon: OctagonAlertIcon, label: 'Critical', className: 'border-destructive/40 bg-destructive/10 text-destructive' },
-  warning: { icon: TriangleAlertIcon, label: 'Attention', className: 'border-rec-info/50 bg-rec-info/15 text-rec-info-foreground' },
+  critical: { icon: OctagonAlertIcon, label: 'Critical', className: 'border-border bg-transparent text-foreground [&>svg]:text-rec-review' },
+  warning: { icon: TriangleAlertIcon, label: 'Attention', className: 'border-border bg-transparent text-foreground [&>svg]:text-rec-info' },
   info: { icon: InfoIcon, label: 'Opportunity', className: 'border-border bg-muted text-muted-foreground' },
 };
 
@@ -856,7 +850,7 @@ function ReviewerActivity({ events, window, reviewer, onReviewerChange, insights
   return (
     <>
       <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
-        <h2 className="font-serif text-2xl font-normal tracking-normal">Reviewer activity</h2>
+        <h2 className="text-3xl font-normal tracking-[-0.03em]">Reviewer activity</h2>
         <Select value={reviewer} onValueChange={onReviewerChange}>
           <SelectTrigger className="w-52" aria-label="Filter by reviewer"><SelectValue /></SelectTrigger>
           <SelectContent align="end">
@@ -927,7 +921,7 @@ function Stat({ label, value, hint, alert = false }: { label: string; value: str
     <Card size="sm">
       <CardHeader>
         <CardDescription className="label-mono">{label}</CardDescription>
-        <div className={cn('text-3xl font-semibold tracking-tight tabular-nums', alert && 'text-destructive')}>{value}</div>
+        <div className={cn('text-4xl font-light tracking-[-0.03em] tabular-nums', alert && 'text-destructive')}>{value}</div>
       </CardHeader>
       <CardContent className="text-xs text-muted-foreground">{hint}</CardContent>
     </Card>

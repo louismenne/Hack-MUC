@@ -25,7 +25,7 @@ import { ReviewDialog } from './review-dialog';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from './ui/empty';
 import { Spinner } from './ui/spinner';
 import { toast } from 'sonner';
@@ -271,12 +271,7 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
   if (dashboard)
     return (
       <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="max-w-3xl text-sm text-muted-foreground">
-            <span className="font-medium text-foreground tabular-nums">{total} submitted claims</span>
-          </p>
-          {refreshButton}
-        </div>
+        <div className="flex justify-end">{refreshButton}</div>
         {problem && (
           <Alert variant="destructive">
             <CircleAlertIcon />
@@ -372,7 +367,7 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
     <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1">
-          <h2 className="flex items-center gap-2 font-serif text-2xl font-normal tracking-normal">
+          <h2 className="flex items-center gap-2 text-3xl font-normal tracking-[-0.03em]">
             Submitted claims
             <Badge variant="secondary" className="tabular-nums">{total}</Badge>
           </h2>
@@ -398,7 +393,7 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
       )}
       {loading && !verified && items.length > 0 && (
         <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Spinner /> Checking current claims and policy. Showing saved results; reviews unlock when this finishes.
+          <Spinner /> Updating…
         </p>
       )}
 
@@ -505,7 +500,6 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
                 <Card size="sm">
                   <CardHeader>
                     <CardTitle>Documents</CardTitle>
-                    <CardDescription>Files attached when the claim was submitted. Stored privately.</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <ul className="flex flex-col divide-y">

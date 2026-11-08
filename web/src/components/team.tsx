@@ -7,7 +7,7 @@ import { roles, roleLabels, type Role } from '../../../src/roles';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 
@@ -55,7 +55,6 @@ export function Team() {
     <Card className="mx-auto w-full max-w-[1600px]">
       <CardHeader>
         <CardTitle>Team roles</CardTitle>
-        <CardDescription>Unassigned accounts are read only. Your own role cannot be changed here.</CardDescription>
         <CardAction>
           <Button variant="outline" disabled={busy || loading} onClick={() => void load()}>
             <RefreshCwIcon data-icon="inline-start" className={cn(loading && 'animate-spin')} /> Refresh

@@ -1,17 +1,14 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/hanken-grotesk";
-@import "@fontsource/eb-garamond/400.css";
-@import "@fontsource/eb-garamond/500.css";
+@import "@fontsource-variable/inter-tight";
 @import "@fontsource-variable/geist-mono";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
     --font-heading: var(--font-sans);
-    --font-sans: 'Hanken Grotesk Variable', ui-sans-serif, system-ui, sans-serif;
-    --font-serif: 'EB Garamond', ui-serif, Georgia, serif;
+    --font-sans: 'Inter Tight Variable', ui-sans-serif, system-ui, sans-serif;
     --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
     --color-rec-routine: var(--rec-routine);
     --color-rec-routine-foreground: var(--rec-routine-foreground);
@@ -64,13 +61,13 @@
 /*
  * Theme inspired by Taktile's visual language: warm off-white surfaces, near-black ink,
  * warm greys, small corner radii, tight medium-weight headings and mono labels.
- * Taktile's typeface Söhne is commercial, so Hanken Grotesk (open, similar grotesk) is used instead;
- * page titles use EB Garamond, the open serif Taktile itself uses for editorial accents.
+ * Swiss-grotesk look (like Söhne / Neue Haas Unica): Inter Tight is the open alternative.
+ * Monochrome surfaces; status colour only appears as small dots and short labels.
  */
 :root {
     --background: oklch(0.993 0.0013 17);      /* #FDFCFC warm off-white */
     --foreground: oklch(0.183 0 0);            /* #121212 */
-    --card: oklch(1 0 0);
+    --card: oklch(0.993 0.0013 17);           /* same as the page: areas are outlined, not boxed */
     --card-foreground: oklch(0.183 0 0);
     --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.183 0 0);
@@ -91,7 +88,7 @@
     --chart-3: oklch(0.72 0.09 75);
     --chart-4: oklch(0.52 0.004 17);
     --chart-5: oklch(0.183 0 0);
-    --radius: 0.45rem;                         /* small, crisp corners */
+    --radius: 0.3rem;                          /* small, crisp corners */
     --rec-routine: oklch(0.64 0.08 155);       /* muted sage */
     --rec-routine-foreground: oklch(0.42 0.06 155);
     --rec-info: oklch(0.72 0.09 75);           /* muted ochre */
@@ -113,7 +110,7 @@
 .dark {
     --background: oklch(0.13 0.002 17);        /* near-black like Taktile's dark sections */
     --foreground: oklch(0.993 0.0013 17);
-    --card: oklch(0.183 0 0);                  /* #121212 */
+    --card: oklch(0.13 0.002 17);              /* same as the page */
     --card-foreground: oklch(0.993 0.0013 17);
     --popover: oklch(0.2 0.002 17);
     --popover-foreground: oklch(0.993 0.0013 17);

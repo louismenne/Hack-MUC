@@ -45,7 +45,7 @@ export function FileDropzone({ files, reading, notice, onAdd, onRemove }: Props)
             <UploadIcon />
           </EmptyMedia>
           <EmptyTitle>Drop documents here</EmptyTitle>
-          <EmptyDescription>PDF or images: incident report, repair quote, photos. You can add several files at once.</EmptyDescription>
+          <EmptyDescription>Incident report, quote, photos · PDF or images</EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
           <Button type="button" variant="outline" size="sm" onClick={() => input.current?.click()}>

@@ -8,7 +8,7 @@ import { RecommendationBadge } from '@/components/recommendation-badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Spinner } from '@/components/ui/spinner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -104,10 +104,7 @@ export function ActivityLog() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Persistent activity log</CardTitle>
-        <CardDescription>
-          Claim submissions, engine evaluations, policy changes, role changes and reviews, recorded in Supabase. Entries cannot be edited or cleared.
-        </CardDescription>
+        <CardTitle>Activity log</CardTitle>
         <CardAction>
           <Button variant="outline" disabled={loading} onClick={() => refresh(n => n + 1)}>
             <RefreshCwIcon data-icon="inline-start" className={cn(loading && 'animate-spin')} /> Refresh

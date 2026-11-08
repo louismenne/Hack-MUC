@@ -3,7 +3,7 @@ import { RecommendationBadge } from '@/components/recommendation-badge';
 import { timeFormat } from '@/components/claim-detail';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { ReviewEvent } from '../../../src/review';
@@ -23,7 +23,6 @@ export function AuditLog({ events, datasetName, onOpenCase, onExport }: AuditLog
     <Card>
       <CardHeader>
         <CardTitle>Audit log</CardTitle>
-        <CardDescription>Every reviewer action on {datasetName.toLowerCase()}, newest first, with the automated decision it responded to.</CardDescription>
         <CardAction className="flex gap-2">
           <Button variant="outline" onClick={onExport} disabled={!events.length}>
             <DownloadIcon data-icon="inline-start" /> Export CSV

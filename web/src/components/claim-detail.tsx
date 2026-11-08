@@ -1,4 +1,4 @@
-import { ArrowRightIcon, CircleAlertIcon, CircleCheckIcon, CompassIcon, PencilLineIcon, QuoteIcon, RefreshCwIcon, Undo2Icon } from 'lucide-react';
+import { ArrowRightIcon, CircleAlertIcon, CircleCheckIcon, PencilLineIcon, RefreshCwIcon, Undo2Icon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { describeFact, euro, recommendationMeta, ruleInfo, triggeringFields } from '@/lib/policy';
 import { usePolicySource } from '@/lib/policy-source';
@@ -6,7 +6,7 @@ import { reviewerGuidance, type ReviewerDecisionId } from '@/lib/reviewer-guidan
 import type { CaseItem } from '@/lib/datasets';
 import { fullDate } from '@/components/claims-list';
 import { daysOpen } from '../../../src/received-at';
-import { RecommendationBadge, toneSurface } from '@/components/recommendation-badge';
+import { RecommendationBadge, dotClasses, toneSurface } from '@/components/recommendation-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -64,25 +64,23 @@ export function ClaimDetail({ item, state, onAction, canReview, documents }: Cla
     <div className="flex w-full min-w-0 flex-col gap-4">
       <Card>
         <CardHeader>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span className="text-sm font-medium tabular-nums text-muted-foreground">{decision.caseId}</span>
-            {claim.case_status && <Badge variant="secondary" className="capitalize">{String(claim.case_status)}</Badge>}
-            <Badge variant="outline" className="font-normal text-muted-foreground">{decision.policyVersion}</Badge>
+          <CardTitle className="text-2xl leading-tight font-normal tracking-[-0.02em] text-balance">
+            {String(claim.claim_summary ?? 'No claim summary supplied.')}
+          </CardTitle>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
             {item.received && (
               <span title={item.received.simulated ? 'Simulated arrival date for the demo.' : undefined}>
-                {fullDate.format(item.received.at)}{!closed && ` · open ${daysOpen(item.received.at)} d`}
+                Received {fullDate.format(item.received.at)}{!closed && ` · waiting ${daysOpen(item.received.at)} days`}
               </span>
             )}
+            <span aria-hidden>·</span>
+            <span className="tabular-nums" title={decision.caseId}>{decision.caseId.length > 14 ? `${decision.caseId.slice(0, 12)}…` : decision.caseId}</span>
             {item.needsRecheck && (
-              <Badge variant="outline" className="gap-1 border-recheck/40 bg-recheck/10 text-recheck-foreground">
+              <Badge variant="outline" className="gap-1 border-recheck/40 text-recheck-foreground">
                 <RefreshCwIcon /> Recheck · result changed under {decision.policyVersion}
               </Badge>
             )}
           </div>
-          <CardTitle className="mt-1.5 flex gap-2 text-lg leading-snug font-medium text-balance">
-            <QuoteIcon className="mt-1 size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-            {String(claim.claim_summary ?? 'No claim summary supplied.')}
-          </CardTitle>
           {closed && <p className="text-xs text-muted-foreground">Closed claim · saved {decision.policyVersion} decision retained · no action required.</p>}
           {(overridden || !needsHuman) && (
             <CardAction className="flex gap-2">
@@ -100,15 +98,19 @@ export function ClaimDetail({ item, state, onAction, canReview, documents }: Cla
           )}
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* Why: the facts that fired the rule, with the rule named briefly (full text on hover). */}
+          <div className="flex flex-col gap-3">
+            {/* What the system did: its recommendation and the facts that fired the rule. */}
             <div className={cn('rounded-lg p-4 ring-1', toneSurface[decision.recommendation])}>
-              <div className="label-mono">{needsHuman ? 'Why it needs you' : recommendationMeta[decision.recommendation].label}</div>
-              <ul className="mt-1.5 flex flex-col gap-0.5">
+              <StepLabel n={1}>System decision</StepLabel>
+              <div className="mt-1.5 flex items-center gap-2 text-base font-semibold">
+                <span aria-hidden className={cn('size-2 rounded-full', dotClasses[decision.recommendation])} />
+                {recommendationMeta[decision.recommendation].label}
+              </div>
+              <p className="mt-0.5 text-sm text-muted-foreground">
                 {decision.supportingFacts.length
-                  ? decision.supportingFacts.map(fact => <li key={fact} className="text-base font-semibold">{describeFact(fact)}</li>)
-                  : <li className="text-base font-semibold">{decision.missingFields.length ? 'Required input is missing' : decision.recommendation === 'routine_processing' ? 'All routine checks passed' : 'No rule triggered'}</li>}
-              </ul>
+                  ? <>because {decision.supportingFacts.map(describeFact).join(' · ')}</>
+                  : decision.missingFields.length ? 'because required input is missing' : decision.recommendation === 'routine_processing' ? 'All routine checks passed' : 'No rule triggered'}
+              </p>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="mt-1.5 w-fit cursor-help text-xs text-muted-foreground underline decoration-dotted underline-offset-2">{rule.title}</div>
@@ -118,10 +120,10 @@ export function ClaimDetail({ item, state, onAction, canReview, documents }: Cla
             </div>
 
             {/* What to do: a fixed, rule-based instruction for the reviewer, or the decision already taken. */}
-            <div className={cn('rounded-lg p-4 ring-1', state.status === 'rejected' ? 'bg-destructive/10 ring-destructive/30' : decided ? toneSurface[state.effective] : 'bg-muted/40 ring-border')}>
+            <div className={cn('rounded-lg p-4 ring-1', state.status === 'rejected' ? 'bg-card ring-border' : decided ? toneSurface[state.effective] : 'bg-muted/40 ring-border')}>
               {decided ? (
                 <>
-                  <div className="label-mono">Decision</div>
+                  <StepLabel n={3}>Your decision</StepLabel>
                   <div className="mt-1.5 text-sm font-semibold">
                     {state.status === 'rejected' ? 'Rejected' : state.status === 'reviewed' ? (needsHuman ? 'Kept in review' : 'Confirmed') : recommendationMeta[state.effective].label}
                   </div>
@@ -129,7 +131,7 @@ export function ClaimDetail({ item, state, onAction, canReview, documents }: Cla
                 </>
               ) : needsHuman ? (
                 <>
-                  <div className="label-mono flex items-center gap-1.5"><CompassIcon className="size-3" /> Next step</div>
+                  <StepLabel n={2}>Suggested next step</StepLabel>
                   <p className="mt-1.5 text-base font-semibold text-pretty">{guidance?.action ?? 'Check the facts below.'}</p>
                   {guidance && (
                     <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -139,15 +141,17 @@ export function ClaimDetail({ item, state, onAction, canReview, documents }: Cla
                 </>
               ) : (
                 <>
-                  <div className="label-mono">Automated decision</div>
-                  <div className="mt-1.5 text-sm font-semibold">{recommendationMeta[decision.recommendation].label}</div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">No reviewer action needed.</div>
+                  <StepLabel n={2}>Next step</StepLabel>
+                  <div className="mt-1.5 text-base font-semibold">Handled automatically</div>
+                  <div className="mt-0.5 text-sm text-muted-foreground">No reviewer action needed. You can still override.</div>
                 </>
               )}
             </div>
           </div>
 
           {needsHuman && !closed && !decided && (
+            <div className="flex flex-col gap-2">
+            <StepLabel n={3}>Your decision</StepLabel>
             <div className="flex flex-wrap items-stretch gap-x-4 gap-y-3">
               {decisionGroups.map((group, index) => (
                 <div key={group.label} className={cn('flex flex-col gap-1.5', index > 0 && 'border-l pl-4')}>
@@ -160,12 +164,13 @@ export function ClaimDetail({ item, state, onAction, canReview, documents }: Cla
                         <Tooltip key={id}>
                           <TooltipTrigger asChild>
                             <Button
-                              variant={recommended ? 'default' : 'outline'}
-                              className={cn(id === 'reject' && 'border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive')}
+                              variant="outline"
+                              className={cn(id === 'reject' && 'text-destructive hover:bg-destructive/10 hover:text-destructive')}
                               disabled={!canReview}
                               onClick={() => onAction(option.action, option.next, id === 'reject' ? undefined : option.title)}
                             >
                               {option.title}
+                              {recommended && <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">Suggested</span>}
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>{option.hint}</TooltipContent>
@@ -175,6 +180,7 @@ export function ClaimDetail({ item, state, onAction, canReview, documents }: Cla
                   </div>
                 </div>
               ))}
+            </div>
             </div>
           )}
 
@@ -203,8 +209,8 @@ function Chip({ tone, children }: { tone: 'ok' | 'warn' | 'bad'; children: React
     <span className={cn(
       'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs',
       tone === 'ok' && 'text-muted-foreground',
-      tone === 'warn' && 'bg-rec-info/15 font-medium text-rec-info-foreground',
-      tone === 'bad' && 'bg-rec-review/10 font-medium text-rec-review-foreground',
+      tone === 'warn' && 'font-medium text-foreground [&>svg]:text-rec-info',
+      tone === 'bad' && 'font-medium text-foreground [&>svg]:text-rec-review',
     )}>
       <Icon className="size-3" aria-hidden /> {children}
     </span>
@@ -218,7 +224,7 @@ function Chip({ tone, children }: { tone: 'ok' | 'warn' | 'bad'; children: React
 function FactsSummary({ item, triggered }: { item: CaseItem; triggered: Set<Field> }) {
   const { claim, decision } = item;
   const missing = new Set(decision.missingFields);
-  const hot = (field: Field) => triggered.has(field) && 'rounded bg-rec-review/10 px-1 text-rec-review-foreground';
+  const hot = (field: Field) => triggered.has(field) && 'underline decoration-rec-review decoration-2 underline-offset-4';
   const value = (field: Field) => {
     if (missing.has(field)) return <span className="text-muted-foreground">{field === 'quote_eur' ? 'No quote' : '—'}</span>;
     const v = claim[field];
@@ -262,6 +268,11 @@ function FactsSummary({ item, triggered }: { item: CaseItem; triggered: Set<Fiel
       </div>
     </div>
   );
+}
+
+/** Small section label: system decision, suggestion, your decision (read top to bottom). */
+function StepLabel({ children }: { n?: number; children: React.ReactNode }) {
+  return <div className="label-mono">{children}</div>;
 }
 
 /** Unanswered questions, named plainly in grey. */

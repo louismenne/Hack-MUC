@@ -136,7 +136,7 @@ export function ClaimsList({ cases, visible, states, filters, onFiltersChange, s
           ))}
         </ToggleGroup>
         <p className="text-xs text-muted-foreground">
-          Oldest first · <span className="tabular-nums">{positions.size}</span> waiting for human review
+          Oldest first · <span className="tabular-nums">{positions.size}</span> waiting
         </p>
       </div>
       {visible.length === 0 ? (

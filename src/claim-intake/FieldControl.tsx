@@ -23,8 +23,8 @@ interface Props {
 
 /** Presentation only: extra copy and icons for choice cards. The stored values still come from fields.ts. */
 const optionCopy: Record<string, { icon: LucideIcon; description: string }> = {
-  motor_own_damage: { icon: CarIcon, description: 'Accident, scrape, hail or other damage to your car.' },
-  theft: { icon: KeyRoundIcon, description: 'Your car or parts of it were stolen.' },
+  motor_own_damage: { icon: CarIcon, description: 'Accident, scrape, hail' },
+  theft: { icon: KeyRoundIcon, description: 'Car or parts stolen' },
 };
 
 const dayFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });

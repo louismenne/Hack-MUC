@@ -4,15 +4,15 @@ import { Badge } from '@/components/ui/badge';
 import type { Recommendation } from '../../../src/triage';
 
 export const toneClasses: Record<Recommendation, string> = {
-  routine_processing: 'border-rec-routine/40 bg-rec-routine/10 text-rec-routine-foreground',
-  request_information: 'border-rec-info/50 bg-rec-info/15 text-rec-info-foreground',
-  human_review: 'border-rec-review/40 bg-rec-review/10 text-rec-review-foreground',
+  routine_processing: 'border-border bg-transparent text-foreground',
+  request_information: 'border-border bg-transparent text-foreground',
+  human_review: 'border-border bg-transparent text-foreground',
 };
 
 export const toneSurface: Record<Recommendation, string> = {
-  routine_processing: 'bg-rec-routine/5 ring-rec-routine/25',
-  request_information: 'bg-rec-info/6 ring-rec-info/30',
-  human_review: 'bg-rec-review/5 ring-rec-review/25',
+  routine_processing: 'bg-card ring-border',
+  request_information: 'bg-card ring-border',
+  human_review: 'bg-card ring-border',
 };
 
 export const dotClasses: Record<Recommendation, string> = {

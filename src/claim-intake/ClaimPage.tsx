@@ -158,8 +158,8 @@ export function ClaimPage() {
   return (
     <Shell>
       <div className="mb-6 flex flex-col gap-1">
-        <h1 className="font-serif text-3xl font-normal tracking-normal">Submit a claim</h1>
-        <p className="text-sm text-muted-foreground">Tell us what happened and attach your documents. It takes about five minutes.</p>
+        <h1 className="text-4xl font-normal tracking-[-0.03em]">Submit a claim</h1>
+        <p className="text-sm text-muted-foreground">About five minutes.</p>
       </div>
 
       {canSubmit && <VoicePanel getValues={form.getValues} applyAnswer={form.applyVoiceAnswer} onFinished={() => setVoiceDone(true)} />}
@@ -210,7 +210,7 @@ export function ClaimPage() {
             <Card key={section.id}>
               <CardHeader>
                 <SectionTitle index={index + 1}>{section.title}</SectionTitle>
-                <CardDescription>{section.description}</CardDescription>
+                {section.description && <CardDescription>{section.description}</CardDescription>}
               </CardHeader>
               <CardContent>
                 <FieldGroup className={twoColumnSections.has(section.id) ? 'grid gap-5 sm:grid-cols-2' : undefined}>
@@ -239,7 +239,7 @@ export function ClaimPage() {
         <Card>
           <CardHeader>
             <SectionTitle index={sections.length + 1}>Documents</SectionTitle>
-            <CardDescription>Incident report, repair quote, photos. Up to 10 files, 10 MB each. Files are stored privately with your claim. Automatic document extraction is not enabled yet.</CardDescription>
+            <CardDescription>Up to 10 files, 10 MB each.</CardDescription>
           </CardHeader>
           <CardContent>
             <div data-field="documents"><FileDropzone files={files} reading={reading > 0} notice={notice} onAdd={addFiles} onRemove={index => setFiles(current => current.filter((_, i) => i !== index))} /></div>
