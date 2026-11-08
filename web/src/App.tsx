@@ -54,7 +54,7 @@ function ClaimantApp() {
   const user = useAuthUser();
   const route = useRoute();
   useEffect(() => {
-    document.title = 'My claims · Claims Triage';
+    document.title = 'My claims · Team LLM Taktile case';
     if (route.page !== 'queue') navigate(pageHref('queue'));
   }, [route.page]);
   return (
@@ -91,7 +91,7 @@ function AppContent() {
     if (!canAccessPage(role, route.page)) navigate(pageHref('queue'));
   }, [role, route.page]);
   useEffect(() => {
-    document.title = `${pages.find(page => page.id === tab)?.label ?? 'Review queue'} · Claims Triage`;
+    document.title = `${pages.find(page => page.id === tab)?.label ?? 'Review queue'} · Team LLM Taktile case`;
   }, [tab]);
   const [filters, setFilters] = usePersistentState<ListFilters>('filters', defaultFilters, isFilters);
   const openCaseId = tab === 'examples' ? route.caseId : null;

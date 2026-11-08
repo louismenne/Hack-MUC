@@ -94,7 +94,7 @@ var policySchema = policyShape.superRefine((doc, ctx) => {
 
 // src/policy-ai/suggest.ts
 var TOOL_NAME = "submit_policy";
-var SYSTEM = `You translate insurance claims-triage policy text into a JSON rule set for a deterministic rules engine.
+var SYSTEM = `You translate insurance claims assessment policy text into a JSON rule set for a deterministic rules engine.
 You never decide claims. You only write rule JSON, which a human reviews before it can be used.
 
 Output: call the ${TOOL_NAME} tool exactly once with change_summary, rules and default. Do not answer in prose.

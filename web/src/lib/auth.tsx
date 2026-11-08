@@ -102,7 +102,7 @@ function SignIn({ initialError }: { initialError: string }) {
     } catch { setError('Unable to reach the sign-in service.'); }
     finally { setBusy(false); }
   }
-  return <AuthCard title="Sign in to Claims Triage" description="Team LLM · Invited team members only">
+  return <AuthCard title="Sign in to Team LLM Taktile case" description="Team LLM · Invited team members only">
     <form onSubmit={submit} className="space-y-4">
       <label className="block space-y-1 text-sm">Email<Input type="email" autoComplete="username" required value={email} onChange={e => setEmail(e.target.value)} /></label>
       <label className="block space-y-1 text-sm">Password<Input type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} /></label>

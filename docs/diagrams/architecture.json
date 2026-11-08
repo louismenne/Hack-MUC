@@ -2,7 +2,7 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "Hack-MUC claims triage: architecture, built vs planned",
+    "title": "Team LLM Taktile case: architecture, built vs planned",
     "output": "docs/diagrams/architecture.html",
     "quality_profile": "showcase",
     "locale": "en",

@@ -3,7 +3,7 @@
 Team LLM. Full case brief: `docs/case/case-study.pdf`. Policy v1: `policies/policy-v1.txt`.
 
 ## The task in short
-Build a claims-triage prototype for fictional motor claims. Each claim gets one of:
+Build a claims assessment prototype for fictional motor claims. Each claim gets one of:
 `routine_processing`, `request_information`, `human_review` — with the facts and policy rule behind it.
 Rules decide; an LLM may extract facts or draft explanations but must never override the policy.
 Blank fields are unknown facts, never invented.

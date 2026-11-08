@@ -1,8 +1,8 @@
-# Claims Triage
+# Team LLM Taktile case
 
 **Team LLM · Taktile track · thinc! Munich · 7–8 November 2026**
 
-A motor-claims triage app with deterministic policy rules, human review, and an audit trail. Each claim receives one recommendation: **routine processing**, **request information**, or **human review**. It never approves payment.
+A motor-claims assessment app with deterministic policy rules, human review, and an audit trail. Each claim receives one recommendation: **routine processing**, **request information**, or **human review**. It never approves payment.
 
 [Open the demo](https://hackmuc.vercel.app)
 
