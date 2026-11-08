@@ -1,5 +1,9 @@
 /* Taktile-inspired customer-facing claim design. Motion is native and respects reduced motion. */
 .claim-theme { --background: #fbfaf8; --foreground: #181817; --card: #fbfaf8; --card-foreground: #181817; --border: #e4e2de; --muted: #f0efeb; --muted-foreground: #72716b; --primary: #181817; --primary-foreground: #fff; --accent: #eeede9; --radius: .2rem; --editorial-blue: #5b91a8; }
+.dark .claim-theme { --background: #141413; --foreground: #ecebe6; --card: #1b1b19; --card-foreground: #ecebe6; --popover: #1b1b19; --popover-foreground: #ecebe6; --border: #2e2d2a; --input: #3a3935; --muted: #24231f; --muted-foreground: #9c9a92; --primary: #ecebe6; --primary-foreground: #141413; --secondary: #24231f; --secondary-foreground: #ecebe6; --accent: #26251f; --accent-foreground: #ecebe6; }
+.dark .claim-editorial > header { background: #141413ed; }
+.dark .claim-editorial { border-top-color: #3d4a3e; background: var(--background); color: var(--foreground); }
+.dark .claim-editorial form > [data-slot="card"]:focus-within { border-color: #6f7f69; box-shadow: 0 0 0 1px #6f7f69; }
 .claim-theme ::selection { background: #b9d5df; color: #17282e; }
 .claim-theme :is(button, a, input, textarea, [data-slot="card"]) { transition: background-color .25s ease, color .25s ease, border-color .25s ease, box-shadow .25s ease; }
 .claim-theme [data-slot="button"] { border-radius: 3px; }
@@ -67,11 +71,11 @@
  .claim-theme *, .claim-theme *::before, .claim-theme *::after { animation-duration: .01ms !important; animation-delay: 0ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
 /* The customer-facing form stays focused: a short introduction, then every existing control. */
-.claim-welcome { position: relative; max-width: 1360px; min-height: 360px; margin: 0 auto; color: #fff; overflow: hidden; }
+.claim-welcome { position: relative; min-height: calc(100svh - 76px); margin: 0; color: #fff; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
 .claim-welcome .hero-media { animation: shutter-reveal 1s cubic-bezier(.22,1,.36,1) both; }
 .claim-welcome .hero-media img { object-position: 50% 54%; }
-.claim-welcome-content { position: relative; padding: 46px max(30px,calc((100% - 768px)/2)); pointer-events: none; animation: page-enter .8s .15s both; }
-.claim-welcome-content h2 { font-size: clamp(45px,5vw,68px); line-height: .98; letter-spacing: -.055em; font-weight: 500; margin: 22px 0; }
+.claim-welcome-content { position: relative; padding: 46px max(30px,calc((100% - 1200px)/2)); pointer-events: none; animation: page-enter .8s .15s both; }
+.claim-welcome-content h2 { font-size: clamp(52px,7vw,104px); line-height: .98; letter-spacing: -.055em; font-weight: 500; margin: 22px 0; }
 .claim-welcome-content h2 span { color: #d9dfcf; }
 .claim-welcome-content > p:last-of-type { font-size: 14px; line-height: 1.5; color: #e5e7dd; max-width: 320px; }
 .claim-start-link { display: inline-flex; gap: 30px; align-items: center; margin-top: 23px; font-size: 11px; pointer-events: auto; border-bottom: 1px solid #ffffff70; padding-bottom: 6px; }
@@ -88,7 +92,7 @@
 .claim-design-footer { max-width: 800px; margin: 45px auto 0; border-top: 1px solid var(--border); display: flex; justify-content: space-between; gap: 20px; padding: 25px 16px 35px; color: var(--muted-foreground); }
 .claim-design-footer > span { font-size: 10px; }
 @media(max-width:640px) {
- .claim-welcome { min-height: 340px; }
+ .claim-welcome { min-height: calc(100svh - 76px); }
  .claim-welcome-content { padding: 36px 26px; }
  .claim-welcome-content h2 { font-size: 52px; }
  .claim-welcome-ruler { display: none; }
