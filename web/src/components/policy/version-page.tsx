@@ -16,7 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ApiFailure, policyApi, type ImpactReport, type PolicyDocument, type PolicyVersionRecord } from './api';
 import { DiffList } from './diff-list';
 import { ImpactTable } from './impact-table';
-import { RuleCard } from './rule-view';
+import { RuleCard, RuleRow } from './rule-view';
 
 export const statusLabel = { draft: 'Entwurf', active: 'Aktiv', archived: 'Archiviert' } as const;
 export const sourceLabel = { seed: 'Ausgangs-Policy', edit: 'Bearbeitung', upload: 'Datei-Upload' } as const;
@@ -85,68 +85,59 @@ export function VersionPage({ version, active, aiAvailable, owner, busy, run, on
 
   return (
     <div className="space-y-4">
-      <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeftIcon />Zurück</Button>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex flex-wrap items-center gap-2">
-            Version {version.versionLabel}
-            <Badge variant={version.status === 'active' ? 'default' : 'secondary'}>{statusLabel[version.status]}</Badge>
-            <Badge variant="outline">{sourceLabel[version.source]}</Badge>
-          </CardTitle>
-          <CardDescription>Erstellt von {version.createdBy} · {formatDate(version.createdAt)}{version.activatedAt ? ` · aktiviert ${formatDate(version.activatedAt)}` : ''}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {isDraft ? (
-            <div className="space-y-1">
-              <label htmlFor="summary" className="text-sm font-medium">Änderungstext</label>
-              <Textarea id="summary" rows={2} maxLength={1000} value={summary} onChange={e => setSummary(e.target.value)} placeholder="Was ändert sich und warum? (Wird beim Speichern aus dem Diff ergänzt, wenn leer.)" />
-            </div>
-          ) : <p className="text-sm">{version.changeSummary ?? 'Kein Änderungstext.'}</p>}
-          {!isDraft && canManage && <div><Button variant="outline" size="sm" disabled={busy} onClick={() => void copyToDraft()}>Neuen Entwurf aus dieser Version erstellen</Button></div>}
-        </CardContent>
-      </Card>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeftIcon />Zurück</Button>
+        <h2 className="text-lg font-semibold tracking-tight">{version.versionLabel}</h2>
+        <Badge variant={version.status === 'active' ? 'default' : 'secondary'}>{statusLabel[version.status]}</Badge>
+        <span className="text-xs text-muted-foreground">{sourceLabel[version.source]} · {formatDate(version.createdAt)}</span>
+        {!isDraft && canManage && <Button className="ml-auto" variant="outline" size="sm" disabled={busy} onClick={() => void copyToDraft()}>Als Entwurf kopieren</Button>}
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Regeln</CardTitle>
-          <CardDescription>{isDraft ? 'Werte ändern (Zahlen, ja/nein, Listen) oder eine Regel per KI ändern lassen. Reihenfolge = Priorität: die erste passende Regel entscheidet.' : 'Reihenfolge = Priorität: die erste passende Regel entscheidet. Diese Version ist unveränderlich.'}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ol className="space-y-3">
-            {rules.rules.map((rule, i) => <RuleCard key={rule.id} index={i} rule={rule} fields={rules.fields} onLeaf={isDraft ? onLeaf(i) : undefined} ai={ruleAi(rule.id)} />)}
-            <RuleCard index={null} rule={rules.default} fields={rules.fields} isDefault />
-          </ol>
-          {isDraft && (
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Button disabled={busy || !dirty} onClick={() => void save()}>Entwurf speichern</Button>
-              <Button variant="destructive" disabled={busy} onClick={() => void discard()}>Entwurf verwerfen</Button>
-              {dirty && <span className="self-center text-sm text-muted-foreground">Ungespeicherte Änderungen</span>}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {isDraft && (
-        <Card>
+      <div className={isDraft ? 'grid items-start gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(340px,2fr)]' : ''}>
+        <Card className="gap-3">
           <CardHeader>
-            <CardTitle>Prüfen und freigeben</CardTitle>
-            <CardDescription>Unterschiede zur aktiven Version {active.versionLabel} und die Folgen für offene Fälle.</CardDescription>
+            <CardTitle>Regeln</CardTitle>
+            <CardDescription>{isDraft ? 'Werte direkt ändern. Die erste passende Regel entscheidet.' : version.changeSummary ?? 'Die erste passende Regel entscheidet.'}</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-5">
-            <section><h3 className="mb-2 text-sm font-medium">Änderungen gegenüber {active.versionLabel}</h3><DiffList changes={changes} empty="Der Entwurf ist noch identisch mit der aktiven Version." /></section>
-            <section>
-              <h3 className="mb-2 text-sm font-medium">Folgenabschätzung {dirty && <span className="font-normal text-muted-foreground">(gilt für den gespeicherten Stand)</span>}</h3>
-              {impactError ? <Alert variant="destructive"><AlertTitle>Folgenabschätzung nicht möglich</AlertTitle><AlertDescription>{impactError}</AlertDescription></Alert>
-                : impact ? <ImpactTable impact={impact} /> : <p className="text-sm text-muted-foreground">Wird berechnet …</p>}
-            </section>
-            <div className="flex flex-wrap items-center gap-3">
-              <Button disabled={busy || dirty || !impact || changes.length === 0} onClick={() => setConfirm(true)}>Freigeben</Button>
-              {dirty && <span className="text-sm text-muted-foreground">Erst speichern, dann freigeben.</span>}
-              {!dirty && changes.length === 0 && <span className="text-sm text-muted-foreground">Keine Änderung, nichts freizugeben.</span>}
-            </div>
+          <CardContent>
+            {isDraft ? (
+              <ol className="space-y-2">
+                {rules.rules.map((rule, i) => <RuleCard key={rule.id} index={i} rule={rule} fields={rules.fields} onLeaf={onLeaf(i)} ai={ruleAi(rule.id)} />)}
+                <RuleCard index={null} rule={rules.default} fields={rules.fields} isDefault />
+              </ol>
+            ) : (
+              <ol className="divide-y rounded-lg border">
+                {rules.rules.map((rule, i) => <RuleRow key={rule.id} index={i} rule={rule} fields={rules.fields} />)}
+                <RuleRow index={null} rule={rules.default} fields={rules.fields} />
+              </ol>
+            )}
           </CardContent>
         </Card>
-      )}
+
+        {isDraft && (
+          <Card className="gap-4 lg:sticky lg:top-4">
+            <CardHeader>
+              <CardTitle>Vorschau</CardTitle>
+              <CardDescription>Gegenüber {active.versionLabel}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <DiffList changes={changes} empty="Noch keine Änderung." />
+              <section className="space-y-2 border-t pt-4">
+                <h3 className="text-sm font-medium">Folgen für Fälle {dirty && <span className="font-normal text-muted-foreground">(gespeicherter Stand)</span>}</h3>
+                {impactError ? <Alert variant="destructive"><AlertTitle>Nicht berechenbar</AlertTitle><AlertDescription>{impactError}</AlertDescription></Alert>
+                  : impact ? <ImpactTable impact={impact} /> : <p className="text-sm text-muted-foreground">Wird berechnet …</p>}
+              </section>
+              <Textarea aria-label="Änderungstext" rows={2} maxLength={1000} value={summary} onChange={e => setSummary(e.target.value)} placeholder="Warum? (optional)" />
+              <div className="flex flex-wrap items-center gap-2 border-t pt-4">
+                {dirty
+                  ? <Button disabled={busy} onClick={() => void save()}>Speichern</Button>
+                  : <Button disabled={busy || !impact || changes.length === 0} onClick={() => setConfirm(true)}>Freigeben</Button>}
+                <Button variant="ghost" className="text-destructive" disabled={busy} onClick={() => void discard()}>Verwerfen</Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       <AlertDialog open={confirm} onOpenChange={setConfirm}>
         <AlertDialogContent>

@@ -2,30 +2,29 @@ import { describe, expect, it } from 'vitest';
 import { defaultAssumptions, estimateSavings } from '../src/savings.js';
 
 describe('estimateSavings', () => {
-  const a = { manualErrorRate: 0.04, avgWrongPaymentEur: 2000, minutesPerReview: 30, hourlyCostEur: 40 };
+  const a = { manualMinutesPerClaim: 15, routineCheckMinutes: 2, infoRequestMinutes: 5, reviewMinutes: 15, hourlyCostEur: 40 };
 
-  it('counts manual reviews avoided and staff cost saved', () => {
-    const s = estimateSavings({ claims: 100, automated: 60, humanReview: 30, systemWrongRoutineRate: 0 }, a);
-    expect(s.manualReviewsBefore).toBe(100);
-    expect(s.manualReviewsNow).toBe(30);
-    expect(s.manualReviewReduction).toBeCloseTo(0.7);
-    expect(s.staffHoursSaved).toBe(35);
-    expect(s.staffCostSavedEur).toBe(1400);
+  it('compares staff minutes per route with triaging every claim by hand', () => {
+    const s = estimateSavings({ routine: 6, requestInfo: 2, humanReview: 2 }, a);
+    expect(s.claims).toBe(10);
+    expect(s.minutesBefore).toBe(150);
+    expect(s.minutesNow).toBe(6 * 2 + 2 * 5 + 2 * 15);
+    expect(s.hoursSaved).toBeCloseTo((150 - 52) / 60);
+    expect(s.timeReduction).toBeCloseTo(98 / 150);
+    expect(s.minutesSavedPerClaim).toBeCloseTo(9.8);
+    expect(s.staffCostSavedEur).toBeCloseTo((98 / 60) * 40);
+    expect(s.fullReviewsNow).toBe(2);
   });
 
-  it('values fewer wrong payments with the measured system error rate', () => {
-    const s = estimateSavings({ claims: 100, automated: 60, humanReview: 30, systemWrongRoutineRate: 0.01 }, a);
-    expect(s.wrongPaymentsBefore).toBe(4);
-    expect(s.wrongPaymentsNow).toBeCloseTo(0.6 + 1.2);
-    expect(s.wrongPaymentCostSavedEur).toBeCloseTo((4 - 1.8) * 2000);
-    expect(s.totalSavedEur).toBeCloseTo(s.staffCostSavedEur + s.wrongPaymentCostSavedEur);
+  it('claims no saving on human-review claims by default', () => {
+    const s = estimateSavings({ routine: 0, requestInfo: 0, humanReview: 4 });
+    expect(s.hoursSaved).toBe(0);
+    expect(defaultAssumptions.reviewMinutes).toBe(defaultAssumptions.manualMinutesPerClaim);
   });
 
   it('never reports negative savings and handles an empty period', () => {
-    const worse = estimateSavings({ claims: 10, automated: 10, humanReview: 0, systemWrongRoutineRate: 0.5 }, a);
-    expect(worse.wrongPaymentCostSavedEur).toBe(0);
-    const empty = estimateSavings({ claims: 0, automated: 0, humanReview: 0, systemWrongRoutineRate: 0 });
-    expect(empty).toMatchObject({ manualReviewReduction: 0, totalSavedEur: 0 });
-    expect(defaultAssumptions.manualErrorRate).toBeGreaterThan(0);
+    const slower = estimateSavings({ routine: 1, requestInfo: 0, humanReview: 1 }, { ...a, reviewMinutes: 60 });
+    expect(slower.hoursSaved).toBe(0);
+    expect(estimateSavings({ routine: 0, requestInfo: 0, humanReview: 0 })).toMatchObject({ claims: 0, timeReduction: 0, minutesSavedPerClaim: 0 });
   });
 });

@@ -1,76 +1,73 @@
 /**
- * Owner savings estimate: the triage system compared with the fully manual process
- * the insurer ran a year ago (every claim reviewed by a person).
+ * Staff time the triage system saves compared with a fully manual process, for the claims
+ * received in the selected period.
  *
- * All money and time figures are ESTIMATES driven by the assumptions below. They are shown
- * next to the result and can be edited, so the owner sees exactly where a number comes from.
- * Keep the defaults aligned with the team's business case.
+ * Deliberately conservative and countable:
+ * - The claim counts per route are facts (what the system decided for each claim in the period).
+ * - Minutes per route and the hourly cost are stated assumptions, editable in the UI.
+ * - Human-review claims are assumed to take as long as today (no speed-up claimed), and
+ *   automated routes still cost a few minutes of human checking.
+ * - No money is claimed for avoided wrong payments: that would need an invented error rate for
+ *   the manual process. Error rates are measured separately on the labelled cases.
+ * Rationale and sources: docs/savings-model.md.
  */
 export interface SavingsAssumptions {
-  /** Share of claims that a fully manual process sends to payment wrongly (0–1). */
-  manualErrorRate: number;
-  /** Average cost of one wrongly paid claim, in euros. */
-  avgWrongPaymentEur: number;
-  /** Staff minutes one manual claim review takes. */
-  minutesPerReview: number;
+  /** Manual process: minutes a handler needs to triage one claim (read pack, check policy, decide next step). */
+  manualMinutesPerClaim: number;
+  /** With the system: minutes to spot-check a claim sent to routine processing. */
+  routineCheckMinutes: number;
+  /** With the system: minutes to check and send an automatically drafted information request. */
+  infoRequestMinutes: number;
+  /** With the system: minutes for a human review. Defaults to the manual time (no speed-up claimed). */
+  reviewMinutes: number;
   /** Fully loaded staff cost per hour, in euros. */
   hourlyCostEur: number;
 }
 
 export const defaultAssumptions: SavingsAssumptions = {
-  manualErrorRate: 0.03,
-  avgWrongPaymentEur: 2500,
-  minutesPerReview: 25,
-  hourlyCostEur: 45,
+  manualMinutesPerClaim: 15,
+  routineCheckMinutes: 2,
+  infoRequestMinutes: 5,
+  reviewMinutes: 15,
+  hourlyCostEur: 40,
 };
 
 export interface SavingsInput {
-  /** Claims in the period. */
-  claims: number;
-  /** Claims the system sent straight to routine processing (no staff review). */
-  automated: number;
-  /** Claims a person still has to review. */
+  routine: number;
+  requestInfo: number;
   humanReview: number;
-  /** Measured share of routine recommendations that were wrong (from labelled cases), 0–1. */
-  systemWrongRoutineRate: number;
 }
 
 export interface Savings {
-  manualReviewsBefore: number;
-  manualReviewsNow: number;
-  /** Reduction of manual reviews vs. the manual process, 0–1. */
-  manualReviewReduction: number;
-  staffHoursSaved: number;
+  claims: number;
+  /** Claims a person had to triage fully before (all of them) and now (human review only). */
+  fullReviewsBefore: number;
+  fullReviewsNow: number;
+  minutesBefore: number;
+  minutesNow: number;
+  /** Share of staff triage time saved, 0–1. */
+  timeReduction: number;
+  hoursSaved: number;
+  /** Average minutes saved per claim in the period. */
+  minutesSavedPerClaim: number;
   staffCostSavedEur: number;
-  wrongPaymentsBefore: number;
-  wrongPaymentsNow: number;
-  wrongPaymentCostSavedEur: number;
-  totalSavedEur: number;
 }
 
 export function estimateSavings(input: SavingsInput, a: SavingsAssumptions = defaultAssumptions): Savings {
-  const { claims, automated, humanReview, systemWrongRoutineRate } = input;
-  // A year ago every claim was reviewed by hand. Now only human-review cases are; information
-  // requests go out automatically.
-  const manualReviewsBefore = claims;
-  const manualReviewsNow = humanReview;
-  const avoidedReviews = Math.max(0, manualReviewsBefore - manualReviewsNow);
-  const staffHoursSaved = (avoidedReviews * a.minutesPerReview) / 60;
-  // Manual process: the manual error rate applies to every claim. Now: automated claims carry the
-  // measured system error rate, reviewed claims keep the manual error rate.
-  const wrongPaymentsBefore = claims * a.manualErrorRate;
-  const wrongPaymentsNow = automated * systemWrongRoutineRate + humanReview * a.manualErrorRate;
-  const wrongPaymentCostSavedEur = Math.max(0, wrongPaymentsBefore - wrongPaymentsNow) * a.avgWrongPaymentEur;
-  const staffCostSavedEur = staffHoursSaved * a.hourlyCostEur;
+  const { routine, requestInfo, humanReview } = input;
+  const claims = routine + requestInfo + humanReview;
+  const minutesBefore = claims * a.manualMinutesPerClaim;
+  const minutesNow = routine * a.routineCheckMinutes + requestInfo * a.infoRequestMinutes + humanReview * a.reviewMinutes;
+  const savedMinutes = Math.max(0, minutesBefore - minutesNow);
   return {
-    manualReviewsBefore,
-    manualReviewsNow,
-    manualReviewReduction: manualReviewsBefore ? avoidedReviews / manualReviewsBefore : 0,
-    staffHoursSaved,
-    staffCostSavedEur,
-    wrongPaymentsBefore,
-    wrongPaymentsNow,
-    wrongPaymentCostSavedEur,
-    totalSavedEur: staffCostSavedEur + wrongPaymentCostSavedEur,
+    claims,
+    fullReviewsBefore: claims,
+    fullReviewsNow: humanReview,
+    minutesBefore,
+    minutesNow,
+    timeReduction: minutesBefore ? savedMinutes / minutesBefore : 0,
+    hoursSaved: savedMinutes / 60,
+    minutesSavedPerClaim: claims ? savedMinutes / claims : 0,
+    staffCostSavedEur: (savedMinutes / 60) * a.hourlyCostEur,
   };
 }

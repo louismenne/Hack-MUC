@@ -2,19 +2,21 @@ import { navigate, pageHref, useRoute } from '@/lib/navigation';
 import { permissions } from '../../../../src/roles';
 import { useAuthUser } from '@/lib/auth';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FileTextIcon, PlusIcon, SparklesIcon } from 'lucide-react';
+import { ArrowUpIcon, ChevronRightIcon, PencilIcon, UploadIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { policyHistoryFrom } from '../../../../src/policy-engine/history';
 import { diffPolicies } from '../../../../src/policy-view/diff';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Spinner } from '@/components/ui/spinner';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AI_UNAVAILABLE, ApiFailure, policyApi, type PolicyVersionRecord } from './api';
 import { DiffList } from './diff-list';
-import { RuleCard } from './rule-view';
+import { RuleRow } from './rule-view';
+import { cn } from '@/lib/utils';
 import { VersionPage, formatDate, sourceLabel, statusLabel } from './version-page';
 
 const MAX_PDF_BYTES = 2_400_000;
@@ -47,7 +49,6 @@ export function PolicyWorkspace() {
   }, []);
   const setTab = (view: string) => navigate(pageHref('policy', view === 'history' ? new URLSearchParams({ view }) : undefined));
   const [compare, setCompare] = useState<{ from: string; to: string } | null>(null);
-  const file = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async (open?: string | null) => {
     try {
@@ -92,7 +93,6 @@ export function PolicyWorkspace() {
       toast.success(`Claude hat ${r.version.versionLabel} als Entwurf vorgeschlagen. Bitte Diff und Folgen prüfen.`);
       await load(r.version.id);
     });
-    if (file.current) file.current.value = '';
   };
 
   if (error && !versions) {
@@ -102,85 +102,79 @@ export function PolicyWorkspace() {
 
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-4">
-      <Card>
-        <CardContent className="flex flex-wrap items-end gap-4">
-          <label className="space-y-1 text-sm">
-            <span className="font-medium">Angemeldet als</span>
-            <Input className="w-56" value={user.email ?? owner} readOnly />
-          </label>
-          <p className="max-w-md text-xs text-muted-foreground">Neue Entwürfe werden serverseitig deiner verifizierten Benutzer-ID zugeordnet. Regeln werden nur von deterministischem Code ausgewertet; die KI macht ausschließlich Vorschläge, die du freigibst.</p>
-          <div className="ml-auto flex items-center gap-2"><Badge>Aktiv: {active.versionLabel}</Badge>{drafts.length > 0 && <Badge variant="secondary">{drafts.length} Entwurf{drafts.length > 1 ? 'e' : ''}</Badge>}</div>
-        </CardContent>
-      </Card>
-
-      <Alert>
-        <AlertTitle>Geltungsbereich: offene und geschlossene Fälle</AlertTitle>
-        <AlertDescription>
-          Offene Fälle werden mit {active.versionLabel} bewertet. Geschlossene eingereichte Fälle behalten ihre gespeicherte Entscheidung und werden nicht erneut zur Prüfung markiert.
-          Diese Auswahl erfolgt vor der Regelauswertung und ist keine editierbare Policy-Regel. Im Hackathon wird das historische Ergebnis aus den unveränderten Falldaten rekonstruiert; gespeicherte Entscheidungssnapshots sind noch nicht implementiert.
-        </AlertDescription>
-      </Alert>
-
       {open ? (
         <VersionPage key={`${open.id}|${open.changeSummary}|${JSON.stringify(open.rules)}`} version={open} active={active} aiAvailable={aiAvailable && canManage} owner={owner} busy={busy} run={run} onBack={() => setOpenId(null)} onReload={load} />
       ) : (
         <Tabs value={tab} onValueChange={setTab} className="gap-4">
-          <TabsList>
-            <TabsTrigger value="overview">Aktive Policy</TabsTrigger>
-            <TabsTrigger value="history">Versionen ({versions.length})</TabsTrigger>
-          </TabsList>
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-lg font-semibold tracking-tight">Policy</h2>
+            <Badge>Aktiv: {active.versionLabel}</Badge>
+            <span className="text-xs text-muted-foreground">seit {formatDate(active.activatedAt)}</span>
+            <TabsList className="ml-auto">
+              <TabsTrigger value="overview">Aktiv</TabsTrigger>
+              <TabsTrigger value="history">Versionen ({versions.length})</TabsTrigger>
+            </TabsList>
+          </div>
 
-          <TabsContent value="overview" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Version {active.versionLabel} ist aktiv</CardTitle>
-                <CardDescription>{active.changeSummary ?? ''} Erstellt von {active.createdBy}, aktiviert {formatDate(active.activatedAt)}.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">Die Regeln werden von oben nach unten geprüft. Die erste passende Regel entscheidet; passt keine, gilt die Standardregel. Es gibt keine automatische Ablehnung.</p>
-                <ol className="space-y-3">
-                  {active.rules.rules.map((rule, i) => (
-                    <RuleCard key={rule.id} index={i} rule={rule} fields={active.rules.fields}
-                      ai={{ available: canManage && aiAvailable && !!owner.trim(), busy, onSubmit: instruction => { void run(async () => {
-                        const r = await policyApi.aiInstruction({ createdBy: owner, versionId: active.id, ruleId: rule.id, instruction });
-                        toast.success(`Claude hat ${r.version.versionLabel} als Entwurf vorgeschlagen. Bitte Diff und Folgen prüfen.`);
+          <TabsContent value="overview">
+            <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(320px,2fr)]">
+              <Card className="gap-3">
+                <CardHeader>
+                  <CardTitle>Regeln</CardTitle>
+                  <CardDescription>Von oben nach unten, die erste passende entscheidet.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ol className="divide-y rounded-lg border">
+                    {active.rules.rules.map((rule, i) => <RuleRow key={rule.id} index={i} rule={rule} fields={active.rules.fields} />)}
+                    <RuleRow index={null} rule={active.rules.default} fields={active.rules.fields} />
+                  </ol>
+                  <p className="mt-3 text-xs text-muted-foreground">Offene Fälle nutzen die aktive Version. Geschlossene behalten ihre Entscheidung.</p>
+                </CardContent>
+              </Card>
+
+              {canManage ? (
+                <Card className="gap-4 lg:sticky lg:top-4">
+                  <CardHeader>
+                    <CardTitle>Policy ändern</CardTitle>
+                    <Steps />
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <PolicyDrop disabled={busy || !aiAvailable} onFile={fromFile} />
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground"><span className="h-px flex-1 bg-border" />oder<span className="h-px flex-1 bg-border" /></div>
+                    <ChangeChat
+                      disabled={busy || !aiAvailable}
+                      onSubmit={instruction => { if (needName()) return; void run(async () => {
+                        const r = await policyApi.aiInstruction({ createdBy: owner, versionId: active.id, instruction });
+                        toast.success(`Entwurf ${r.version.versionLabel} erstellt. Bitte prüfen.`);
                         await load(r.version.id);
-                      }); } }} />
-                  ))}
-                  <RuleCard index={null} rule={active.rules.default} fields={active.rules.fields} isDefault />
-                </ol>
-              </CardContent>
-            </Card>
-
-            {canManage && <Card>
-              <CardHeader><CardTitle>Neue Version vorbereiten</CardTitle><CardDescription>Jede Änderung wird zuerst ein Entwurf. Du siehst Diff und betroffene offene Fälle, bevor du freigibst.</CardDescription></CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2 rounded-lg border p-4">
-                  <h3 className="flex items-center gap-2 text-sm font-medium"><PlusIcon className="size-4" />Manuell bearbeiten</h3>
-                  <p className="text-sm text-muted-foreground">Kopiert die aktive Version als Entwurf. Werte wie Betragsgrenzen änderst du direkt in den Regeln, ganz ohne KI.</p>
-                  <Button disabled={busy} onClick={newDraft}>Neuen Entwurf anlegen</Button>
-                </div>
-                <div className="space-y-2 rounded-lg border p-4">
-                  <h3 className="flex items-center gap-2 text-sm font-medium"><SparklesIcon className="size-4" />Policy-Dokument hochladen</h3>
-                  <p className="text-sm text-muted-foreground">Text, Markdown oder PDF. Claude übersetzt das Dokument in einen Entwurf im Regel-Schema.</p>
-                  <input ref={file} type="file" accept=".txt,.md,.markdown,.pdf,text/plain,text/markdown,application/pdf" className="hidden" onChange={e => fromFile(e.target.files?.[0])} />
-                  <Button variant="outline" disabled={busy || !aiAvailable} onClick={() => file.current?.click()}><FileTextIcon />Datei auswählen</Button>
-                  {!aiAvailable && <p className="text-sm text-muted-foreground">{AI_UNAVAILABLE}</p>}
-                  {busy && aiAvailable && <p className="text-sm text-muted-foreground" role="status">Claude arbeitet …</p>}
-                </div>
-                {drafts.length > 0 && (
-                  <div className="space-y-2 md:col-span-2">
-                    <h3 className="text-sm font-medium">Offene Entwürfe</h3>
-                    {drafts.map(d => <div key={d.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"><span><strong>{d.versionLabel}</strong> · {d.createdBy} · {formatDate(d.createdAt)}{d.changeSummary ? ` · ${d.changeSummary}` : ''}</span><Button size="sm" variant="outline" onClick={() => setOpenId(d.id)}>Öffnen</Button></div>)}
-                  </div>
-                )}
-              </CardContent>
-            </Card>}
+                      }); }}
+                    />
+                    {!aiAvailable && <p className="text-xs text-muted-foreground">{AI_UNAVAILABLE}</p>}
+                    {busy && aiAvailable && <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status"><Spinner />Claude erstellt den Entwurf …</p>}
+                    <Button variant="ghost" size="sm" className="px-0 text-muted-foreground" disabled={busy} onClick={newDraft}><PencilIcon />Ohne KI manuell bearbeiten</Button>
+                    {drafts.length > 0 && (
+                      <div className="space-y-2 border-t pt-4">
+                        <h3 className="text-sm font-medium">Offene Entwürfe</h3>
+                        {drafts.map(d => (
+                          <button key={d.id} type="button" onClick={() => setOpenId(d.id)} className="flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left text-sm hover:bg-muted/50">
+                            <strong>{d.versionLabel}</strong>
+                            <span className="min-w-0 flex-1 truncate text-muted-foreground">{d.changeSummary ?? formatDate(d.createdAt)}</span>
+                            <ChevronRightIcon className="size-4 text-muted-foreground" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card><CardContent className="text-sm text-muted-foreground">Nur der Policy-Owner kann Änderungen vorschlagen.</CardContent></Card>
+              )}
+            </div>
           </TabsContent>
 
           <TabsContent value="history" className="space-y-4">
             <Card>
-              <CardHeader><CardTitle>Versionshistorie</CardTitle><CardDescription>Alle Versionen mit Status, Quelle, Ersteller und Änderungstext.</CardDescription></CardHeader>
+              <CardHeader><CardTitle>Versionen</CardTitle></CardHeader>
               <CardContent className="space-y-3">
                 {[...versions].reverse().map(v => (
                   <div key={v.id} className="flex flex-wrap items-start justify-between gap-3 rounded-lg border p-3">
@@ -195,7 +189,7 @@ export function PolicyWorkspace() {
               </CardContent>
             </Card>
             <Card>
-              <CardHeader><CardTitle>Versionen vergleichen</CardTitle><CardDescription>Unterschiede in Klartext, z. B. „Repair quote (EUR) größer als: 1.500 → 1.200“.</CardDescription></CardHeader>
+              <CardHeader><CardTitle>Vergleichen</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <label className="flex items-center gap-2">Von
@@ -218,3 +212,60 @@ export function PolicyWorkspace() {
     </div>
   );
 }
+
+const ACCEPT = '.txt,.md,.markdown,.pdf,text/plain,text/markdown,application/pdf';
+
+/** Change → preview → activate: the owner's whole flow at a glance. */
+function Steps() {
+  return (
+    <ol className="flex items-center gap-2 text-xs text-muted-foreground">
+      {['Ändern', 'Vorschau prüfen', 'Freigeben'].map((step, i) => (
+        <li key={step} className="flex items-center gap-2">
+          {i > 0 && <ChevronRightIcon className="size-3" />}
+          <span className={cn('flex size-4 items-center justify-center rounded-full border text-[10px]', i === 0 && 'border-foreground text-foreground')}>{i + 1}</span>
+          <span className={cn(i === 0 && 'text-foreground')}>{step}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** Drop a new policy document (PDF, text, Markdown); Claude turns it into a draft. */
+function PolicyDrop({ disabled, onFile }: { disabled: boolean; onFile: (file: File | undefined) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+  return (
+    <div
+      data-dragging={dragging || undefined}
+      onDragOver={e => { e.preventDefault(); if (!disabled) setDragging(true); }}
+      onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false); }}
+      onDrop={e => { e.preventDefault(); setDragging(false); if (!disabled) onFile(e.dataTransfer.files[0]); }}
+      className={cn('flex flex-col items-center gap-2 rounded-lg border border-dashed p-5 text-center transition-colors data-dragging:border-primary data-dragging:bg-primary/5', disabled && 'opacity-60')}
+    >
+      <UploadIcon className="size-5 text-muted-foreground" />
+      <div className="text-sm font-medium">Neue Policy-Datei hierher ziehen</div>
+      <div className="text-xs text-muted-foreground">PDF, TXT oder Markdown</div>
+      <Button size="sm" variant="outline" disabled={disabled} onClick={() => input.current?.click()}>Datei wählen</Button>
+      <input ref={input} type="file" accept={ACCEPT} className="sr-only" tabIndex={-1} aria-hidden onChange={e => { onFile(e.target.files?.[0]); e.target.value = ''; }} />
+    </div>
+  );
+}
+
+/** Chat-style instruction against the active version, e.g. "Grenze auf 1.000 € senken". */
+function ChangeChat({ disabled, onSubmit }: { disabled: boolean; onSubmit: (instruction: string) => void }) {
+  const [text, setText] = useState('');
+  const send = () => { if (!text.trim() || disabled) return; onSubmit(text.trim()); setText(''); };
+  return (
+    <div className="relative">
+      <label htmlFor="policy-change" className="sr-only">Was soll sich ändern?</label>
+      <Textarea
+        id="policy-change" rows={3} maxLength={1000} className="resize-none pr-12"
+        placeholder="Was soll sich ändern? z. B. „Grenze für Kostenvoranschläge auf 1.000 € senken“"
+        value={text} disabled={disabled} onChange={e => setText(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
+      />
+      <Button size="icon" className="absolute right-2 bottom-2 size-8" aria-label="Entwurf erstellen" disabled={disabled || !text.trim()} onClick={send}><ArrowUpIcon /></Button>
+    </div>
+  );
+}
+

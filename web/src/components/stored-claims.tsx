@@ -274,8 +274,6 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="max-w-3xl text-sm text-muted-foreground">
             <span className="font-medium text-foreground tabular-nums">{total} submitted claims</span>
-            {policy && <> · evaluated with <span className="font-mono text-foreground">{policy}</span></>}. Arrival charts keep each claim’s first saved evaluation;
-            the current backlog and rechecks use the latest saved decision. Savings are estimates from your local assumptions.
           </p>
           {refreshButton}
         </div>
@@ -375,11 +373,6 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
             Submitted claims
             <Badge variant="secondary" className="tabular-nums">{total}</Badge>
           </h2>
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            Open claims are re-evaluated on the server
-            {policy && <> with policy <span className="font-mono text-foreground">{policy}</span></>} on every refresh. Decisions and
-            review history are saved; closed claims keep their saved decision.
-          </p>
         </div>
         <div className="flex items-center gap-2">
           {refreshButton}

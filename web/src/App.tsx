@@ -20,7 +20,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { navigate, pages, pageHref, PageLink, useRoute } from '@/lib/navigation';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { reviewState, type ReviewState } from '../../src/review';
 
 interface StoredUpload { name: string; csv: string }
@@ -146,14 +145,6 @@ function AppContent() {
           </nav>
 
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Badge variant="outline" className="hidden font-mono sm:inline-flex">policy {history.active.label}{source.refreshing ? ' · checking…' : ''}</Badge>
-              </TooltipTrigger>
-              <TooltipContent>
-                {source.origin === 'supabase' ? 'Active policy version from Supabase.' : 'Bundled copy of the policy files (Supabase not reachable).'} CSV examples use these rules. Submitted claims use saved server decisions.
-              </TooltipContent>
-            </Tooltip>
             <AccountMenu email={user.email ?? ''} roleLabel={role ? roleLabels[role] : 'Unassigned (read only)'} canManageTeam={access.team} />
           </div>
         </div>

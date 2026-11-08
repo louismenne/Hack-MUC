@@ -139,7 +139,7 @@ export function QualityView({ dataset, states, events, renderLog }: QualityViewP
         </ToggleGroup>
       </div>
 
-      <SavingsCard insights={insights} engine={labelled.length ? engine : null} />
+      <SavingsCard insights={insights} range={range} />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
         <Kpi label="Claims received" value={insights.total} change={delta(insights.total, prior?.total ?? null, 'count')} better="neutral" vs={vs} />
@@ -399,10 +399,11 @@ function TrendCard({ series, window, showDemoPolicyMarker }: { series: SeriesPoi
   );
 }
 
-const assumptionFields: { key: keyof SavingsAssumptions; label: string; unit: string; step: number; percent?: boolean }[] = [
-  { key: 'manualErrorRate', label: 'Wrongly paid claims in the manual process', unit: '%', step: 0.5, percent: true },
-  { key: 'avgWrongPaymentEur', label: 'Average cost of one wrongly paid claim', unit: '€', step: 100 },
-  { key: 'minutesPerReview', label: 'Staff time per manual review', unit: 'min', step: 5 },
+const assumptionFields: { key: keyof SavingsAssumptions; label: string; unit: string; step: number }[] = [
+  { key: 'manualMinutesPerClaim', label: 'Manual triage per claim (before)', unit: 'min', step: 1 },
+  { key: 'routineCheckMinutes', label: 'Spot-check of a routine claim', unit: 'min', step: 1 },
+  { key: 'infoRequestMinutes', label: 'Check and send an info request', unit: 'min', step: 1 },
+  { key: 'reviewMinutes', label: 'Human review', unit: 'min', step: 1 },
   { key: 'hourlyCostEur', label: 'Staff cost per hour', unit: '€', step: 5 },
 ];
 
@@ -410,81 +411,87 @@ const isAssumptions = (value: unknown): value is SavingsAssumptions =>
   typeof value === 'object' && value !== null && assumptionFields.every(f => typeof (value as Record<string, unknown>)[f.key] === 'number');
 
 const eur0 = new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+const hours = (h: number) => (h < 10 ? h.toFixed(1) : Math.round(h).toString());
 
-/** Business view: what the system saves compared with the fully manual process a year ago. Estimates. */
-function SavingsCard({ insights, engine }: { insights: Insights; engine: QualityReport | null }) {
-  const [assumptions, setAssumptions] = usePersistentState<SavingsAssumptions>('savings-assumptions', defaultAssumptions, isAssumptions);
+/** Staff time saved on the claims received in the selected period, vs. triaging every claim by hand. Estimate. */
+function SavingsCard({ insights, range }: { insights: Insights; range: TimeRange }) {
+  const [assumptions, setAssumptions] = usePersistentState<SavingsAssumptions>('savings-assumptions-v2', defaultAssumptions, isAssumptions);
   const [editing, setEditing] = useState(false);
-  // Measured error rate of routine recommendations on labelled cases (0 when nothing is labelled).
-  const predictedRoutine = engine ? recommendations.reduce((n, expected) => n + engine.confusion[expected].routine_processing, 0) : 0;
-  const systemWrongRoutineRate = engine && predictedRoutine ? engine.incorrectRoutine / predictedRoutine : 0;
   const s = estimateSavings({
-    claims: insights.total,
-    automated: insights.mix.routine_processing,
+    routine: insights.mix.routine_processing,
+    requestInfo: insights.mix.request_information,
     humanReview: insights.mix.human_review,
-    systemWrongRoutineRate,
   }, assumptions);
+  const period = range === '1d' ? 'today' : range === 'all' ? 'all time' : `last ${rangeLabels[range].toLowerCase()}`;
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <PiggyBankIcon className="size-4" /> Savings vs. manual process (1 year ago)
+          <PiggyBankIcon className="size-4" /> Saved vs. manual triage · {period}
           <Badge variant="outline" className="font-normal text-muted-foreground">Estimate</Badge>
         </CardTitle>
         <CardAction>
-          <Button variant="outline" size="sm" onClick={() => setEditing(true)}><SlidersHorizontalIcon data-icon="inline-start" /> Assumptions</Button>
+          <Button variant="outline" size="sm" onClick={() => setEditing(true)}><SlidersHorizontalIcon data-icon="inline-start" /> How it's calculated</Button>
         </CardAction>
       </CardHeader>
       <CardContent className="grid gap-6 sm:grid-cols-3">
-        <div>
-          <div className="text-3xl font-semibold tracking-tight tabular-nums">{eur0.format(s.wrongPaymentCostSavedEur)}</div>
-          <div className="text-sm font-medium">saved on wrongly paid claims</div>
-          <div className="text-xs text-muted-foreground">≈ {s.wrongPaymentsBefore.toFixed(1)} → {s.wrongPaymentsNow.toFixed(1)} wrong payments</div>
-        </div>
-        <div>
-          <div className="text-3xl font-semibold tracking-tight tabular-nums text-rec-routine-foreground">−{Math.round(s.manualReviewReduction * 100)}%</div>
-          <div className="text-sm font-medium">manual reviews by staff</div>
-          <div className="text-xs text-muted-foreground">{s.manualReviewsBefore} → {s.manualReviewsNow} reviews · ≈ {Math.round(s.staffHoursSaved)} h · {eur0.format(s.staffCostSavedEur)}</div>
-        </div>
-        <div>
-          <div className="text-3xl font-semibold tracking-tight tabular-nums">{eur0.format(s.totalSavedEur)}</div>
-          <div className="text-sm font-medium">saved in total</div>
-          <div className="text-xs text-muted-foreground">{insights.total} claims in this period</div>
-        </div>
+        {s.claims === 0 ? (
+          <div className="text-sm text-muted-foreground sm:col-span-3">No claims received {period}, so nothing saved yet.</div>
+        ) : (
+          <>
+            <div>
+              <div className="text-3xl font-semibold tracking-tight tabular-nums">≈ {hours(s.hoursSaved)} h</div>
+              <div className="text-sm font-medium">staff time saved</div>
+              <div className="text-xs text-muted-foreground">≈ {Math.round(s.minutesSavedPerClaim)} min per claim · {s.claims} claims</div>
+            </div>
+            <div>
+              <div className="text-3xl font-semibold tracking-tight tabular-nums text-rec-routine-foreground">−{Math.round(s.timeReduction * 100)}%</div>
+              <div className="text-sm font-medium">manual triage time</div>
+              <div className="text-xs text-muted-foreground">{s.fullReviewsBefore} → {s.fullReviewsNow} full reviews</div>
+            </div>
+            <div>
+              <div className="text-3xl font-semibold tracking-tight tabular-nums">≈ {eur0.format(s.staffCostSavedEur)}</div>
+              <div className="text-sm font-medium">staff cost saved</div>
+              <div className="text-xs text-muted-foreground">at {eur0.format(assumptions.hourlyCostEur)}/h</div>
+            </div>
+          </>
+        )}
       </CardContent>
       <Dialog open={editing} onOpenChange={setEditing}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Savings assumptions</DialogTitle>
-            <DialogDescription>Estimates for a mid-sized European motor insurer. A year ago every claim was reviewed by hand. The system’s error rate comes from the labelled test cases.</DialogDescription>
+            <DialogTitle>How savings are calculated</DialogTitle>
+            <DialogDescription>
+              Claims per route are counted from this period. Minutes are cautious assumptions: reviews get no speed-up, automated claims still get a human check. Avoided wrong payments are not counted.
+            </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3">
-            {assumptionFields.map(field => {
-              const value = assumptions[field.key];
-              return (
-                <div key={field.key} className="grid grid-cols-[1fr_auto] items-center gap-3">
-                  <Label htmlFor={`assume-${field.key}`} className="text-sm font-normal">{field.label}</Label>
-                  <div className="flex items-center gap-1.5">
-                    <Input
-                      id={`assume-${field.key}`}
-                      type="number"
-                      min={0}
-                      step={field.step}
-                      className="w-24 text-right tabular-nums"
-                      value={field.percent ? +(value * 100).toFixed(2) : value}
-                      onChange={event => {
-                        const n = Number(event.target.value);
-                        if (!Number.isFinite(n) || n < 0) return;
-                        setAssumptions(previous => ({ ...previous, [field.key]: field.percent ? n / 100 : n }));
-                      }}
-                    />
-                    <span className="w-6 text-xs text-muted-foreground">{field.unit}</span>
-                  </div>
+            {assumptionFields.map(field => (
+              <div key={field.key} className="grid grid-cols-[1fr_auto] items-center gap-3">
+                <Label htmlFor={`assume-${field.key}`} className="text-sm font-normal">{field.label}</Label>
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    id={`assume-${field.key}`}
+                    type="number"
+                    min={0}
+                    step={field.step}
+                    className="w-20 text-right tabular-nums"
+                    value={assumptions[field.key]}
+                    onChange={event => {
+                      const n = Number(event.target.value);
+                      if (!Number.isFinite(n) || n < 0) return;
+                      setAssumptions(previous => ({ ...previous, [field.key]: n }));
+                    }}
+                  />
+                  <span className="w-6 text-xs text-muted-foreground">{field.unit}</span>
                 </div>
-              );
-            })}
-            <div className="flex justify-between pt-2 text-xs text-muted-foreground">
-              <span>Measured system error rate on routine: {(systemWrongRoutineRate * 100).toFixed(1)}%</span>
+              </div>
+            ))}
+            <div className="rounded-md bg-muted/50 p-3 text-xs tabular-nums text-muted-foreground">
+              Before: {s.claims} × {assumptions.manualMinutesPerClaim} min = {s.minutesBefore} min<br />
+              Now: {insights.mix.routine_processing} × {assumptions.routineCheckMinutes} + {insights.mix.request_information} × {assumptions.infoRequestMinutes} + {insights.mix.human_review} × {assumptions.reviewMinutes} = {s.minutesNow} min
+            </div>
+            <div className="flex justify-end">
               <Button variant="ghost" size="sm" onClick={() => setAssumptions(defaultAssumptions)}>Reset</Button>
             </div>
           </div>

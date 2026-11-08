@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { SparklesIcon } from 'lucide-react';
+import { ChevronRightIcon, SparklesIcon } from 'lucide-react';
 import type { Condition, FieldDef, Leaf, Rule } from '../../../../src/policy-engine/schema';
 import { describeLeaf, fieldLabel, groupChildren, groupHeading, groupKind, outcomeLabels } from '../../../../src/policy-view/describe';
 import { parseEditedValue, type LeafPath } from '../../../../src/policy-view/edit';
@@ -67,7 +67,7 @@ function EditableLeaf({ leaf, fields, onChange }: { leaf: Leaf; fields: Fields; 
   );
 }
 
-function ConditionTree({ cond, fields, path, onLeaf }: { cond: Condition; fields: Fields; path: LeafPath; onLeaf?: (path: LeafPath, value: Scalar | Scalar[]) => void }) {
+export function ConditionTree({ cond, fields, path, onLeaf }: { cond: Condition; fields: Fields; path: LeafPath; onLeaf?: (path: LeafPath, value: Scalar | Scalar[]) => void }) {
   const kind = groupKind(cond);
   if (kind === 'leaf') {
     const leaf = cond as Leaf;
@@ -113,7 +113,7 @@ interface RuleCardProps {
 
 export function RuleCard({ index, rule, fields, isDefault, onLeaf, ai }: RuleCardProps) {
   return (
-    <li className="rounded-lg border bg-card p-4">
+    <li className="rounded-lg border bg-card p-3">
       <div className="flex flex-wrap items-center gap-2">
         {index !== null && <span className="flex size-6 items-center justify-center rounded-full bg-muted text-xs font-medium" aria-label={`Priorität ${index + 1}`}>{index + 1}</span>}
         <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{rule.id}</code>
@@ -132,3 +132,27 @@ export function RuleCard({ index, rule, fields, isDefault, onLeaf, ai }: RuleCar
   );
 }
 
+
+type RuleLike = Pick<Rule, 'id' | 'description' | 'outcome'> & { when?: Condition };
+
+/** One rule as a single line; click to see its conditions. */
+export function RuleRow({ index, rule, fields }: { index: number | null; rule: RuleLike; fields: Fields }) {
+  const [openRow, setOpenRow] = useState(false);
+  return (
+    <li>
+      <button type="button" onClick={() => rule.when && setOpenRow(!openRow)} aria-expanded={rule.when ? openRow : undefined}
+        className={cn('flex w-full items-center gap-3 px-3 py-2.5 text-left', rule.when && 'hover:bg-muted/40')}>
+        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-medium">{index === null ? '–' : index + 1}</span>
+        <span className="min-w-0 flex-1 truncate text-sm" title={rule.description}>{index === null ? 'Sonst' : rule.description}</span>
+        <OutcomeBadge outcome={rule.outcome} />
+        {rule.when && <ChevronRightIcon className={cn('size-4 shrink-0 text-muted-foreground transition-transform', openRow && 'rotate-90')} />}
+      </button>
+      {openRow && rule.when && (
+        <div className="px-11 pb-3">
+          <p className="mb-1 text-sm">{rule.description}</p>
+          <ul><ConditionTree cond={rule.when} fields={fields} path={[]} /></ul>
+        </div>
+      )}
+    </li>
+  );
+}
