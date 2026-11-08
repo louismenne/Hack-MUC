@@ -158,7 +158,7 @@ export function ClaimPage() {
   return (
     <Shell>
       <div className="mb-6 flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Submit a claim</h1>
+        <h1 className="font-serif text-3xl font-normal tracking-normal">Submit a claim</h1>
         <p className="text-sm text-muted-foreground">Tell us what happened and attach your documents. It takes about five minutes.</p>
       </div>
 
@@ -328,7 +328,7 @@ export function ClaimPage() {
 
 function ColumnValueCell({ value }: { value: ColumnValue }) {
   if (value === null) return <span className="text-muted-foreground">unknown</span>;
-  return <span className="font-mono text-xs break-all">{String(value)}</span>;
+  return <span className="tabular-nums text-xs break-all">{String(value)}</span>;
 }
 
 function FileItems({ files }: { files: SubmitResult['files'] }) {
@@ -397,7 +397,7 @@ function Confirmation({ result, onStartOver }: { result: SubmitResult; onStartOv
                     <TableRow key={column}>
                       <TableCell className="w-0 align-top whitespace-nowrap">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs">{column}</span>
+                          <span className="tabular-nums text-xs">{column}</span>
                           {engine.has(column) && <Badge variant="outline" className="text-[10px]">policy input</Badge>}
                         </div>
                       </TableCell>
@@ -419,7 +419,7 @@ function Confirmation({ result, onStartOver }: { result: SubmitResult; onStartOv
             <Item variant="muted">
               <ItemContent className="min-w-0">
                 <ItemDescription>Claim reference. Keep it when contacting the claims team.</ItemDescription>
-                <ItemTitle className="block w-full font-mono text-base break-all">{String(result.payload.case_id)}</ItemTitle>
+                <ItemTitle className="block w-full tabular-nums text-base break-all">{String(result.payload.case_id)}</ItemTitle>
               </ItemContent>
             </Item>
             <div className="flex flex-col gap-3">

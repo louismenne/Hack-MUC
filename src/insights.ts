@@ -43,7 +43,7 @@ export interface InsightCase {
   quoteLimit?: number | null;
   /** Effective recommendation after reviewer actions; equals the engine's when nobody acted. */
   effective: Recommendation;
-  reviewStatus: 'pending' | 'reviewed' | 'overridden';
+  reviewStatus: 'pending' | 'reviewed' | 'overridden' | 'rejected';
 }
 
 export interface Count<K> { key: K; count: number }

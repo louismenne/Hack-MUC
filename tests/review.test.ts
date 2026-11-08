@@ -35,6 +35,18 @@ describe('reviewer overrides', () => {
     expect(event.next).toBe('routine_processing');
     expect(reviewState(routine, [event]).status).toBe('reviewed');
   });
+  it('rejection is final, keeps the recommendation and needs a reason', () => {
+    expect(validateReview(input({ action: 'rejected', reason: 'no', next: undefined })).reason).toBeDefined();
+    const event = createReviewEvent(input({ action: 'rejected', reason: 'Damage predates the policy start.', next: undefined }), meta());
+    expect(event.next).toBe('routine_processing');
+    expect(reviewState(routine, [event])).toMatchObject({ effective: 'routine_processing', status: 'rejected' });
+  });
+  it('the reject migration allows rejected and blocks reviewing a rejected claim again', () => {
+    const sql = readFileSync(new URL('../supabase/migrations/20261108010000_review_reject.sql', import.meta.url), 'utf8');
+    expect(sql).toContain("'confirmed','overridden','reverted','rejected'");
+    expect(sql).toContain("when 'rejected' then expected");
+    expect(sql).toContain("raise exception 'Claim already rejected'");
+  });
   it.each<[Partial<ReviewInput>, string]>([
     [{ reviewer: '  ' }, 'reviewer'],
     [{ reason: 'too short' }, 'reason'],

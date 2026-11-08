@@ -174,7 +174,7 @@ export function ClaimsList({ cases, visible, states, filters, onFiltersChange, s
                   </span>
                   {/* Fixed slots so every row has the same shape: position · amount ... status icons. */}
                   <span className="grid grid-cols-[2rem_1fr_auto] items-center gap-1.5 pl-4 text-[11px] text-muted-foreground">
-                    <span className="font-mono tabular-nums">{positions.has(id) ? `#${positions.get(id)}` : ''}</span>
+                    <span className="tabular-nums">{positions.has(id) ? `#${positions.get(id)}` : ''}</span>
                     <span className="tabular-nums">{typeof item.claim.quote_eur === 'number' ? euro.format(item.claim.quote_eur) : '—'}</span>
                     <span className="flex w-9 items-center justify-end gap-1">
                       {item.needsRecheck && <RefreshCwIcon className="size-3 text-recheck" aria-label={`Recheck: result changed under ${item.decision.policyVersion}`} />}
@@ -220,7 +220,7 @@ export function ClaimsList({ cases, visible, states, filters, onFiltersChange, s
                   >
                     <TableCell className="max-w-0 pl-3">
                       <div className="flex items-center gap-1.5">
-                        <span className="truncate font-mono text-xs font-medium" title={id}>{id}</span>
+                        <span className="truncate tabular-nums text-xs font-medium" title={id}>{id}</span>
                         {item.claim.case_status === 'closed' && <span className="shrink-0 text-xs text-muted-foreground">Historical · {item.decision.policyVersion}</span>}
                         {item.needsRecheck && (
                           <span className="shrink-0 rounded border border-recheck/40 bg-recheck/10 px-1 text-[10px] font-medium text-recheck-foreground" title={`The recommendation changed under ${item.decision.policyVersion}; this open claim needs another look.`}>
@@ -228,7 +228,7 @@ export function ClaimsList({ cases, visible, states, filters, onFiltersChange, s
                           </span>
                         )}
                         {positions.has(id) && (
-                          <span className="shrink-0 rounded bg-muted px-1 font-mono text-[10px] text-muted-foreground tabular-nums" title="Position in the oldest-first review queue">
+                          <span className="shrink-0 rounded bg-muted px-1 tabular-nums text-[10px] text-muted-foreground tabular-nums" title="Position in the oldest-first review queue">
                             #{positions.get(id)}
                           </span>
                         )}
@@ -248,7 +248,7 @@ export function ClaimsList({ cases, visible, states, filters, onFiltersChange, s
                         {state.status === 'reviewed' && <CircleCheckIcon className="size-3.5 text-muted-foreground" aria-label="Reviewed" />}
                       </div>
                     </TableCell>
-                    <TableCell className="hidden w-0 pr-3 text-right font-mono text-xs tabular-nums sm:table-cell">
+                    <TableCell className="hidden w-0 pr-3 text-right tabular-nums text-xs tabular-nums sm:table-cell">
                       {typeof item.claim.quote_eur === 'number' ? euro.format(item.claim.quote_eur) : <span className="text-muted-foreground">—</span>}
                     </TableCell>
                   </TableRow>

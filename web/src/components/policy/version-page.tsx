@@ -87,7 +87,7 @@ export function VersionPage({ version, active, aiAvailable, owner, busy, run, on
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeftIcon />Back</Button>
-        <h2 className="text-lg font-semibold tracking-tight">{version.versionLabel}</h2>
+        <h2 className="font-serif text-2xl font-normal tracking-normal">{version.versionLabel}</h2>
         <Badge variant={version.status === 'active' ? 'default' : 'secondary'}>{statusLabel[version.status]}</Badge>
         <span className="text-xs text-muted-foreground">{sourceLabel[version.source]} · {formatDate(version.createdAt)}</span>
         {!isDraft && canManage && <Button className="ml-auto" variant="outline" size="sm" disabled={busy} onClick={() => void copyToDraft()}>Copy to draft</Button>}

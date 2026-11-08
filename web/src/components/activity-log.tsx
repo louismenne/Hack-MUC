@@ -32,6 +32,7 @@ const actionLabels: Record<string, string> = {
   confirmed: 'Confirmed',
   overridden: 'Overridden',
   reverted: 'Reverted',
+  rejected: 'Rejected',
   role_changed: 'Role changed',
 };
 
@@ -51,7 +52,7 @@ function Details({ row }: { row: AuditRow }) {
     return (
       <span className="flex flex-wrap items-center gap-1.5">
         <RecommendationBadge value={d.recommendation} short />
-        {typeof d.policyVersion === 'string' && <span className="font-mono text-xs text-muted-foreground">{d.policyVersion}</span>}
+        {typeof d.policyVersion === 'string' && <span className="tabular-nums text-xs text-muted-foreground">{d.policyVersion}</span>}
       </span>
     );
   }
@@ -60,7 +61,7 @@ function Details({ row }: { row: AuditRow }) {
       <span className="flex flex-col gap-1">
         <span className="flex flex-wrap items-center gap-1.5">
           {d.previous === d.next ? <RecommendationBadge value={d.next} short /> : <><RecommendationBadge value={d.previous} short /> → <RecommendationBadge value={d.next} short /></>}
-          {typeof d.policyVersion === 'string' && <span className="font-mono text-xs text-muted-foreground">{d.policyVersion}</span>}
+          {typeof d.policyVersion === 'string' && <span className="tabular-nums text-xs text-muted-foreground">{d.policyVersion}</span>}
         </span>
         {reason && <span className="text-sm text-pretty">{reason}</span>}
       </span>
@@ -159,7 +160,7 @@ export function ActivityLog() {
                       </span>
                     </TableCell>
                     <TableCell className="max-w-48 align-top">
-                      <span className="block truncate font-mono text-xs" title={id}>{id}</span>
+                      <span className="block truncate tabular-nums text-xs" title={id}>{id}</span>
                     </TableCell>
                     <TableCell className="max-w-56 align-top">
                       <span className="block truncate text-sm" title={row.actor_label}>{row.actor_label}</span>

@@ -10,9 +10,9 @@ export const toneClasses: Record<Recommendation, string> = {
 };
 
 export const toneSurface: Record<Recommendation, string> = {
-  routine_processing: 'bg-rec-routine/8 ring-rec-routine/30',
-  request_information: 'bg-rec-info/10 ring-rec-info/40',
-  human_review: 'bg-rec-review/8 ring-rec-review/30',
+  routine_processing: 'bg-rec-routine/5 ring-rec-routine/25',
+  request_information: 'bg-rec-info/6 ring-rec-info/30',
+  human_review: 'bg-rec-review/5 ring-rec-review/25',
 };
 
 export const dotClasses: Record<Recommendation, string> = {

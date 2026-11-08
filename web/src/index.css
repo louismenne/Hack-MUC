@@ -1,14 +1,17 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
+@import "@fontsource-variable/hanken-grotesk";
+@import "@fontsource/eb-garamond/400.css";
+@import "@fontsource/eb-garamond/500.css";
 @import "@fontsource-variable/geist-mono";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
     --font-heading: var(--font-sans);
-    --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+    --font-sans: 'Hanken Grotesk Variable', ui-sans-serif, system-ui, sans-serif;
+    --font-serif: 'EB Garamond', ui-serif, Georgia, serif;
     --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
     --color-rec-routine: var(--rec-routine);
     --color-rec-routine-foreground: var(--rec-routine-foreground);
@@ -61,7 +64,8 @@
 /*
  * Theme inspired by Taktile's visual language: warm off-white surfaces, near-black ink,
  * warm greys, small corner radii, tight medium-weight headings and mono labels.
- * (Taktile's own typeface Söhne is commercial; Geist is used as the open alternative.)
+ * Taktile's typeface Söhne is commercial, so Hanken Grotesk (open, similar grotesk) is used instead;
+ * page titles use EB Garamond, the open serif Taktile itself uses for editorial accents.
  */
 :root {
     --background: oklch(0.993 0.0013 17);      /* #FDFCFC warm off-white */
@@ -78,24 +82,24 @@
     --muted-foreground: oklch(0.52 0.004 17);  /* #686565 warm grey */
     --accent: oklch(0.955 0.002 17);
     --accent-foreground: oklch(0.183 0 0);
-    --destructive: oklch(0.56 0.2 27);
+    --destructive: oklch(0.52 0.13 30);
     --border: oklch(0.9 0.006 17);             /* #E2DDDD */
     --input: oklch(0.9 0.006 17);
     --ring: oklch(0.46 0.25 275);              /* Taktile indigo for focus */
     --chart-1: oklch(0.46 0.25 275);
-    --chart-2: oklch(0.76 0.17 152);
-    --chart-3: oklch(0.68 0.13 70);
+    --chart-2: oklch(0.64 0.08 155);
+    --chart-3: oklch(0.72 0.09 75);
     --chart-4: oklch(0.52 0.004 17);
     --chart-5: oklch(0.183 0 0);
     --radius: 0.45rem;                         /* small, crisp corners */
-    --rec-routine: oklch(0.72 0.17 152);       /* Taktile green */
-    --rec-routine-foreground: oklch(0.45 0.12 152);
-    --rec-info: oklch(0.72 0.14 70);           /* Taktile amber */
-    --rec-info-foreground: oklch(0.5 0.11 62);
-    --rec-review: oklch(0.62 0.19 27);
-    --rec-review-foreground: oklch(0.5 0.17 27);
-    --recheck: oklch(0.52 0.22 275);            /* indigo: only ever means "recheck after a policy change" */
-    --recheck-foreground: oklch(0.45 0.2 275);
+    --rec-routine: oklch(0.64 0.08 155);       /* muted sage */
+    --rec-routine-foreground: oklch(0.42 0.06 155);
+    --rec-info: oklch(0.72 0.09 75);           /* muted ochre */
+    --rec-info-foreground: oklch(0.48 0.07 65);
+    --rec-review: oklch(0.58 0.11 32);          /* muted brick */
+    --rec-review-foreground: oklch(0.46 0.09 32);
+    --recheck: oklch(0.52 0.13 270);            /* indigo: only ever means "recheck after a policy change" */
+    --recheck-foreground: oklch(0.45 0.11 270);
     --sidebar: oklch(0.973 0.0013 17);
     --sidebar-foreground: oklch(0.183 0 0);
     --sidebar-primary: oklch(0.183 0 0);
@@ -130,12 +134,12 @@
     --chart-3: oklch(0.75 0.13 72);
     --chart-4: oklch(0.68 0.005 17);
     --chart-5: oklch(0.993 0.0013 17);
-    --rec-routine: oklch(0.76 0.17 152);
-    --rec-routine-foreground: oklch(0.85 0.12 152);
-    --rec-info: oklch(0.77 0.13 72);
-    --rec-info-foreground: oklch(0.87 0.1 80);
-    --rec-review: oklch(0.7 0.18 27);
-    --rec-review-foreground: oklch(0.82 0.11 27);
+    --rec-routine: oklch(0.72 0.08 155);
+    --rec-routine-foreground: oklch(0.84 0.06 155);
+    --rec-info: oklch(0.78 0.09 75);
+    --rec-info-foreground: oklch(0.86 0.07 78);
+    --rec-review: oklch(0.68 0.11 32);
+    --rec-review-foreground: oklch(0.82 0.08 32);
     --recheck: oklch(0.66 0.18 275);
     --recheck-foreground: oklch(0.8 0.12 275);
     --sidebar: oklch(0.183 0 0);
@@ -164,14 +168,15 @@
     font-weight: 500;
     letter-spacing: -0.02em;
     }
+
 }
 
-/* Small uppercase mono label, like Taktile's "SOLUTIONS" section markers. */
+/* Small section label: quiet grey sans (kept name for existing call sites). */
 @utility label-mono {
-  font-family: var(--font-mono);
-  font-size: 0.6875rem;
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
   line-height: 1rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-weight: 500;
+  letter-spacing: 0;
   color: var(--muted-foreground);
 }

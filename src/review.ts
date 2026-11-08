@@ -1,8 +1,9 @@
 import type { Decision, Recommendation } from './triage.js';
 
 export const recommendations: readonly Recommendation[] = ['routine_processing', 'request_information', 'human_review'];
-export type ReviewAction = 'confirmed' | 'overridden' | 'reverted';
-export type ReviewStatus = 'pending' | 'reviewed' | 'overridden';
+/** `rejected` declines the claim: final, recommendation unchanged, reason required. */
+export type ReviewAction = 'confirmed' | 'overridden' | 'reverted' | 'rejected';
+export type ReviewStatus = 'pending' | 'reviewed' | 'overridden' | 'rejected';
 
 /** Append-only audit record. It snapshots the automated decision the reviewer saw. */
 export interface ReviewEvent {
@@ -35,7 +36,7 @@ export function isRecommendation(value: unknown): value is Recommendation {
 export function reviewState(decision: Pick<Decision, 'recommendation'>, events: ReviewEvent[]): ReviewState {
   let effective = decision.recommendation;
   for (const event of events) effective = event.next;
-  const status: ReviewStatus = effective !== decision.recommendation ? 'overridden' : events.length ? 'reviewed' : 'pending';
+  const status: ReviewStatus = events.at(-1)?.action === 'rejected' ? 'rejected' : effective !== decision.recommendation ? 'overridden' : events.length ? 'reviewed' : 'pending';
   return { automated: decision.recommendation, effective, status, events };
 }
 

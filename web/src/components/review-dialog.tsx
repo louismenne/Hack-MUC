@@ -29,6 +29,12 @@ const copy: Record<ReviewAction, { title: string; description: string; submit: s
     submit: 'Confirm',
     reasonLabel: 'Note (optional)',
   },
+  rejected: {
+    title: 'Reject this claim?',
+    description: 'The claim is declined and leaves the review queue. Your name and reason are saved to the audit history.',
+    submit: 'Reject claim',
+    reasonLabel: 'Reason for rejection',
+  },
 };
 
 interface ReviewDialogProps {
@@ -76,13 +82,13 @@ export function ReviewDialog({ action, onOpenChange, datasetId, decision, curren
         >
           <DialogHeader>
             <DialogTitle>
-              {presetTitle ?? text.title} · <span className="font-mono">{decision.caseId}</span>
+              {presetTitle ?? text.title} · <span className="tabular-nums">{decision.caseId}</span>
             </DialogTitle>
             <DialogDescription>{text.description}</DialogDescription>
           </DialogHeader>
           <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
             Automated <RecommendationBadge value={decision.recommendation} short />
-            <span className="font-mono">{decision.ruleId}</span>
+            <span className="tabular-nums">{decision.ruleId}</span>
             {current !== decision.recommendation && <>· Current <RecommendationBadge value={current} short /></>}
           </div>
           <FieldGroup>
@@ -109,7 +115,7 @@ export function ReviewDialog({ action, onOpenChange, datasetId, decision, curren
                 id="review-reason"
                 value={reason}
                 onChange={event => setReason(event.target.value)}
-                placeholder={shown === 'confirmed' ? 'Anything worth noting for the record' : 'What did you see that the rules did not?'}
+                placeholder={shown === 'confirmed' ? 'Anything worth noting for the record' : shown === 'rejected' ? 'Why is the claim declined?' : 'What did you see that the rules did not?'}
                 aria-invalid={!!errors.reason}
                 rows={3}
               />
@@ -124,8 +130,8 @@ export function ReviewDialog({ action, onOpenChange, datasetId, decision, curren
             </Field>
           </FieldGroup>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit">{text.submit}</Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{shown === 'rejected' ? 'Review again' : 'Cancel'}</Button>
+            <Button type="submit" variant={shown === 'rejected' ? 'destructive' : 'default'}>{text.submit}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

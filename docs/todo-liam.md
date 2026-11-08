@@ -5,24 +5,25 @@ Detail-Backlog zur Reviewer-UI: [backlog-reviewer-ui.md](backlog-reviewer-ui.md)
 ## Offen
 
 ### 1. Reject (b) freischalten
-- [ ] Maxi: Ergebnis „rejected“ im gespeicherten Review-Modell (Supabase `record_review`) ergänzen
-- [ ] Danach den deaktivierten „Reject claim“-Knopf in `claim-detail.tsx` freischalten
+- [ ] Migration: „rejected“ in `record_review` erlauben (wir schreiben sie, einspielen in die gemeinsame Supabase)
+- [ ] Danach „Reject claim“-Knopf in `claim-detail.tsx` freischalten
 
 ### 2. Savings-Karte
 - [x] Pro Zeitraum (Today/7d/30d…), nur Zeit + Personalkosten, Rechenweg im Dialog — Basis: docs/savings-model.md
-- [ ] Minutenwerte und Stundensatz mit Louis' Business Case abgleichen (25 % der Bewertung)
-
-### 3. Claimant-Seite: Infos nachreichen
-- [ ] Ansicht, in der der Claimant nach c) / d) fehlende Infos/Dokumente ergänzt (Formular `/claim` existiert, von Louis)
 
 ### 4. Dashboard-Feinschliff
 - [ ] Decision Quality / Vorher-Nachher: klären, ob im Dashboard oder im Tab „Example quality“ (Maxi)
-- [ ] Quality Report als Kreislauf zeigen: messen → Fehler zeigen → Regel anpassen → alte Fälle neu rechnen → freigeben
+- [ ] Quality-Kreislauf: baut Maxi (So), danach ins Dashboard einbinden
 - [ ] UI-Feinschliff zum Schluss
 
 ### 4b. Policy-Seite schlanker (Whiteboard: Pfeil Owner → Maxi, schräg rechts unten)
 - [ ] Policy-Tab für den Owner leaner machen: weniger Text, klarer Ablauf Regel ändern → Vorschau → aktivieren
 - [ ] Am Whiteboard-Pfeil orientieren: Owner gibt Policy-Änderung → Engine (Maxi) übernimmt
+
+### 4c. Eingabe per Text/Chat · Datei · Manuell (Voice macht Louis)
+- [ ] Policy: Layout B („Update policy“-Fenster + Versionen links) als Standard, Umschalter entfernen
+- [ ] Review: Chat-/Textfeld auf der Fallseite („approve, quote matches photos“ → Entscheidung + Begründung), Datei (Beleg nachreichen)
+- [ ] Dashboard: „Ask your data“-Chat
 
 ### 5. Mit dem Taktile-Mentor klären
 - [ ] Edge Cases: leere/unlesbare Felder, Betrag genau am Limit, mehrere Auslöser, geschlossene Fälle nach Policy-Wechsel

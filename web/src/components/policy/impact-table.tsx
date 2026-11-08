@@ -23,7 +23,7 @@ export function ImpactTable({ impact }: { impact: ImpactReport }) {
           <ul className="max-h-56 divide-y overflow-y-auto rounded-md border">
             {rows.map(r => (
               <li key={r.caseId} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm" title={r.summary}>
-                <span className="w-24 truncate font-mono text-xs">{r.caseId}</span>
+                <span className="w-24 truncate tabular-nums text-xs">{r.caseId}</span>
                 <OutcomeBadge outcome={r.before.recommendation} />
                 <ArrowRightIcon className="size-3 text-muted-foreground" />
                 <OutcomeBadge outcome={r.after.recommendation} />

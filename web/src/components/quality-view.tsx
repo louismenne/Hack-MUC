@@ -122,7 +122,7 @@ export function QualityView({ dataset, states, events, renderLog }: QualityViewP
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+          <h2 className="flex items-center gap-2 font-serif text-2xl font-normal tracking-normal">
             Operations overview
             {simulated && <Badge variant="outline" className="font-normal text-muted-foreground" title="The case CSVs carry no timestamps; arrival dates are simulated for the demo (src/received-at.ts).">Simulated arrival dates</Badge>}
           </h2>
@@ -218,7 +218,7 @@ export function QualityView({ dataset, states, events, renderLog }: QualityViewP
       {labelled.length > 0 ? (
         <>
           <div className="mt-2">
-            <h2 className="text-lg font-semibold tracking-tight">Decision quality</h2>
+            <h2 className="font-serif text-2xl font-normal tracking-normal">Decision quality</h2>
             <p className="text-sm text-muted-foreground">All {engine.labelled} labelled development cases, independent of the time filter. Labels are for measurement only, never decision inputs.</p>
           </div>
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -256,8 +256,8 @@ export function QualityView({ dataset, states, events, renderLog }: QualityViewP
                     {([['Correct', 'correct'], ['Incorrect routine', 'incorrectRoutine'], ['Unnecessary review', 'unnecessaryReview']] as const).map(([label, key]) => (
                       <TableRow key={key}>
                         <TableCell>{label}</TableCell>
-                        <TableCell className="text-right font-mono tabular-nums">{engine[key]}</TableCell>
-                        <TableCell className={cn('text-right font-mono tabular-nums', reviewed[key] !== engine[key] && 'font-semibold')}>{reviewed[key]}</TableCell>
+                        <TableCell className="text-right tabular-nums">{engine[key]}</TableCell>
+                        <TableCell className={cn('text-right tabular-nums', reviewed[key] !== engine[key] && 'font-semibold')}>{reviewed[key]}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -422,7 +422,7 @@ function SavingsCard({ insights, range }: { insights: Insights; range: TimeRange
     requestInfo: insights.mix.request_information,
     humanReview: insights.mix.human_review,
   }, assumptions);
-  const period = range === '1d' ? 'today' : range === 'all' ? 'all time' : `last ${rangeLabels[range].toLowerCase()}`;
+  const period = range === '1d' ? 'today' : range === 'all' ? 'all time' : range === '1y' ? 'last year' : `last ${rangeLabels[range].toLowerCase()}`;
   return (
     <Card>
       <CardHeader>
@@ -442,7 +442,7 @@ function SavingsCard({ insights, range }: { insights: Insights; range: TimeRange
             <div>
               <div className="text-3xl font-semibold tracking-tight tabular-nums">≈ {hours(s.hoursSaved)} h</div>
               <div className="text-sm font-medium">staff time saved</div>
-              <div className="text-xs text-muted-foreground">≈ {Math.round(s.minutesSavedPerClaim)} min per claim · {s.claims} claims</div>
+              <div className="text-xs text-muted-foreground">≈ {Math.round(s.minutesSavedPerClaim)} min per claim · {s.claims} {s.claims === 1 ? 'claim' : 'claims'}</div>
             </div>
             <div>
               <div className="text-3xl font-semibold tracking-tight tabular-nums text-rec-routine-foreground">−{Math.round(s.timeReduction * 100)}%</div>
@@ -856,7 +856,7 @@ function ReviewerActivity({ events, window, reviewer, onReviewerChange, insights
   return (
     <>
       <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
-        <h2 className="text-lg font-semibold tracking-tight">Reviewer activity</h2>
+        <h2 className="font-serif text-2xl font-normal tracking-normal">Reviewer activity</h2>
         <Select value={reviewer} onValueChange={onReviewerChange}>
           <SelectTrigger className="w-52" aria-label="Filter by reviewer"><SelectValue /></SelectTrigger>
           <SelectContent align="end">
@@ -912,7 +912,7 @@ function WorkloadCard({ insights, waitingNow }: { insights: Insights; waitingNow
             <div className="mb-1 font-medium">Overrides by rule</div>
             <ul className="flex flex-col gap-1">
               {insights.overridesByRule.map(({ key, count }) => (
-                <li key={key} className="flex justify-between"><code className="font-mono text-xs">{key}</code><span className="tabular-nums">{count}</span></li>
+                <li key={key} className="flex justify-between"><code className="tabular-nums text-xs">{key}</code><span className="tabular-nums">{count}</span></li>
               ))}
             </ul>
           </div>
@@ -962,7 +962,7 @@ function ConfusionTable({ report }: { report: QualityReport }) {
               return (
                 <TableCell key={predicted} className="text-center">
                   <span className={cn(
-                    'inline-grid min-w-9 place-items-center rounded-md px-2 py-1 font-mono text-sm tabular-nums',
+                    'inline-grid min-w-9 place-items-center rounded-md px-2 py-1 tabular-nums text-sm tabular-nums',
                     count === 0 ? 'text-muted-foreground/60' : hit ? 'bg-muted font-semibold' : 'bg-destructive/10 font-semibold text-destructive',
                   )}>
                     {count}

@@ -1,6 +1,6 @@
 import { ArrowRightIcon, CircleAlertIcon, CircleCheckIcon, CompassIcon, PencilLineIcon, QuoteIcon, RefreshCwIcon, Undo2Icon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { describeFact, euro, fieldLabels, recommendationMeta, ruleInfo, triggeringFields } from '@/lib/policy';
+import { describeFact, euro, recommendationMeta, ruleInfo, triggeringFields } from '@/lib/policy';
 import { usePolicySource } from '@/lib/policy-source';
 import { reviewerGuidance, type ReviewerDecisionId } from '@/lib/reviewer-guidance';
 import type { CaseItem } from '@/lib/datasets';
@@ -16,7 +16,7 @@ import type { Field, Recommendation } from '../../../src/triage';
 
 export const timeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
-const actionLabel: Record<ReviewAction, string> = { confirmed: 'Confirmed', overridden: 'Overridden', reverted: 'Reverted' };
+const actionLabel: Record<ReviewAction, string> = { confirmed: 'Confirmed', overridden: 'Overridden', reverted: 'Reverted', rejected: 'Rejected' };
 
 interface ClaimDetailProps {
   item: CaseItem;
@@ -38,7 +38,7 @@ const reviewerDecisions: { id: ReviewerDecisionId; title: string; hint: string; 
   { id: 'contact', title: 'Contact claimant', hint: 'Ask for more detailed information', action: 'overridden', next: 'request_information' },
   { id: 'return', title: 'Return: missing info', hint: 'Required documents or fields are missing', action: 'overridden', next: 'request_information' },
   { id: 'keep', title: 'Keep in review', hint: 'Needs a specialist or further checks', action: 'confirmed' },
-  { id: 'reject', title: 'Reject', hint: 'Decline the claim', action: 'confirmed' },
+  { id: 'reject', title: 'Reject', hint: 'Decline the claim. You confirm before it is saved.', action: 'rejected' },
 ];
 
 /** Buttons grouped by what happens to the claim, so the choices read at a glance. */
@@ -65,9 +65,9 @@ export function ClaimDetail({ item, state, onAction, canReview, documents }: Cla
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span className="font-mono text-sm font-semibold text-foreground">{decision.caseId}</span>
+            <span className="text-sm font-medium tabular-nums text-muted-foreground">{decision.caseId}</span>
             {claim.case_status && <Badge variant="secondary" className="capitalize">{String(claim.case_status)}</Badge>}
-            <Badge variant="outline" className="font-mono">{decision.policyVersion}</Badge>
+            <Badge variant="outline" className="font-normal text-muted-foreground">{decision.policyVersion}</Badge>
             {item.received && (
               <span title={item.received.simulated ? 'Simulated arrival date for the demo.' : undefined}>
                 {fullDate.format(item.received.at)}{!closed && ` · open ${daysOpen(item.received.at)} d`}
@@ -111,25 +111,19 @@ export function ClaimDetail({ item, state, onAction, canReview, documents }: Cla
               </ul>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="mt-1.5 w-fit cursor-help font-mono text-[11px] text-muted-foreground underline decoration-dotted underline-offset-2">{rule.title}</div>
+                  <div className="mt-1.5 w-fit cursor-help text-xs text-muted-foreground underline decoration-dotted underline-offset-2">{rule.title}</div>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-sm">{rule.text}</TooltipContent>
               </Tooltip>
-              {decision.missingFields.length > 0 && (
-                <div className="mt-1.5 flex items-start gap-1.5 text-xs text-muted-foreground">
-                  <CircleAlertIcon className="mt-0.5 size-3.5 shrink-0" />
-                  Missing: {decision.missingFields.map(field => fieldLabels[field]).join(', ')}
-                </div>
-              )}
             </div>
 
             {/* What to do: a fixed, rule-based instruction for the reviewer, or the decision already taken. */}
-            <div className={cn('rounded-lg p-4 ring-1', decided ? toneSurface[state.effective] : 'bg-muted/40 ring-border')}>
+            <div className={cn('rounded-lg p-4 ring-1', state.status === 'rejected' ? 'bg-destructive/10 ring-destructive/30' : decided ? toneSurface[state.effective] : 'bg-muted/40 ring-border')}>
               {decided ? (
                 <>
                   <div className="label-mono">Decision</div>
                   <div className="mt-1.5 text-sm font-semibold">
-                    {state.status === 'reviewed' ? (needsHuman ? 'Kept in review' : 'Confirmed') : recommendationMeta[state.effective].label}
+                    {state.status === 'rejected' ? 'Rejected' : state.status === 'reviewed' ? (needsHuman ? 'Kept in review' : 'Confirmed') : recommendationMeta[state.effective].label}
                   </div>
                   <div className="mt-0.5 text-xs text-muted-foreground">by {lastEvent?.reviewer}{lastEvent?.reason ? ` · “${lastEvent.reason}”` : ''}</div>
                 </>
@@ -162,23 +156,14 @@ export function ClaimDetail({ item, state, onAction, canReview, documents }: Cla
                     {group.ids.map(id => {
                       const option = reviewerDecisions.find(d => d.id === id)!;
                       const recommended = guidance?.decision === id;
-                      if (id === 'reject') {
-                        return (
-                          <Tooltip key={id}>
-                            <TooltipTrigger asChild>
-                              <span><Button variant="outline" className="border-rec-review/40 text-rec-review-foreground" disabled>Reject</Button></span>
-                            </TooltipTrigger>
-                            <TooltipContent>Needs a “rejected” outcome in the saved review model (planned).</TooltipContent>
-                          </Tooltip>
-                        );
-                      }
                       return (
                         <Tooltip key={id}>
                           <TooltipTrigger asChild>
                             <Button
                               variant={recommended ? 'default' : 'outline'}
+                              className={cn(id === 'reject' && 'border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive')}
                               disabled={!canReview}
-                              onClick={() => onAction(option.action, option.next, option.title)}
+                              onClick={() => onAction(option.action, option.next, id === 'reject' ? undefined : option.title)}
                             >
                               {option.title}
                             </Button>
@@ -235,20 +220,22 @@ function FactsSummary({ item, triggered }: { item: CaseItem; triggered: Set<Fiel
   const missing = new Set(decision.missingFields);
   const hot = (field: Field) => triggered.has(field) && 'rounded bg-rec-review/10 px-1 text-rec-review-foreground';
   const value = (field: Field) => {
-    if (missing.has(field)) return <span className="text-rec-info-foreground">missing</span>;
+    if (missing.has(field)) return <span className="text-muted-foreground">{field === 'quote_eur' ? 'No quote' : '—'}</span>;
     const v = claim[field];
     if (field === 'quote_eur' && typeof v === 'number') return euro.format(v);
     return String(v ?? '—').replaceAll('_', ' ');
   };
   const flags = (Object.keys(flagLabels) as Field[]);
-  const raised = flags.filter(field => claim[field] === true || missing.has(field));
+  const raised = flags.filter(field => claim[field] === true);
+  const unknownFlags = flags.filter(field => missing.has(field)).map(field => flagLabels[field] ?? field);
   const cover: React.ReactNode[] = [];
   const coverOk: string[] = [];
-  if (missing.has('policy_active_on_incident')) cover.push(<Chip key="cover" tone="warn">Cover unknown</Chip>);
+  const unknownCover: string[] = [];
+  if (missing.has('policy_active_on_incident')) unknownCover.push('Policy active');
   else if (claim.policy_active_on_incident === false) cover.push(<Chip key="cover" tone="bad">Policy not active</Chip>);
   else coverOk.push('Policy active');
   for (const [field, name] of [['incident_report_present', 'Incident report'], ['itemized_quote_present', 'Itemized quote']] as const) {
-    if (missing.has(field)) cover.push(<Chip key={field} tone="warn">{name} unknown</Chip>);
+    if (missing.has(field)) unknownCover.push(name);
     else if (claim[field] === false) cover.push(<Chip key={field} tone="warn">No {name.toLowerCase()}</Chip>);
     else coverOk.push(name);
   }
@@ -265,15 +252,25 @@ function FactsSummary({ item, triggered }: { item: CaseItem; triggered: Set<Fiel
         <span className="label-mono">Cover &amp; docs</span>
         {cover}
         {coverOk.map(name => <span key={name} className="text-muted-foreground">✓ {name}</span>)}
+        <Unknown items={unknownCover} />
       </div>
       <div className="flex flex-col items-start gap-1.5">
         <span className="label-mono">Flags</span>
-        {raised.length === 0
-          ? <span className="text-muted-foreground">✓ None</span>
-          : raised.map(field => missing.has(field)
-            ? <Chip key={field} tone="warn">{flagLabels[field]}: unknown</Chip>
-            : <Chip key={field} tone="bad">{flagLabels[field]}</Chip>)}
+        {raised.map(field => <Chip key={field} tone="bad">{flagLabels[field]}</Chip>)}
+        {raised.length === 0 && unknownFlags.length === 0 && <span className="text-muted-foreground">✓ None</span>}
+        <Unknown items={unknownFlags} />
       </div>
+    </div>
+  );
+}
+
+/** Unanswered questions, named plainly in grey. */
+function Unknown({ items }: { items: string[] }) {
+  if (!items.length) return null;
+  return (
+    <div className="mt-1 flex flex-col gap-0.5">
+      <span className="text-xs text-muted-foreground">Not answered</span>
+      {items.map(item => <span key={item} className="text-muted-foreground">– {item}</span>)}
     </div>
   );
 }

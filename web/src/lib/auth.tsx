@@ -74,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 function AuthCard({ title, description, children }: { title: string; description: string; children: ReactNode }) {
-  return <main className="grid min-h-svh place-items-center bg-muted/30 p-6"><Card className="w-full max-w-sm"><CardHeader><CardTitle>{title}</CardTitle><CardDescription>{description}</CardDescription></CardHeader><CardContent>{children}</CardContent></Card></main>;
+  return <main className="grid min-h-svh place-items-center bg-muted/30 p-6"><Card className="w-full max-w-sm"><CardHeader><CardTitle className="font-serif text-2xl font-normal tracking-normal">{title}</CardTitle><CardDescription>{description}</CardDescription></CardHeader><CardContent>{children}</CardContent></Card></main>;
 }
 
 function SignIn({ initialError }: { initialError: string }) {

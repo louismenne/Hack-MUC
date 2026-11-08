@@ -8,7 +8,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { ReviewEvent } from '../../../src/review';
 
-const actionLabel = { confirmed: 'Confirmed', overridden: 'Overridden', reverted: 'Reverted' } as const;
+const actionLabel = { confirmed: 'Confirmed', overridden: 'Overridden', reverted: 'Reverted', rejected: 'Rejected' } as const;
 
 interface AuditLogProps {
   events: ReviewEvent[];
@@ -58,13 +58,13 @@ export function AuditLog({ events, datasetName, onOpenCase, onExport }: AuditLog
                 <TableRow key={event.id}>
                   <TableCell className="text-xs whitespace-nowrap text-muted-foreground">{timeFormat.format(new Date(event.at))}</TableCell>
                   <TableCell>
-                    {onOpenCase ? <Button variant="link" className="h-auto p-0 font-mono text-xs" onClick={() => onOpenCase(event.caseId)}>{event.caseId}</Button> : <span className="font-mono text-xs">{event.caseId}</span>}
+                    {onOpenCase ? <Button variant="link" className="h-auto p-0 tabular-nums text-xs" onClick={() => onOpenCase(event.caseId)}>{event.caseId}</Button> : <span className="tabular-nums text-xs">{event.caseId}</span>}
                   </TableCell>
                   <TableCell><Badge variant={event.action === 'overridden' ? 'default' : 'secondary'}>{actionLabel[event.action]}</Badge></TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1.5">
                       <RecommendationBadge value={event.automated} short />
-                      <span className="font-mono text-xs text-muted-foreground">{event.ruleId}</span>
+                      <span className="tabular-nums text-xs text-muted-foreground">{event.ruleId}</span>
                     </div>
                   </TableCell>
                   <TableCell>

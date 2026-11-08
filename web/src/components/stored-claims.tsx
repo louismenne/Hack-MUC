@@ -242,7 +242,7 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
       if (error) throw new Error(error.message);
       clearReloadCache();
       setAction(null);
-      toast.success(input.action === 'overridden' ? 'Override saved to the audit history.' : input.action === 'reverted' ? 'Revert saved to the audit history.' : 'Confirmation saved to the audit history.');
+      toast.success(input.action === 'rejected' ? 'Claim rejected. Saved to the audit history.' : input.action === 'overridden' ? 'Override saved to the audit history.' : input.action === 'reverted' ? 'Revert saved to the audit history.' : 'Confirmation saved to the audit history.');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
     } finally {
@@ -353,13 +353,16 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
     if (dashboard) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || action || !selectedId) return;
+      // A dialog, menu or field handles its own Esc; only a bare Esc closes the claim.
+      if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="listbox"], [role="menu"]')) return;
       const target = event.target instanceof Element ? event.target : null;
-      if (target?.closest('input, textarea, [role="dialog"], [role="listbox"]')) return;
+      if (target?.closest('input, textarea, select')) return;
       setDismissed(true);
       openClaim('');
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    // Capture phase: runs before a dialog closes itself, so an open dialog is still detected.
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dashboard, action, selectedId]);
   const previousCase = index > 0 ? visible[index - 1] : null;
@@ -369,7 +372,7 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
     <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1">
-          <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+          <h2 className="flex items-center gap-2 font-serif text-2xl font-normal tracking-normal">
             Submitted claims
             <Badge variant="secondary" className="tabular-nums">{total}</Badge>
           </h2>
@@ -476,7 +479,7 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
               <>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <Button variant="ghost" size="sm" onClick={() => { setDismissed(true); openClaim(''); }} aria-label="Close claim (Esc)">
-              <XIcon data-icon="inline-start" /> Close <kbd className="ml-1 rounded border px-1 font-mono text-[10px] text-muted-foreground">Esc</kbd>
+              <XIcon data-icon="inline-start" /> Close <kbd className="ml-1 rounded border px-1 tabular-nums text-[10px] text-muted-foreground">Esc</kbd>
             </Button>
             <div className="flex items-center gap-1">
               {index >= 0 && (

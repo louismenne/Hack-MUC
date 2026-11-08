@@ -122,7 +122,7 @@ export function PolicyWorkspace() {
       ) : (
         <Tabs value={tab} onValueChange={setTab} className="gap-4">
           <div className="flex flex-wrap items-center gap-3">
-            <h2 className="text-lg font-semibold tracking-tight">Policy</h2>
+            <h2 className="font-serif text-2xl font-normal tracking-normal">Policy</h2>
             <Badge>Active: {active.versionLabel}</Badge>
             <span className="text-xs text-muted-foreground">since {formatDate(active.activatedAt)}</span>
             <div className="ml-auto flex items-center gap-1 rounded-md border border-dashed px-1.5 py-0.5 text-xs text-muted-foreground" aria-label="Layout preview">
