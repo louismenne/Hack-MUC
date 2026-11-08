@@ -17,7 +17,7 @@ export const appPages = ['queue', 'quality', 'policy', 'examples', 'example-qual
 export type AppPage = typeof appPages[number];
 const pagesByRole: Record<Role, readonly AppPage[]> = {
   claims_handler: ['queue'],
-  reviewer: ['queue', 'quality', 'examples', 'example-quality'],
+  reviewer: ['queue'],
   policy_manager: ['queue', 'quality', 'policy', 'examples', 'example-quality'],
   admin: appPages,
 };

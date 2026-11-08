@@ -53,7 +53,7 @@ describe('role boundaries', () => {
 describe('role-specific navigation and direct-route access', () => {
   it.each([
     ['claims_handler', ['queue']],
-    ['reviewer', ['queue', 'quality', 'examples', 'example-quality']],
+    ['reviewer', ['queue']],
     ['policy_manager', ['queue', 'quality', 'policy', 'examples', 'example-quality']],
     ['admin', [...appPages]],
     [null, []],
