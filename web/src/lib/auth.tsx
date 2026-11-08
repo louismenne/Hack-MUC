@@ -1,3 +1,5 @@
+import { loginLandingPath } from '../../../src/auth-redirect';
+import { roleOf } from '../../../src/roles';
 import { ClaimHeroMedia, ClaimRuler } from '@/components/claim-design';
 import { TaktileLogo } from '@/components/taktile-logo';
 import { clearReloadCache } from './reload-cache';
@@ -99,8 +101,13 @@ function SignIn({ initialError }: { initialError: string }) {
   async function submit(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError(''); setMessage('');
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (error) setError('Sign-in failed. Check your email and password.');
+      else if (data.user) {
+        const destination = loginLandingPath(roleOf(data.user));
+        // /claim has its own HTML entry and theme, so use a full navigation.
+        if (destination) window.location.replace(destination);
+      }
     } catch { setError('Unable to reach the sign-in service. Please retry.'); }
     finally { setBusy(false); }
   }

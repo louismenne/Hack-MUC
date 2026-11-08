@@ -11,3 +11,10 @@ export function authRedirectState(hash: string, search = '') {
     : '';
   return { passwordSetup, error };
 }
+
+/** Fresh sign-ins have a role-specific start page; restored sessions keep their current URL. */
+export function loginLandingPath(role: import('./roles.js').Role | null): string | null {
+  if (role === 'claims_handler') return '/claim';
+  if (role === 'reviewer' || role === 'policy_manager' || role === 'admin') return '/overview';
+  return null;
+}

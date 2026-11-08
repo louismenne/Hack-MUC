@@ -10,16 +10,18 @@ A motor-claims assessment app with deterministic policy rules, human review, and
 
 | Role | Email | Password | Access |
 | --- | --- | --- | --- |
-| Claims Handler | `demo.claims-handler@hackmuc.example.com` | `Demo-ndY7kG-cYzVii3CU!7a` | Submit claims; view own submissions |
-| Reviewer | `demo.reviewer@hackmuc.example.com` | `Demo-b6g5TeGZzjSb_CaF!7a` | Review queue only; confirm, override, and reject |
-| Policy Manager | `demo.policy-manager@hackmuc.example.com` | `Demo-4YtdQlm-NJjF14ea!7a` | View claims; create, edit, and activate policies |
-| Admin | `demo.admin@hackmuc.example.com` | `Demo-Iyr6Pp4FnccUdvwv!7a` | All app permissions, including team-role management |
+| Claims Handler | `demo.claims-handler@hackmuc.example.com` | `Demo-ndY7kG-cYzVii3CU!7a` | Starts on `/claim`; submit claims and view own submissions |
+| Reviewer | `demo.reviewer@hackmuc.example.com` | `Demo-b6g5TeGZzjSb_CaF!7a` | Starts on `/overview`; review claims, confirm, override, and reject |
+| Policy Manager | `demo.policy-manager@hackmuc.example.com` | `Demo-4YtdQlm-NJjF14ea!7a` | Starts on `/overview`; view claims, create, edit, and activate policies |
+| Admin | `demo.admin@hackmuc.example.com` | `Demo-Iyr6Pp4FnccUdvwv!7a` | Starts on `/overview`; all app permissions, including team-role management |
+
+Use these four demo accounts for the demo. Fresh sign-ins route Claims Handler to `/claim` and the three insurance-side roles to `/overview` (the Taktile logo page). Reloading an existing session preserves the current page.
 
 Shared hackathon accounts; passwords are case-sensitive. These email addresses have no inbox, so password recovery is unavailable. Admin has full app access. Disable the demo accounts after judging.
 
 ## Try it
 
-- **File a claim:** sign in as Claims Handler, open **File a claim**, and submit facts and attachments. **My claims** shows your submissions.
+- **File a claim:** sign in as Claims Handler to land directly on **/claim**, then submit facts and attachments. **My claims** shows your submissions.
 - **Review a claim:** sign in as Reviewer and open **Review queue**. Inspect a submitted claim, record an override and reason, then check its audit history.
 - **Test a CSV:** sign in as Admin, open **CSV examples**, upload the file, and click **Export results**. CSV examples are read-only; they cannot be overridden.
 - **Change policy:** sign in as Policy Manager or Admin. Create a draft, inspect its impact, and explicitly activate it. Optional AI assistance creates drafts only.

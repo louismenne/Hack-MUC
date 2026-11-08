@@ -1,5 +1,5 @@
-import { expect, it } from 'vitest';
-import { authRedirectState } from '../src/auth-redirect.js';
+import { describe, expect, it } from 'vitest';
+import { authRedirectState, loginLandingPath } from '../src/auth-redirect.js';
 it('captures invite and recovery intent before URL consumption', () => {
  for (const type of ['invite', 'recovery']) expect(authRedirectState(`#access_token=private&type=${type}`).passwordSetup).toBe(true);
  expect(authRedirectState('#/case/DEV-001')).toEqual({ passwordSetup: false, error: '' });
@@ -10,4 +10,17 @@ it('explains consumed/expired callbacks without reflecting untrusted URL content
  const result = authRedirectState('#error_description=secret-token');
  expect(result.error).toContain('could not be verified');
  expect(JSON.stringify(result)).not.toContain('secret-token');
+});
+
+
+describe('fresh login destinations', () => {
+  it('sends Claims Handler to the customer-facing claim form', () => {
+    expect(loginLandingPath('claims_handler')).toBe('/claim');
+  });
+  it.each(['reviewer', 'policy_manager', 'admin'] as const)('sends %s to the Taktile overview', role => {
+    expect(loginLandingPath(role)).toBe('/overview');
+  });
+  it('leaves unassigned accounts on the existing role-assignment screen', () => {
+    expect(loginLandingPath(null)).toBeNull();
+  });
 });
