@@ -221,15 +221,14 @@ export function ClaimsList({ cases, visible, states, filters, onFiltersChange, s
                     <TableCell className="max-w-0 pl-3">
                       <div className="flex items-center gap-1.5">
                         <span className="truncate tabular-nums text-xs font-medium" title={id}>{id}</span>
+                        {/* Fixed slot: the queue number always sits in the same place; status tags follow it. */}
+                        <span className="w-7 shrink-0 text-[10px] text-muted-foreground tabular-nums" title={positions.has(id) ? 'Position in the oldest-first review queue' : undefined}>
+                          {positions.has(id) && <span className="rounded bg-muted px-1">#{positions.get(id)}</span>}
+                        </span>
                         {item.claim.case_status === 'closed' && <span className="shrink-0 text-xs text-muted-foreground">Historical · {item.decision.policyVersion}</span>}
                         {item.needsRecheck && (
                           <span className="shrink-0 rounded border border-recheck/40 bg-recheck/10 px-1 text-[10px] font-medium text-recheck-foreground" title={`The recommendation changed under ${item.decision.policyVersion}; this open claim needs another look.`}>
                             Changed in {item.decision.policyVersion}
-                          </span>
-                        )}
-                        {positions.has(id) && (
-                          <span className="shrink-0 rounded bg-muted px-1 tabular-nums text-[10px] text-muted-foreground tabular-nums" title="Position in the oldest-first review queue">
-                            #{positions.get(id)}
                           </span>
                         )}
                       </div>
