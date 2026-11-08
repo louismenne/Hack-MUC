@@ -85,7 +85,7 @@ function AppContent() {
   const [selection, setSelection] = usePersistentState<Record<string, string>>('selection', {}, isRecord);
   const route = useRoute();
   const tab = canAccessPage(role, route.page) ? route.page : 'queue';
-  const navPages = pages.filter(page => !('menuOnly' in page) && canAccessPage(role, page.id));
+  const navPages = pages.filter(page => page.id !== 'my-claims' && !('menuOnly' in page) && canAccessPage(role, page.id));
   useEffect(() => {
     if (!canAccessPage(role, route.page)) navigate(pageHref('queue'));
   }, [role, route.page]);
