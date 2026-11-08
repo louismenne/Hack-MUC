@@ -334,12 +334,11 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
                     </Button>
                   </div>
                 </div>
-                {access.upload && stored.claim.submitted_by === user.id && stored.claim.case_status === 'open' && (
+                {isClaimant && access.upload && stored.claim.submitted_by === user.id && stored.claim.case_status === 'open' && (
                   <Button asChild variant="outline">
                     <a href={followupHref(stored.claim.id)}>Add information or documents</a>
                   </Button>
                 )}
-                {!action && <div className="flex justify-end">{reviewVoice}</div>}
                 <ClaimDetail
                   item={selected}
                   state={state}
@@ -349,7 +348,7 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
                   documents={<ClaimDocuments attachments={stored.claim.attachments} />}
                 />
                 <ReviewDialog
-                  voice={action ? reviewVoice : null}
+                  voice={null}
                   claimId={stored.claim.id}
                   bindVoiceNote={bindVoiceNote}
                   action={action}
