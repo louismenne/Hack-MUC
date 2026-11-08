@@ -9,6 +9,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import type { PolicyVersionRecord } from './api';
 import { formatDate } from './version-page';
+import { splitColumns, useClaimListResize } from '../stored/use-claim-list-resize';
 
 /** Shared actions every layout variant offers the policy owner. */
 export interface OwnerActions {
@@ -60,46 +61,25 @@ export function Composer({ aiAvailable, busy, onFile, onInstruction }: Pick<Owne
 }
 
 const statusText = { active: 'Active', draft: 'Draft', archived: 'Archived' } as const;
-const WIDTH_KEY = 'hackmuc.policyVersionsWidth';
-
-/** Draggable column width (like the review inbox): drag, arrow keys, double-click resets. Remembered per browser. */
-function useSplitWidth(defaultPx: number) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState<number>(() => {
-    try { const v = Number(localStorage.getItem(WIDTH_KEY)); return Number.isFinite(v) && v > 0 ? v : defaultPx; } catch { return defaultPx; }
-  });
-  const clamp = (px: number) => Math.round(Math.min(Math.max(px, 200), (ref.current?.getBoundingClientRect().width ?? 1200) * 0.45));
-  const save = (px: number) => { setWidth(px); try { localStorage.setItem(WIDTH_KEY, String(px)); } catch { /* storage unavailable */ } };
-  const start = (event: React.PointerEvent) => {
-    const grid = ref.current;
-    if (!grid) return;
-    event.preventDefault();
-    const left = grid.getBoundingClientRect().left;
-    const move = (e: PointerEvent) => setWidth(clamp(e.clientX - left));
-    const up = (e: PointerEvent) => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-      document.body.style.removeProperty('cursor');
-      document.body.style.removeProperty('user-select');
-      save(clamp(e.clientX - left));
-    };
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-  };
-  const handle = (
+/** Same draggable divider as the review inbox (session-only width, double-click resets). */
+function SplitHandle({ resize, label }: { resize: ReturnType<typeof useClaimListResize>; label: string }) {
+  const { splitRef, listWidth, clampWidth, saveListWidth, startResize } = resize;
+  return (
     <div
-      role="separator" aria-orientation="vertical" aria-label="Resize navigation" aria-valuenow={width} tabIndex={0}
-      onPointerDown={start}
-      onDoubleClick={() => save(defaultPx)}
-      onKeyDown={e => { if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return; e.preventDefault(); save(clamp(width + (e.key === 'ArrowRight' ? 24 : -24))); }}
-      className="group absolute inset-y-0 -right-3 z-20 hidden w-3 cursor-col-resize touch-none items-center justify-center outline-none lg:flex"
+      role="separator" aria-orientation="vertical" aria-label={label} aria-valuenow={listWidth ?? undefined} tabIndex={0}
+      onPointerDown={startResize}
+      onDoubleClick={() => saveListWidth(null)}
+      onKeyDown={e => {
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+        e.preventDefault();
+        const current = listWidth ?? (splitRef.current ? splitRef.current.getBoundingClientRect().width / 4.5 : 300);
+        saveListWidth(clampWidth(current + (e.key === 'ArrowRight' ? 24 : -24)));
+      }}
+      className="group absolute inset-y-0 -right-3.5 z-20 hidden w-3 cursor-col-resize touch-none items-center justify-center outline-none lg:flex"
     >
       <span className="h-10 w-1 rounded-full bg-border transition-colors group-hover:bg-foreground/40 group-focus-visible:bg-ring group-active:bg-foreground/60" />
     </div>
   );
-  return { ref, width, handle };
 }
 
 function NavItem({ selected, onClick, children }: { selected: boolean; onClick: () => void; children: ReactNode }) {
@@ -119,14 +99,16 @@ export function PolicyShell({ active, versions, currentId, onNavigate, actions, 
   active: PolicyVersionRecord; versions: PolicyVersionRecord[]; currentId: string | null; onNavigate: (id: string | null) => void;
   actions: OwnerActions; showComposer: boolean; children: ReactNode;
 }) {
-  const split = useSplitWidth(260);
+  const resize = useClaimListResize('hackmuc.policyNavWidth');
   const drafts = versions.filter(v => v.status === 'draft');
   const previous = versions.filter(v => v.status === 'archived').sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const label = (text: string) => <div className="px-3 pt-4 pb-1 text-xs text-muted-foreground">{text}</div>;
   return (
-    <div ref={split.ref} className="grid h-[calc(100dvh-7.5rem)] min-h-[420px] gap-4 lg:grid-cols-(--split)" style={{ '--split': `${split.width}px minmax(0,1fr)` } as React.CSSProperties}>
-      <nav aria-label="Policy" className="relative flex min-h-0 flex-col overflow-y-auto rounded-lg border p-2">
-        {split.handle}
+    <div ref={resize.splitRef} className="grid h-[calc(100dvh-7.5rem)] min-h-[420px] gap-5 lg:grid-cols-(--split)" style={{ '--split': splitColumns(resize.listWidth) } as React.CSSProperties}>
+      {/* The handle sits outside the scrolling nav, so it is not clipped (same as the review inbox). */}
+      <div className="relative flex min-h-0 flex-col">
+      <SplitHandle resize={resize} label="Resize policy navigation" />
+      <nav aria-label="Policy" className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-lg border p-2">
         <NavItem selected={currentId === null} onClick={() => onNavigate(null)}>Overview</NavItem>
         {label('Active')}
         <NavItem selected={currentId === active.id} onClick={() => onNavigate(active.id)}>
@@ -145,6 +127,7 @@ export function PolicyShell({ active, versions, currentId, onNavigate, actions, 
           </NavItem>
         ))}
       </nav>
+      </div>
 
       <section className="flex min-h-0 flex-col">
         <div className="min-h-0 flex-1 overflow-y-auto pr-1">{children}</div>

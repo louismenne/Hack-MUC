@@ -1,13 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 
-export function useClaimListResize() {
+/** Default split for list + detail pages (queue, policy): a bit under a quarter, never narrower than 260px. */
+export const DEFAULT_SPLIT = 'minmax(260px,1fr) minmax(0,3.5fr)';
+export const splitColumns = (width: number | null) => (width ? `${width}px minmax(0,1fr)` : DEFAULT_SPLIT);
+
+/**
+ * Draggable left column (Apple Mail style). The width lasts for this browser session only (reloads keep it,
+ * a freshly opened tab starts at the default again).
+ */
+export function useClaimListResize(storageKey = 'hackmuc.listWidth') {
   const cleanupRef = useRef<(() => void) | null>(null);
   useEffect(() => () => cleanupRef.current?.(), []);
-  // Resizable list column (Apple Mail style). null = default quarter of the width. Remembered per browser.
   const splitRef = useRef<HTMLDivElement>(null);
   const [listWidth, setListWidth] = useState<number | null>(() => {
     try {
-      const v = Number(localStorage.getItem('hackmuc.listWidth'));
+      const v = Number(sessionStorage.getItem(storageKey));
       return Number.isFinite(v) && v > 0 ? v : null;
     } catch {
       return null;
@@ -20,8 +27,8 @@ export function useClaimListResize() {
   const saveListWidth = (px: number | null) => {
     setListWidth(px);
     try {
-      if (px === null) localStorage.removeItem('hackmuc.listWidth');
-      else localStorage.setItem('hackmuc.listWidth', String(px));
+      if (px === null) sessionStorage.removeItem(storageKey);
+      else sessionStorage.setItem(storageKey, String(px));
     } catch {
       /* storage unavailable */
     }

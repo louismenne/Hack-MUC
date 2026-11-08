@@ -7,8 +7,9 @@ export const pages = [
   { id: 'overview', path: '/overview', label: 'Overview', menuOnly: true },
   { id: 'quality', path: '/dashboard', label: 'Dashboard' },
   { id: 'policy', path: '/policy', label: 'Policy' },
-  { id: 'examples', path: '/examples', label: 'CSV examples' },
-  { id: 'example-quality', path: '/example-quality', label: 'Example quality' },
+  // Jury test area: the labelled CSV cases, their quality report, upload and results export in one page.
+  { id: 'examples', path: '/examples', label: 'Test cases' },
+  { id: 'example-quality', path: '/example-quality', label: 'Test cases', menuOnly: true },
   // Opened from the account menu (admins only), not the main navigation.
   { id: 'team', path: '/team', label: 'Team', menuOnly: true },
 ] as const;

@@ -63,9 +63,11 @@ interface QualityViewProps {
   events: ReviewEvent[];
   /** Renders the audit log table for the given (filtered) events. */
   renderLog: (events: ReviewEvent[]) => ReactNode;
+  /** Example quality page: only the quality report on labelled cases, none of the operations dashboard. */
+  qualityOnly?: boolean;
 }
 
-export function QualityView({ dataset, states, events, renderLog }: QualityViewProps) {
+export function QualityView({ dataset, states, events, renderLog, qualityOnly = false }: QualityViewProps) {
   const [reviewerFilter, setReviewerFilter] = useState('all');
   const [range, setRange] = useState<TimeRange>('30d');
   const now = useMemo(() => new Date(), []);
@@ -175,6 +177,13 @@ export function QualityView({ dataset, states, events, renderLog }: QualityViewP
 
   return (
     <div className="flex flex-col gap-4">
+      {qualityOnly ? (
+        <div>
+          <h2 className="text-3xl font-normal tracking-[-0.03em]">Quality report</h2>
+          <p className="text-sm text-muted-foreground">Labelled test cases, v1 and v2.</p>
+        </div>
+      ) : (
+      <>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-2 text-3xl font-normal tracking-[-0.03em]">
@@ -211,7 +220,7 @@ export function QualityView({ dataset, states, events, renderLog }: QualityViewP
         </ToggleGroup>
       </div>
 
-      <SavingsCard insights={insights} range={range} />
+      {dataset.source === 'stored' && <SavingsCard insights={insights} range={range} />}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
         <Kpi
@@ -319,6 +328,9 @@ export function QualityView({ dataset, states, events, renderLog }: QualityViewP
           .filter((item) => item.received && atArrival(item).recommendation === 'human_review')
           .map((item) => item.received!.at)}
       />
+
+      </>
+      )}
 
       {dataset.source !== 'stored' && (
         <Card>

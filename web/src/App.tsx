@@ -201,9 +201,12 @@ function AppContent() {
       )}
 
       <main className="mx-auto flex max-w-[1600px] flex-col gap-4 px-4 py-4">
-        {(tab === 'examples' || tab === 'example-quality') && (
-          <div className={`flex w-full flex-wrap items-center justify-between gap-3 ${tab === 'examples' ? 'mx-auto max-w-[1600px]' : ''}`}>
-            <p className="text-sm text-muted-foreground">{dataset.description}. Read-only examples; submitted claims are reviewed in the Review queue.</p>
+        {(tab === 'examples' || tab === 'example-quality') && !pageOpen && (
+          <div className="mx-auto flex w-full max-w-[1600px] flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-3xl font-normal tracking-[-0.03em]">Test cases</h2>
+              <p className="text-sm text-muted-foreground">{dataset.description} · for testing, not live claims</p>
+            </div>
             <div className="flex flex-wrap items-center gap-2">
               <Select value={dataset.id} onValueChange={value => { setDatasetId(value); setFilters(defaultFilters); }}>
                 <SelectTrigger className="w-52" aria-label="CSV example dataset">
@@ -239,7 +242,7 @@ function AppContent() {
         )}
 
         {(tab === 'queue' || tab === 'my-claims') && <StoredClaims key={tab} />}
-        {tab === 'examples' && <section>
+        {(tab === 'examples' || tab === 'example-quality') && <section>
           {pageOpen ? (
             <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -261,7 +264,10 @@ function AppContent() {
               <ClaimDetail item={selected} state={selectedState} onAction={() => {}} canReview={false} showReviewControls={false} />
             </div>
           ) : (
-            <div className="mx-auto w-full max-w-[1600px]">
+            <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-8">
+              <QualityView qualityOnly dataset={dataset} states={states} events={[]} renderLog={() => null} />
+              <div className="flex flex-col gap-3">
+                <h2 className="text-3xl font-normal tracking-[-0.03em]">Cases</h2>
               <ClaimsList
                 cases={dataset.cases}
                 visible={visible}
@@ -271,6 +277,7 @@ function AppContent() {
                 selectedId={selectedId}
                 onSelect={showCase}
               />
+              </div>
             </div>
           )}
         </section>}
@@ -280,9 +287,6 @@ function AppContent() {
         {tab === 'overview' && <Overview canOpen={page => canAccessPage(role, page as AppPage)} />}
 
         {tab === 'quality' && <StoredClaims dashboard />}
-        {tab === 'example-quality' && <section>
-          <QualityView dataset={dataset} states={states} events={[]} renderLog={() => <p className="text-sm text-muted-foreground">CSV examples are read-only. Submitted-claim review activity is in the Dashboard.</p>} />
-        </section>}
       </main>
 
       <footer className="mx-auto max-w-[1600px] px-4 pb-6 text-xs text-muted-foreground">

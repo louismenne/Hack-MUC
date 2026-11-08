@@ -2,7 +2,7 @@ import { useClaimSelection } from './stored/use-claim-selection';
 import { StoredDashboard } from './stored/dashboard';
 import { ClaimDocuments } from './stored/claim-documents';
 import { useStoredClaims, pageSize } from './stored/use-stored-claims';
-import { useClaimListResize } from './stored/use-claim-list-resize';
+import { splitColumns, useClaimListResize } from './stored/use-claim-list-resize';
 import { useStoredReview } from './stored/use-stored-review';
 import { followupHref } from '../../../src/claim-intake/followup';
 import { navigate, pageHref, useRoute } from '@/lib/navigation';
@@ -201,12 +201,12 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
           className="grid items-start gap-5 lg:grid-cols-(--split)"
           style={
             {
-              '--split': listWidth ? `${listWidth}px minmax(0,1fr)` : 'minmax(240px,1fr) minmax(0,3fr)',
+              '--split': splitColumns(listWidth),
             } as React.CSSProperties
           }
         >
-          <div className="relative flex min-w-0 flex-col gap-3">
-            {/* Apple-Mail-style divider: drag to resize the list, double-click to reset to a quarter. */}
+          <div className="relative flex min-w-0 flex-col gap-3 lg:min-h-[calc(100svh-8.5rem)]">
+            {/* Apple-Mail-style divider: drag to resize the list, double-click to reset. */}
             <div
               role="separator"
               aria-orientation="vertical"
@@ -219,7 +219,7 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
                 if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
                 event.preventDefault();
                 const current =
-                  listWidth ?? (splitRef.current ? splitRef.current.getBoundingClientRect().width / 4 : 300);
+                  listWidth ?? (splitRef.current ? splitRef.current.getBoundingClientRect().width / 4.5 : 300);
                 saveListWidth(clampWidth(current + (event.key === 'ArrowRight' ? 24 : -24)));
               }}
               className="group absolute inset-y-0 -right-3.5 z-20 hidden w-3 cursor-col-resize touch-none items-center justify-center outline-none lg:flex"
