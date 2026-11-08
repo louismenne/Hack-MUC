@@ -47,6 +47,19 @@ export function PolicyWorkspace() {
     } catch (e) { setError(e instanceof ApiFailure ? e : new ApiFailure(String(e))); }
   }, [setOpenId]);
   useEffect(() => { void load(); }, [load]);
+  // Esc goes back to the overview, like closing a claim in the review inbox. Dialogs, menus and fields keep their own Esc.
+  useEffect(() => {
+    if (!openId) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="listbox"], [role="menu"]')) return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+      setOpenId(null);
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [openId, setOpenId]);
 
   /** Runs one API task with a busy flag; failures become a toast (details listed in the message). */
   const run = useCallback(async <T,>(task: () => Promise<T>): Promise<T | undefined> => {
