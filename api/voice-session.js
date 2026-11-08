@@ -11,7 +11,7 @@ function roleOf(user) {
 }
 function permissions(user) {
   const role = roleOf(user);
-  return { review: role === "reviewer" || role === "admin", policy: role === "policy_manager" || role === "admin", team: role === "admin", upload: role === "claims_handler" || role === "reviewer" || role === "admin" };
+  return { review: role === "reviewer" || role === "admin", policy: role === "policy_manager" || role === "admin", team: role === "admin", upload: role === "claims_handler" || role === "reviewer" || role === "admin", qualityAgent: role === "reviewer" || role === "policy_manager" || role === "admin" };
 }
 
 // src/policy-api/auth.ts

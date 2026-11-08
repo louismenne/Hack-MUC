@@ -43,7 +43,3 @@ The review assistant appears on a selected queue claim and inside its review dia
 The policy assistant appears above the policy workspace. It reads current versions, sends change instructions to the existing authorized AI service, and reports calculated draft impact including unsaved editor rules. Unsaved edits block AI proposals; stale impact is returned as an error. No voice tool activates, discards or deletes policies.
 
 Use synthetic data and the explicit ElevenLabs consent checkbox for this demo. Agent configuration and schemas were read back through ElevenLabs during integration. Registered remote simulation tests remain unexecuted; microphone/audio behavior and German switching require a live browser conversation.
-
-## Quality monitoring migration
-
-Before deploying the quality monitoring changes, apply `supabase/migrations/20261108040000_quality_monitoring.sql`. The updated policy API reads the new investigation link. See [Quality monitoring](quality-monitoring.md) for the workflow and verification scope.

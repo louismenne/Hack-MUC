@@ -14,10 +14,10 @@ describe('role boundaries', () => {
   });
   it('separates claim review, policy management and administration', () => {
     expect(roles.map(role => permissions({ app_metadata: { hack_muc_role: role } }))).toEqual([
-      { upload: true, review: false, policy: false, team: false },
-      { upload: true, review: true, policy: false, team: false },
-      { upload: false, review: false, policy: true, team: false },
-      { upload: true, review: true, policy: true, team: true },
+      { upload: true, review: false, policy: false, team: false, qualityAgent: false },
+      { upload: true, review: true, policy: false, team: false, qualityAgent: true },
+      { upload: false, review: false, policy: true, team: false, qualityAgent: true },
+      { upload: true, review: true, policy: true, team: true, qualityAgent: true },
     ]);
   });
   it('rejects every policy mutation and AI call for handlers, reviewers and unassigned users before loading dependencies', async () => {
@@ -53,8 +53,8 @@ describe('role boundaries', () => {
 describe('role-specific navigation and direct-route access', () => {
   it.each([
     ['claims_handler', ['my-claims']],
-    ['reviewer', ['queue', 'overview', 'monitoring']],
-    ['policy_manager', ['queue', 'overview', 'quality', 'policy', 'examples', 'example-quality', 'monitoring']],
+    ['reviewer', ['queue', 'overview']],
+    ['policy_manager', ['queue', 'overview', 'quality', 'policy', 'examples', 'example-quality']],
     ['admin', [...appPages]],
     [null, []],
   ] as const)('%s can only open its permitted pages', (role, expected) => {

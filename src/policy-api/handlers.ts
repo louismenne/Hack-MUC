@@ -86,10 +86,6 @@ export async function handlePost(deps: ApiDeps, raw: unknown): Promise<ApiResult
   switch (raw.action) {
     case 'create_draft': {
       const active = await mustActive(repo);
-      const investigationId = raw.investigationId === undefined ? undefined : uuid(raw, 'investigationId');
-      const investigationRevision = raw.investigationRevision;
-      if (investigationId && (typeof investigationRevision !== 'number' || !Number.isSafeInteger(investigationRevision) || investigationRevision < 0)) throw new ApiError(400, 'Investigation revision is required.');
-      if (investigationId && (raw.parentId !== undefined || raw.rules !== undefined)) throw new ApiError(400, 'Investigation drafts start from the active policy.');
       const createdBy = str(raw, 'createdBy', { max: 100 })!;
       const parent = raw.parentId === undefined ? active : await mustGet(repo, uuid(raw, 'parentId'));
       const rules = raw.rules === undefined ? parent.rules : rulesFrom(raw.rules);
@@ -97,7 +93,6 @@ export async function handlePost(deps: ApiDeps, raw: unknown): Promise<ApiResult
       return ok(
         {
           version: await repo.createDraft({
-            investigationId, investigationRevision: investigationId ? investigationRevision as number : undefined,
             rules,
             changeSummary,
             source: 'edit',

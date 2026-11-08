@@ -1,4 +1,4 @@
-import { QualityMonitoring } from '@/components/monitoring/screen';
+import { QualityAgentSidebar } from '@/components/quality-agent/sidebar';
 import { StoredClaims } from '@/components/stored-claims';
 import { permissions, roleOf, roleLabels, canAccessPage, type AppPage } from '../../src/roles';
 import { Team } from '@/components/team';
@@ -6,8 +6,8 @@ import { useAuthUser, signOut } from '@/lib/auth';
 import { PolicyManager } from '@/components/policy-manager';
 import { Overview } from '@/components/overview';
 import { TaktileLogo } from '@/components/taktile-logo';
-import { useEffect, useMemo, useRef } from 'react';
-import { XIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, LogOutIcon, MonitorIcon, MoonIcon, SunIcon, UploadIcon, UsersIcon } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { XIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, LogOutIcon, MonitorIcon, MoonIcon, SparklesIcon, SunIcon, UploadIcon, UsersIcon } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useTheme } from '@/lib/theme';
 import { toast } from 'sonner';
@@ -26,6 +26,7 @@ import { reviewState, type ReviewState } from '../../src/review';
 interface StoredUpload { name: string; csv: string }
 
 const isString = (value: unknown): value is string => typeof value === 'string';
+const isBoolean = (value: unknown): value is boolean => typeof value === 'boolean';
 const isRecord = (value: unknown): value is Record<string, string> => typeof value === 'object' && value !== null && !Array.isArray(value);
 const isUpload = (value: unknown): value is StoredUpload | null =>
   value === null || (isRecord(value) && typeof value.name === 'string' && typeof value.csv === 'string');
@@ -98,6 +99,12 @@ function AppContent() {
   const openCaseId = tab === 'examples' ? route.caseId : null;
   const openCase = (caseId: string | null) => navigate(pageHref('examples', caseId ? new URLSearchParams({ case: caseId }) : undefined));
   const fileInput = useRef<HTMLInputElement>(null);
+  // Assistant (quality agent): a collapsible right sidebar on every staff page; open/closed is remembered per user.
+  const [agentStored, setAgentOpen] = usePersistentState('quality-agent-open', false, isBoolean);
+  const agentOpen = access.qualityAgent && agentStored;
+  const [agentBusy, setAgentBusy] = useState(false);
+  const agentToggle = useRef<HTMLButtonElement>(null);
+  const closeAgent = () => { setAgentOpen(false); agentToggle.current?.focus(); };
 
   const uploaded = useMemo<Dataset | null>(() => {
     if (!upload) return null;
@@ -129,7 +136,7 @@ function AppContent() {
       if (event.key !== 'Escape') return;
       if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="listbox"], [role="menu"]')) return;
       const target = event.target instanceof Element ? event.target : null;
-      if (target?.closest('input, textarea, select')) return;
+      if (target?.closest('input, textarea, select, [data-agent-panel]')) return;
       openCase(null);
     };
     window.addEventListener('keydown', onKey, true);
@@ -196,11 +203,23 @@ function AppContent() {
           </nav>
 
           <div className="ml-auto flex shrink-0 items-center gap-2">
+            {access.qualityAgent && (
+              <Button ref={agentToggle} variant={agentOpen ? 'secondary' : 'ghost'} size="sm" className="relative"
+                aria-expanded={agentOpen} aria-controls="quality-agent-panel" aria-label={agentBusy && !agentOpen ? 'Assistant (working)' : 'Assistant'}
+                onClick={() => setAgentOpen(open => !open)}>
+                <SparklesIcon data-icon="inline-start" /> <span className="hidden sm:inline">Assistant</span>
+                {agentBusy && !agentOpen && <span aria-hidden className="absolute top-1 right-1 size-2 animate-pulse rounded-full bg-primary" />}
+              </Button>
+            )}
             <AccountMenu email={user.email ?? ''} roleLabel={role ? roleLabels[role] : 'Unassigned (read only)'} canManageTeam={access.team} />
           </div>
         </div>
       </header>
 
+      {access.qualityAgent && <QualityAgentSidebar open={agentOpen} onClose={closeAgent} onBusyChange={setAgentBusy} />}
+
+      {/* From xl the open sidebar sits beside the page instead of covering it. */}
+      <div className={`transition-[padding] duration-200 ease-out motion-reduce:transition-none ${agentOpen ? 'xl:pr-[420px]' : ''}`}>
       {(source.origin === 'bundled' || source.problem) && (
         <div className="mx-auto max-w-[1600px] px-4 pt-4">
           <Alert variant="destructive">
@@ -301,12 +320,12 @@ function AppContent() {
         {tab === 'overview' && <Overview canOpen={page => canAccessPage(role, page as AppPage)} />}
 
         {tab === 'quality' && <StoredClaims dashboard />}
-        {tab === 'monitoring' && <QualityMonitoring />}
       </main>
 
       <footer className="mx-auto max-w-[1600px] px-4 pb-6 text-xs text-muted-foreground">
         Recommends a handling step; never approves or pays a claim.
       </footer>
+      </div>
     </div>
   );
 }

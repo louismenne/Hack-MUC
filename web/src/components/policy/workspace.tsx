@@ -60,7 +60,7 @@ export function PolicyWorkspace() {
       if (event.key !== 'Escape') return;
       if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="listbox"], [role="menu"]')) return;
       const target = event.target instanceof Element ? event.target : null;
-      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+      if (target?.closest('input, textarea, select, [contenteditable="true"], [data-agent-panel]')) return;
       setOpenId(null);
     };
     window.addEventListener('keydown', onKey, true);

@@ -12,9 +12,7 @@ Detail-Backlog zur Reviewer-UI: [backlog-reviewer-ui.md](backlog-reviewer-ui.md)
 - [ ] Review-only als Standardansicht festlegen/umsetzen; aktuell startet die Queue mit allen Empfehlungen und Status.
 - [ ] Review: Chat-/Textbefehl für Entscheidung + Begründung und Beleg nachreichen. Die vorhandenen Reviewer-Aktionen und Voice-Unterstützung ersetzen diese offenen Wünsche nicht.
 - [ ] Dashboard: „Ask your data“-Chat.
-- [x] Quality monitoring: Override-Signale, persistierte Untersuchungen und verknüpfte Policy-Entwürfe mit bestehender Owner-Freigabe implementiert — siehe [Qualitätskontrolle](quality-monitoring.md).
-- [ ] Quality-monitoring-Migration vor Deployment anwenden und den Ablauf live prüfen.
-- [ ] Qualitätskontrollplan: Stichproben, echte Ergebnisse, historische Replay-Auswertung und Untersuchungsrhythmus konkretisieren.
+- [ ] Umfang des geplanten Quality-Kreislaufs klären; Versionsvergleich und Reviewer-Auswertung existieren bereits.
 - [ ] Abschließender UI-Feinschliff.
 
 ### Live-Verifikation und Organisation

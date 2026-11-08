@@ -75,7 +75,6 @@ Vercel deploys through the repository’s Git integration. The build generates t
 - [Authentication and roles](docs/auth.md)
 - [Claims, attachments, and saved decisions](docs/claims.md)
 - [Audit history](docs/audit.md)
-- [Quality monitoring and investigations](docs/quality-monitoring.md)
 - [Policy JSON format](docs/policy-rules-schema.md)
 - [Savings assumptions](docs/savings-model.md)
 - [Lean verification and its limits](formal/README.md)

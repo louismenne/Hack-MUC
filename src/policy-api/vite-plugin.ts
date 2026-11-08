@@ -10,6 +10,7 @@ type Handler = (request: Request) => Promise<Response>;
  */
 export function policyApiPlugin(repoRoot: string): Plugin {
   const routes: Record<string, { file: string; methods: string[] }> = {
+    '/api/quality-chat': { file: 'src/policy-api/functions/quality-chat.ts', methods: ['GET', 'POST'] },
     '/api/policy': { file: 'src/policy-api/functions/policy.ts', methods: ['GET', 'POST'] },
     '/api/policy-ai': { file: 'src/policy-api/functions/policy-ai.ts', methods: ['POST'] },
     '/api/voice-session': { file: 'src/policy-api/functions/voice-session.ts', methods: ['POST'] },
@@ -18,6 +19,7 @@ export function policyApiPlugin(repoRoot: string): Plugin {
     name: 'policy-api',
     apply: 'serve',
     configureServer(server) {
+      process.env.QUALITY_AGENT_LOCAL_CLI = '1';
       for (const [key, value] of Object.entries(loadEnv(server.config.mode, repoRoot, '')))
         if (process.env[key] === undefined) process.env[key] = value;
       server.middlewares.use(async (req, res, next) => {
@@ -35,8 +37,11 @@ export function policyApiPlugin(repoRoot: string): Plugin {
           if (method !== 'GET') for await (const chunk of req) chunks.push(chunk as Buffer);
           const headers = new Headers();
           for (const [k, v] of Object.entries(req.headers)) if (typeof v === 'string') headers.set(k, v);
+          const disconnected = new AbortController();
+          res.once('close', () => { if (!res.writableEnded) disconnected.abort(); });
           const request = new Request(`http://localhost${req.url}`, {
             method,
+            signal: disconnected.signal,
             headers,
             body: method === 'GET' ? undefined : Buffer.concat(chunks),
           });
@@ -46,7 +51,13 @@ export function policyApiPlugin(repoRoot: string): Plugin {
           const response = await handler(request);
           res.statusCode = response.status;
           response.headers.forEach((v, k) => res.setHeader(k, v));
-          res.end(Buffer.from(await response.arrayBuffer()));
+          if (response.body) {
+            const reader = response.body.getReader();
+            try {
+              for (;;) { const { done, value } = await reader.read(); if (done) break; res.write(Buffer.from(value)); }
+            } finally { reader.releaseLock(); }
+          }
+          res.end();
         } catch (error) {
           console.error('policy api dev error', error instanceof Error ? error.message : 'unknown');
           send(500, { error: 'Internal server error.' });

@@ -42,7 +42,7 @@ export function useClaimSelection({
       // A dialog, menu or field handles its own Esc; only a bare Esc closes the claim.
       if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="listbox"], [role="menu"]')) return;
       const target = event.target instanceof Element ? event.target : null;
-      if (target?.closest('input, textarea, select')) return;
+      if (target?.closest('input, textarea, select, [data-agent-panel]')) return;
       setDismissed(true);
       openClaim('');
     };

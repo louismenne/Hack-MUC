@@ -16,7 +16,7 @@ export function memoryRepo(v1: PolicyDocument): PolicyRepo & { versions: PolicyV
     async get(i) { const v = versions.find(x => x.id === i); return v ? clone(v) : null; },
     async createDraft(d: NewDraft) {
       const record: PolicyVersionRecord = {
-        investigationId: d.investigationId, revision: 0, id: id(), versionLabel: nextVersionLabel(versions.map(v => v.versionLabel)), rules: clone(d.rules), status: 'draft', changeSummary: d.changeSummary,
+        revision: 0, id: id(), versionLabel: nextVersionLabel(versions.map(v => v.versionLabel)), rules: clone(d.rules), status: 'draft', changeSummary: d.changeSummary,
         source: d.source, parentVersionId: d.parentVersionId, createdBy: d.createdBy, createdAt: new Date(2026, 10, 7, 10, versions.length).toISOString(), activatedAt: null,
       };
       versions.push(record);
