@@ -164,11 +164,17 @@ async function handleVoiceSession(request, options = {}) {
   try {
     if (request.method !== "POST") return json(405, { error: "Method not allowed." }, { Allow: "POST" });
     const user = await (options.authenticate ?? createAuthenticator())(request);
-    if (!permissions(user).upload) throw new ApiError(403, "Claims Handler, Reviewer or Admin role required.");
+    const purpose = new URL(request.url).searchParams.get("purpose") ?? "intake";
+    if (!["intake", "review", "policy"].includes(purpose)) throw new ApiError(400, "Unknown voice assistant.");
+    const access = permissions(user);
+    if (!(purpose === "review" ? access.review : purpose === "policy" ? access.policy : access.upload)) {
+      throw new ApiError(403, "Your role may not use this voice assistant.");
+    }
     const env = options.env ?? process.env;
     const apiKey = env.ELEVENLABS_API_KEY?.trim();
-    const agentId = env.ELEVENLABS_AGENT_ID?.trim();
-    if (!apiKey || !agentId) throw new ApiError(503, "Voice input is not configured on the server (ELEVENLABS_API_KEY and ELEVENLABS_AGENT_ID are required).");
+    const agentVariable = purpose === "review" ? "ELEVENLABS_REVIEW_AGENT_ID" : purpose === "policy" ? "ELEVENLABS_POLICY_AGENT_ID" : "ELEVENLABS_AGENT_ID";
+    const agentId = env[agentVariable]?.trim();
+    if (!apiKey || !agentId) throw new ApiError(503, `Voice input is not configured on the server (ELEVENLABS_API_KEY and ${agentVariable} are required).`);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? 1e4);
     let upstream;

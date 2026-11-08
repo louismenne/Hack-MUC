@@ -130,3 +130,30 @@ describe('POST /api/voice-session', () => {
     });
   });
 });
+
+
+describe('voice assistant selection and role isolation', () => {
+  const configured = { ...env, ELEVENLABS_REVIEW_AGENT_ID: 'review-agent', ELEVENLABS_POLICY_AGENT_ID: 'policy-agent' };
+  it.each(['claims_handler', 'reviewer', 'policy_manager', 'admin', null])('checks both assistants for %s', async role => {
+    for (const purpose of ['review', 'policy']) {
+      const allowed = role === 'admin' || role === (purpose === 'review' ? 'reviewer' : 'policy_manager');
+      const fetchImpl = upstream(200, { signed_url: SIGNED });
+      const response = await handleVoiceSession(new Request(`http://localhost/api/voice-session?purpose=${purpose}`, { method: 'POST' }), { authenticate: asUser(role), env: configured, fetchImpl });
+      expect(response.status).toBe(allowed ? 200 : 403);
+      if (allowed) expect((fetchImpl.mock.calls[0] as unknown as [string])[0]).toContain(`agent_id=${purpose}-agent`);
+      else expect(fetchImpl).not.toHaveBeenCalled();
+    }
+  });
+  it('rejects arbitrary agent selection without contacting ElevenLabs', async () => {
+    const fetchImpl = upstream(200);
+    const response = await handleVoiceSession(new Request('http://localhost/api/voice-session?purpose=attacker', { method: 'POST' }), { authenticate: asUser('admin'), env: configured, fetchImpl });
+    expect(response.status).toBe(400);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+  it('does not fall back to intake when the selected agent is unconfigured', async () => {
+    const fetchImpl = upstream(200);
+    const response = await handleVoiceSession(new Request('http://localhost/api/voice-session?purpose=review', { method: 'POST' }), { authenticate: asUser('admin'), env, fetchImpl });
+    expect(response.status).toBe(503);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+});

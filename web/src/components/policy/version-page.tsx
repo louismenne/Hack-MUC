@@ -1,6 +1,6 @@
 import { useAuthUser } from '@/lib/auth';
 import { permissions } from '../../../../src/roles';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { ArrowLeftIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { diffPolicies } from '../../../../src/policy-view/diff';
@@ -24,6 +24,7 @@ export const sourceLabel = { seed: 'Original', edit: 'Edited', upload: 'Uploaded
 export const formatDate = (iso: string | null) => (iso ? new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '–');
 
 interface Props {
+  bindVoiceEditor?: (value: { id: string; rules: PolicyDocument; dirty: boolean } | null) => void;
   version: PolicyVersionRecord;
   active: PolicyVersionRecord;
   aiAvailable: boolean;
@@ -35,7 +36,7 @@ interface Props {
 }
 
 /** One version: read-only for active/archived, editable for drafts, with diff, impact and activation. */
-export function VersionPage({ version, active, aiAvailable, owner, busy, run, onBack, onReload }: Props) {
+export function VersionPage({ version, active, aiAvailable, owner, busy, run, onBack, onReload, bindVoiceEditor }: Props) {
   const canManage = permissions(useAuthUser()).policy;
   const isDraft = version.status === 'draft' && canManage;
   const [rules, setRules] = useState<PolicyDocument>(version.rules);
@@ -45,6 +46,10 @@ export function VersionPage({ version, active, aiAvailable, owner, busy, run, on
   const [confirm, setConfirm] = useState(false);
 
   const dirty = JSON.stringify(rules) !== JSON.stringify(version.rules) || summary.trim() !== (version.changeSummary ?? '');
+  useLayoutEffect(() => {
+    bindVoiceEditor?.({ id: version.id, rules, dirty });
+    return () => bindVoiceEditor?.(null);
+  }, [version.id, rules, dirty, bindVoiceEditor]);
   const changes = useMemo(() => diffPolicies(active.rules, rules), [active.rules, rules]);
 
   // Live impact: recomputed shortly after every edit, from the rules on screen (saved or not).

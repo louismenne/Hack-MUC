@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react';
+import type { ReviewNoteAccess } from './voice/review-tools';
+import type { ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { recommendationMeta } from '@/lib/policy';
 import { RecommendationBadge } from '@/components/recommendation-badge';
 import { Button } from '@/components/ui/button';
@@ -49,12 +51,19 @@ interface ReviewDialogProps {
   presetNext?: Recommendation;
   /** Title of the reviewer decision, shown instead of the generic action title. */
   presetTitle?: string;
+  voice?: ReactNode;
+  claimId?: string;
+  bindVoiceNote?: (access: ReviewNoteAccess | null) => void;
 }
 
-export function ReviewDialog({ action, onOpenChange, datasetId, decision, current, defaultReviewer, onSubmit, presetNext, presetTitle }: ReviewDialogProps) {
+export function ReviewDialog({ action, onOpenChange, datasetId, decision, current, defaultReviewer, onSubmit, presetNext, presetTitle, voice, claimId, bindVoiceNote }: ReviewDialogProps) {
   const [next, setNext] = useState<Recommendation | undefined>();
   const [reason, setReason] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  useLayoutEffect(() => {
+    bindVoiceNote?.(action && claimId ? { claimId, reason, setReason } : null);
+    return () => bindVoiceNote?.(null);
+  }, [action, claimId, reason, bindVoiceNote]);
 
   useEffect(() => {
     if (!action) return;
@@ -91,6 +100,7 @@ export function ReviewDialog({ action, onOpenChange, datasetId, decision, curren
             <span className="tabular-nums">{decision.ruleId}</span>
             {current !== decision.recommendation && <>· Current <RecommendationBadge value={current} short /></>}
           </div>
+          {voice}
           <FieldGroup>
             {shown === 'overridden' && (
               <Field data-invalid={!!errors.next}>

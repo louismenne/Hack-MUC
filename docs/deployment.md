@@ -33,3 +33,13 @@ The lifecycle migration closes previously rejected open claims and links them to
 Follow-up links use `/claim?claim=<uuid>` and load only the current user's open claims. Saved answers and existing attachments are restored from the database; concurrent changes require reloading before saving.
 
 Run `tests/sql/review-lifecycle.sql` along with the existing SQL checks on a disposable database after applying all migrations. Its fixtures roll back. Run `npm run typecheck`, `npm test`, and `npm run build` for API and UI validation.
+
+## Internal voice assistants
+
+The signed-session endpoint accepts `?purpose=review` (Reviewer/Admin) or `?purpose=policy` (Policy Manager/Admin). Omitting purpose preserves Claim Intake and its existing permissions. Unknown purposes fail closed. Configure server-only `ELEVENLABS_REVIEW_AGENT_ID` and `ELEVENLABS_POLICY_AGENT_ID`, alongside the existing `ELEVENLABS_API_KEY` and intake `ELEVENLABS_AGENT_ID`.
+
+The review assistant appears on a selected queue claim and inside its review dialog. Opening a different claim or dialog ends the previous conversation. It reads authorized claim context and can draft a reason only in an open dialog; saving remains manual. Existing text requires explicit replacement.
+
+The policy assistant appears above the policy workspace. It reads current versions, sends change instructions to the existing authorized AI service, and reports calculated draft impact including unsaved editor rules. Unsaved edits block AI proposals; stale impact is returned as an error. No voice tool activates, discards or deletes policies.
+
+Use synthetic data and the explicit ElevenLabs consent checkbox for this demo. Agent configuration and schemas were read back through ElevenLabs during integration. Registered remote simulation tests remain unexecuted; microphone/audio behavior and German switching require a live browser conversation.

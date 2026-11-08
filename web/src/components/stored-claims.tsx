@@ -1,3 +1,7 @@
+import { authenticatedFetch } from '@/lib/supabase';
+import { policyApi } from './policy/api';
+import { VoiceAssistant, voiceError, voiceResult } from './voice/assistant';
+import { insertReviewReason, type ReviewNoteAccess } from './voice/review-tools';
 import { useClaimSelection } from './stored/use-claim-selection';
 import { StoredDashboard } from './stored/dashboard';
 import { ClaimDocuments } from './stored/claim-documents';
@@ -7,7 +11,7 @@ import { useStoredReview } from './stored/use-stored-review';
 import { followupHref } from '../../../src/claim-intake/followup';
 import { navigate, pageHref, useRoute } from '@/lib/navigation';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useCallback, useState } from 'react';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -109,6 +113,26 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
     action,
     setAction,
   });
+  const noteAccess = useRef<ReviewNoteAccess | null>(null);
+  const bindVoiceNote = useCallback((value: ReviewNoteAccess | null) => { noteAccess.current = value; }, []);
+  const reviewVoice = selected && stored && canReview ? <VoiceAssistant key={`${stored.claim.id}:${action ?? 'case'}`} purpose="review" title="Discuss this claim" tools={{
+    get_selected_claim_context: async () => {
+      if (!canReview || loading || !stored || !selected) return voiceError('Claim context unavailable or refreshing.');
+      const id = stored.claim.id;
+      const [response, versions] = await Promise.all([
+        authenticatedFetch('/api/policy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'evaluate_claims', claimId: id }) }),
+        policyApi.overview(),
+      ]);
+      const data = await response.json();
+      if (!response.ok) return voiceError(data.error ?? 'Claim context unavailable.');
+      if (new URLSearchParams(window.location.search).get('case') !== selectedId) return voiceError('Selected claim changed.');
+      const fresh = (data.items as StoredQueueItem[]).find(item => item.claim.id === id);
+      if (!fresh || fresh.saved.id !== stored.saved.id || fresh.claim.revision !== stored.claim.revision) return voiceError('Claim changed. Refresh the review queue.');
+      const version = versions.versions.find(v => v.id === fresh.saved.policy_id);
+      return voiceResult({ claim_id: id, case_id: selectedId, facts: fresh.claim, automated_decision: fresh.saved.decision, review: state, policy_version: version?.versionLabel ?? policy, applicable_rule: version?.rules.rules.find(rule => rule.id === fresh.saved.decision.ruleId) ?? null, attachments_content_available: false, review_dialog_open: !!action });
+    },
+    draft_review_reason: params => !canReview || loading ? voiceError('Review unavailable or refreshing.') : insertReviewReason(noteAccess.current, params),
+  }} /> : null;
   // Claims and audit events reload automatically on load, on window focus and after policy changes.
   const problem = error || audit.error;
 
@@ -315,6 +339,7 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
                     <a href={followupHref(stored.claim.id)}>Add information or documents</a>
                   </Button>
                 )}
+                {!action && reviewVoice}
                 <ClaimDetail
                   item={selected}
                   state={state}
@@ -324,6 +349,9 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
                   documents={<ClaimDocuments attachments={stored.claim.attachments} />}
                 />
                 <ReviewDialog
+                  voice={action ? reviewVoice : null}
+                  claimId={stored.claim.id}
+                  bindVoiceNote={bindVoiceNote}
                   action={action}
                   onOpenChange={(open) => !open && setAction(null)}
                   datasetId="stored"

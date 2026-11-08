@@ -1,7 +1,10 @@
+import { VoiceAssistant, voiceError, voiceResult } from '../voice/assistant';
+import { diffPolicies } from '../../../../src/policy-view/diff';
+import type { PolicyDocument } from './api';
 import { navigate, pageHref, useRoute } from '@/lib/navigation';
 import { permissions } from '../../../../src/roles';
 import { useAuthUser } from '@/lib/auth';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ApiFailure, policyApi, type PolicyVersionRecord } from './api';
@@ -21,6 +24,9 @@ function readAsBase64(file: File): Promise<string> {
 }
 
 export function PolicyWorkspace() {
+  const editor = useRef<{ id: string; rules: PolicyDocument; dirty: boolean } | null>(null);
+  const proposalPending = useRef(false);
+  const bindVoiceEditor = useCallback((value: typeof editor.current) => { editor.current = value; }, []);
   const [versions, setVersions] = useState<PolicyVersionRecord[] | null>(null);
   const [aiAvailable, setAiAvailable] = useState(false);
   const [error, setError] = useState<ApiFailure | null>(null);
@@ -106,10 +112,56 @@ export function PolicyWorkspace() {
   if (!versions || !active) return <p className="text-sm text-muted-foreground">{versions ? 'No active policy version' : 'Loading policy versions…'}</p>;
 
   return (
-    <div className="mx-auto w-full max-w-[1600px]">
+    <div className="mx-auto w-full max-w-[1600px] space-y-3">
+      {canManage && <VoiceAssistant purpose="policy" title="Discuss policy and prepare changes" tools={{
+        get_policy_context: async () => {
+          const data = await policyApi.overview();
+          const selectedId = new URLSearchParams(window.location.search).get('version');
+          const current = data.versions.find(v => v.status === 'active');
+          const selected = selectedId ? data.versions.find(v => v.id === selectedId) : current;
+          if (!current || !selected) return voiceError('Policy selection unavailable.');
+          const editing = editor.current?.id === selected.id ? editor.current : null;
+          return voiceResult({ active: current, selected: { ...selected, rules: editing?.rules ?? selected.rules }, unsaved_changes: editing?.dirty ?? false, permissions: { can_manage_policy: canManage, ai_available: data.aiAvailable } });
+        },
+        propose_policy_change: async params => {
+          const p = params as { version_id?: unknown; instruction?: unknown } | null;
+          if (!canManage || busy || proposalPending.current) return voiceError('Policy changes unavailable or busy.');
+          if (typeof p?.version_id !== 'string' || typeof p.instruction !== 'string' || !p.instruction.trim() || p.instruction.length > 10000) return voiceError('Invalid proposal parameters.');
+          const selectedId = new URLSearchParams(window.location.search).get('version') ?? active.id;
+          if (p.version_id !== selectedId) return voiceError('Selection changed. Retrieve context again.');
+          if (editor.current?.dirty) return voiceError('Save or discard your unsaved edits before requesting an AI draft.');
+          proposalPending.current = true;
+          setBusy(true);
+          try {
+            const r = await policyApi.aiInstruction({ createdBy: owner, versionId: p.version_id, instruction: p.instruction.trim() });
+            if (r.version) { await load(r.version.id); return voiceResult({ draft: r.version, activated: false }); }
+            setReply({ question: p.instruction, answer: r.answer ?? 'No change proposed.' });
+            return voiceResult({ answer: r.answer ?? 'No change proposed.', draft_created: false });
+          } finally { proposalPending.current = false; setBusy(false); }
+        },
+        get_selected_draft_impact: async () => {
+          const selectedId = new URLSearchParams(window.location.search).get('version');
+          const data = await policyApi.overview();
+          const draft = data.versions.find(v => v.id === selectedId && v.status === 'draft');
+          const base = data.versions.find(v => v.status === 'active');
+          if (!draft || !base) return voiceError('No draft selected.');
+          const snapshot = editor.current;
+          const rules = snapshot?.id === draft.id ? snapshot.rules : draft.rules;
+          const key = JSON.stringify(rules);
+          const result = await policyApi.impact(draft.id, rules);
+          const after = await policyApi.overview();
+          if (new URLSearchParams(window.location.search).get('version') !== draft.id ||
+              (editor.current?.id === draft.id && JSON.stringify(editor.current.rules) !== key) ||
+              after.versions.find(v => v.status === 'active')?.id !== base.id ||
+              after.versions.find(v => v.id === draft.id)?.revision !== draft.revision ||
+              result.impact.base.id !== base.id || result.impact.draft.revision !== draft.revision) return voiceError('Impact became stale. Request it again.');
+          return voiceResult({ impact: result.impact, differences: diffPolicies(base.rules, rules), unsaved_changes: snapshot?.dirty ?? false });
+        },
+      }} />}
+
       <PolicyShell active={active} versions={versions} currentId={open?.id ?? null} onNavigate={setOpenId} actions={actions} showComposer={!open || open.id === active.id}>
         {open
-          ? <VersionPage key={`${open.id}|${open.revision}|${open.changeSummary}|${JSON.stringify(open.rules)}`} version={open} active={active} aiAvailable={aiAvailable && canManage} owner={owner} busy={busy} run={run} onBack={() => setOpenId(null)} onReload={load} />
+          ? <VersionPage bindVoiceEditor={bindVoiceEditor} key={`${open.id}|${open.revision}|${open.changeSummary}|${JSON.stringify(open.rules)}`} version={open} active={active} aiAvailable={aiAvailable && canManage} owner={owner} busy={busy} run={run} onBack={() => setOpenId(null)} onReload={load} />
           : <PolicyOverview active={active} versions={versions} actions={actions} openVersion={id => setOpenId(id)} />}
       </PolicyShell>
     </div>
