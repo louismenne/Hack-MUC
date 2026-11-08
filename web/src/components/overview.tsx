@@ -133,7 +133,7 @@ export function Overview({ canOpen }: { canOpen: (page: string) => boolean }) {
   return (
     <div className="mx-auto w-full max-w-6xl space-y-10 py-6">
       <section className="space-y-3">
-        <h1 className="max-w-3xl text-4xl leading-tight font-medium tracking-tight md:text-5xl">Better decisions on every motor claim</h1>
+        <h1 className="max-w-3xl text-4xl leading-tight font-medium tracking-tight md:text-5xl">Better decisions on every insurance claim</h1>
         <p className="max-w-2xl text-muted-foreground">Rules decide, people stay in control, and every change is traceable. Pick an area to see what it does.</p>
       </section>
 

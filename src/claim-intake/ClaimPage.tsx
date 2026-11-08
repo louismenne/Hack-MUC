@@ -62,7 +62,7 @@ function Shell({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
-      <section className="claim-welcome" aria-label="Motor claims introduction">
+      <section className="claim-welcome" aria-label="Insurance claims introduction">
         <ClaimHeroMedia />
         <div className="claim-welcome-content"><h2>A clear start.<br /><span>At every turn.</span></h2><p>Tell us what happened. We’ll help you take the next step.</p><a href="#claim-details" className="claim-start-link">Your claim starts below <span>↓</span></a></div>
         <div className="claim-welcome-ruler"><ClaimRuler /></div>
