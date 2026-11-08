@@ -1,3 +1,4 @@
+import { PageLink, pageHref } from '@/lib/navigation';
 import { useAuthUser } from '@/lib/auth';
 import { permissions } from '../../../../src/roles';
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
@@ -110,6 +111,8 @@ export function VersionPage({ version, active, aiAvailable, owner, busy, run, on
         {!isDraft && canManage && <Button className="ml-auto" variant="outline" size="sm" disabled={busy} onClick={() => void copyToDraft()}>Copy to draft</Button>}
       </div>
 
+      {version.investigationId && <Alert><AlertTitle>From quality monitoring</AlertTitle><AlertDescription><PageLink className="underline" href={pageHref('monitoring', new URLSearchParams({ investigation: version.investigationId }))}>Open the investigation and review its evidence</PageLink>. Reviewer corrections are signals, not ground truth. Check the rule changes and impact before owner approval.</AlertDescription></Alert>}
+
       <div className={isDraft ? 'grid items-start gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(340px,2fr)]' : ''}>
         <Card className="gap-3">
           <CardHeader>
@@ -153,7 +156,7 @@ export function VersionPage({ version, active, aiAvailable, owner, busy, run, on
               <div className="flex flex-wrap items-center gap-2 border-t pt-4">
                 {dirty
                   ? <Button disabled={busy} onClick={() => void save()}>Save</Button>
-                  : <Button disabled={busy || !impact || impact.draft.revision !== version.revision || impact.base.id !== active.id || changes.length === 0} onClick={() => setConfirm(true)}>Activate</Button>}
+                  : <Button disabled={busy || impactLoading || !!impactError || !impact || impact.draft.revision !== version.revision || impact.base.id !== active.id || changes.length === 0} onClick={() => setConfirm(true)}>Activate</Button>}
                 <Button variant="ghost" className="text-destructive" disabled={busy} onClick={() => void discard()}>Discard</Button>
               </div>
             </CardContent>

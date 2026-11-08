@@ -48,6 +48,10 @@
     {
       "source": "/policy",
       "destination": "/index.html"
+    },
+    {
+      "source": "/quality-monitoring",
+      "destination": "/index.html"
     }
   ]
 }

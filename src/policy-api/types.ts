@@ -4,6 +4,7 @@ export type VersionStatus = 'draft' | 'active' | 'archived';
 export type VersionSource = 'upload' | 'edit' | 'seed';
 
 export interface PolicyVersionRecord {
+  investigationId?: string | null;
   revision: number;
   id: string;
   versionLabel: string;
@@ -18,6 +19,8 @@ export interface PolicyVersionRecord {
 }
 
 export interface NewDraft {
+  investigationId?: string;
+  investigationRevision?: number;
   rules: PolicyDocument;
   changeSummary: string | null;
   source: Exclude<VersionSource, 'seed'>;

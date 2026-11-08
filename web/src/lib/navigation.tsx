@@ -5,6 +5,7 @@ export const pages = [
   { id: 'policy', path: '/policy', label: 'Policy' },
   { id: 'queue', path: '/review-queue', label: 'Review' },
   { id: 'quality', path: '/dashboard', label: 'Dashboard' },
+  { id: 'monitoring', path: '/quality-monitoring', label: 'Quality monitoring' },
   // Opened from the Taktile logo, not the main navigation.
   { id: 'overview', path: '/overview', label: 'Overview', menuOnly: true },
   // Jury test area: the labelled CSV cases, their quality report, upload and results export in one page.

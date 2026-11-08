@@ -283,3 +283,23 @@ describe('activation binds to the impact draft revision', () => {
   await rejects(post(deps, { action: 'activate', id: draft.id, expectedActiveId: (await repo.list())[0].id }), 400);
  });
 });
+
+
+describe('investigation draft handoff', () => {
+  it('copies the active policy as a linked draft without activating', async () => {
+    const { deps, repo } = setup();
+    const active = (await repo.list())[0];
+    const investigationId = '00000000-0000-4000-8000-000000000999';
+    const result = body(await handlePost(deps, { action: 'create_draft', createdBy: 'owner', investigationId, investigationRevision: 2 }));
+    expect(result.version).toMatchObject({ status: 'draft', investigationId, parentVersionId: active.id, rules: active.rules });
+    expect((await repo.list()).find(v => v.status === 'active')?.id).toBe(active.id);
+  });
+  it('rejects stale-input shapes and arbitrary base rules on investigation handoff', async () => {
+    const { deps } = setup();
+    const base = { action: 'create_draft', createdBy: 'owner', investigationId: '00000000-0000-4000-8000-000000000999' };
+    await rejects(handlePost(deps, base), 400);
+    await rejects(handlePost(deps, { ...base, investigationRevision: -1 }), 400);
+    await rejects(handlePost(deps, { ...base, investigationRevision: 1, rules: v1 }), 400);
+    await rejects(handlePost(deps, { ...base, investigationRevision: 1, parentId: base.investigationId }), 400);
+  });
+});

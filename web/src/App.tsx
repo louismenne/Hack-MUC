@@ -1,3 +1,4 @@
+import { QualityMonitoring } from '@/components/monitoring/screen';
 import { StoredClaims } from '@/components/stored-claims';
 import { permissions, roleOf, roleLabels, canAccessPage, type AppPage } from '../../src/roles';
 import { Team } from '@/components/team';
@@ -300,6 +301,7 @@ function AppContent() {
         {tab === 'overview' && <Overview canOpen={page => canAccessPage(role, page as AppPage)} />}
 
         {tab === 'quality' && <StoredClaims dashboard />}
+        {tab === 'monitoring' && <QualityMonitoring />}
       </main>
 
       <footer className="mx-auto max-w-[1600px] px-4 pb-6 text-xs text-muted-foreground">

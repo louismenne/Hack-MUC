@@ -22,7 +22,7 @@ const post = <T,>(path: string, body: unknown) => call<T>(path, { method: 'POST'
 
 export const policyApi = {
   overview: () => call<{ aiAvailable: boolean; versions: PolicyVersionRecord[] }>('/api/policy'),
-  createDraft: (b: { createdBy: string; parentId?: string; rules?: PolicyDocument; changeSummary?: string }) => post<{ version: PolicyVersionRecord }>('/api/policy', { action: 'create_draft', ...b }),
+  createDraft: (b: { investigationId?: string; investigationRevision?: number; createdBy: string; parentId?: string; rules?: PolicyDocument; changeSummary?: string }) => post<{ version: PolicyVersionRecord }>('/api/policy', { action: 'create_draft', ...b }),
   updateDraft: (b: { id: string; rules?: PolicyDocument; changeSummary?: string }) => post<{ version: PolicyVersionRecord }>('/api/policy', { action: 'update_draft', ...b }),
   discardDraft: (id: string) => post<{ discarded: string }>('/api/policy', { action: 'discard_draft', id }),
   impact: (id: string, rules?: PolicyDocument) => post<{ impact: ImpactReport }>('/api/policy', { action: 'impact', id, ...(rules ? { rules } : {}) }),

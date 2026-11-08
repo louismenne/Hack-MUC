@@ -13,12 +13,12 @@ export function permissions(user: { app_metadata: Record<string, unknown> }) {
 }
 
 /** Page visibility and direct-route access use the same role boundary. */
-export const appPages = ['my-claims', 'queue', 'overview', 'quality', 'policy', 'examples', 'example-quality', 'team'] as const;
+export const appPages = ['my-claims', 'queue', 'overview', 'quality', 'policy', 'examples', 'example-quality', 'team', 'monitoring'] as const;
 export type AppPage = typeof appPages[number];
 const pagesByRole: Record<Role, readonly AppPage[]> = {
   claims_handler: ['my-claims'],
-  reviewer: ['queue', 'overview'],
-  policy_manager: ['queue', 'overview', 'quality', 'policy', 'examples', 'example-quality'],
+  reviewer: ['queue', 'overview', 'monitoring'],
+  policy_manager: ['queue', 'overview', 'quality', 'policy', 'examples', 'example-quality', 'monitoring'],
   admin: appPages,
 };
 export function canAccessPage(role: Role | null, page: AppPage): boolean {

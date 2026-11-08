@@ -498,6 +498,10 @@ async function handlePost(deps, raw) {
   switch (raw.action) {
     case "create_draft": {
       const active = await mustActive(repo);
+      const investigationId = raw.investigationId === void 0 ? void 0 : uuid(raw, "investigationId");
+      const investigationRevision = raw.investigationRevision;
+      if (investigationId && (typeof investigationRevision !== "number" || !Number.isSafeInteger(investigationRevision) || investigationRevision < 0)) throw new ApiError(400, "Investigation revision is required.");
+      if (investigationId && (raw.parentId !== void 0 || raw.rules !== void 0)) throw new ApiError(400, "Investigation drafts start from the active policy.");
       const createdBy = str(raw, "createdBy", { max: 100 });
       const parent = raw.parentId === void 0 ? active : await mustGet(repo, uuid(raw, "parentId"));
       const rules = raw.rules === void 0 ? parent.rules : rulesFrom(raw.rules);
@@ -505,6 +509,8 @@ async function handlePost(deps, raw) {
       return ok(
         {
           version: await repo.createDraft({
+            investigationId,
+            investigationRevision: investigationId ? investigationRevision : void 0,
             rules,
             changeSummary,
             source: "edit",
@@ -644,8 +650,9 @@ function nextVersionLabel(labels) {
 }
 
 // src/policy-api/supabase-repo.ts
-var COLUMNS = "revision,id,version_label,rules,status,change_summary,source,parent_version_id,created_by,created_at,activated_at";
+var COLUMNS = "investigation_id,revision,id,version_label,rules,status,change_summary,source,parent_version_id,created_by,created_at,activated_at";
 var toRecord = (r) => ({
+  investigationId: r.investigation_id,
   revision: r.revision,
   id: r.id,
   versionLabel: r.version_label,
@@ -683,6 +690,8 @@ function createSupabaseRepo(url, secretKey, actorId) {
       for (let attempt = 0; attempt < 3; attempt++) {
         const label = nextVersionLabel((await repo.list()).map((v) => v.versionLabel));
         const { data, error } = await write("create", {
+          investigation_id: draft.investigationId,
+          investigation_revision: draft.investigationRevision,
           version_label: label,
           rules: draft.rules,
           status: "draft",
@@ -692,6 +701,7 @@ function createSupabaseRepo(url, secretKey, actorId) {
           created_by: draft.createdBy
         });
         if (!error) return toRecord(data);
+        if (["Open investigation with saved findings required", "Investigation changed; reload before drafting", "Active policy changed; reload before drafting"].includes(error.message)) throw new ApiError(409, error.message);
         if (error.code !== "23505") fail("createDraft", error);
       }
       throw new Error("Supabase (createDraft): could not allocate a version label.");
