@@ -3,6 +3,7 @@ import { navigate, pageHref } from '@/lib/navigation';
 import type { ReviewAction } from '../../../../src/review';
 
 export function useClaimSelection({
+  claimsPage,
   dashboard,
   offset,
   selectedId,
@@ -10,6 +11,7 @@ export function useClaimSelection({
   action,
   setAction,
 }: {
+  claimsPage: 'my-claims' | 'queue';
   dashboard: boolean;
   offset: number;
   selectedId: string;
@@ -23,11 +25,11 @@ export function useClaimSelection({
       const params = new URLSearchParams();
       if (offset) params.set('offset', String(offset));
       if (caseId) params.set('case', caseId);
-      navigate(pageHref('queue', params));
+      navigate(pageHref(claimsPage, params));
       setAction(null);
       window.scrollTo({ top: 0 });
     },
-    [offset, setAction],
+    [claimsPage, offset, setAction],
   );
   useEffect(() => {
     if (dashboard || selectedId || dismissed || !firstVisibleId) return;

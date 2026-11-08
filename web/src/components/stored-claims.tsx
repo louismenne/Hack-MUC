@@ -61,11 +61,12 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
   const access = permissions(user);
   // "File a claim" belongs to claimants only; reviewers, policy owners and admins work the queue.
   const isClaimant = roleOf(user) === 'claims_handler';
+  const claimsPage = isClaimant ? 'my-claims' : 'queue';
   const route = useRoute();
   const requestedOffset = Number(route.params.get('offset') ?? 0);
   const offset = !dashboard && Number.isSafeInteger(requestedOffset) && requestedOffset >= 0 ? requestedOffset : 0;
   const setOffset = (next: number) =>
-    navigate(pageHref('queue', next ? new URLSearchParams({ offset: String(next) }) : undefined));
+    navigate(pageHref(claimsPage, next ? new URLSearchParams({ offset: String(next) }) : undefined));
   const selectedId = dashboard ? '' : (route.caseId ?? '');
   const { splitRef, listWidth, clampWidth, saveListWidth, startResize } = useClaimListResize();
   const [action, setAction] = useState<ReviewAction | null>(null);
@@ -88,6 +89,7 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
   );
   const visible = filterCases(cases, states, filters);
   const { openClaim, setDismissed } = useClaimSelection({
+    claimsPage,
     dashboard,
     offset,
     selectedId,

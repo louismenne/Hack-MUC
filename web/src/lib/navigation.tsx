@@ -1,6 +1,7 @@
 import { useSyncExternalStore, type ComponentProps } from 'react';
 
 export const pages = [
+  { id: 'my-claims', path: '/my-claims', label: 'My claims' },
   { id: 'queue', path: '/review-queue', label: 'Review queue' },
   { id: 'quality', path: '/dashboard', label: 'Dashboard' },
   { id: 'policy', path: '/policy', label: 'Policy' },

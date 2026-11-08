@@ -14,6 +14,10 @@
   },
   "rewrites": [
     {
+      "source": "/my-claims",
+      "destination": "/index.html"
+    },
+    {
       "source": "/claim",
       "destination": "/claim/index.html"
     },

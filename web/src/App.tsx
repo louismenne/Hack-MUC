@@ -55,15 +55,15 @@ function ClaimantApp() {
   const route = useRoute();
   useEffect(() => {
     document.title = 'My claims · Team LLM Taktile case';
-    if (route.page !== 'queue') navigate(pageHref('queue'));
+    if (route.page !== 'my-claims') navigate(pageHref('my-claims', new URLSearchParams(window.location.search)));
   }, [route.page]);
   return (
     <div className="min-h-svh bg-background">
       <header className="border-b">
         <div className="mx-auto flex max-w-[1600px] items-center gap-6 px-4 py-3">
-          <PageLink href={pageHref('queue')} aria-label="My claims"><TaktileLogo className="h-3.5 w-auto" /></PageLink>
+          <PageLink href={pageHref('my-claims')} aria-label="My claims"><TaktileLogo className="h-3.5 w-auto" /></PageLink>
           <nav aria-label="Claims navigation" className="flex items-center gap-4 text-sm">
-            <PageLink href={pageHref('queue')} aria-current="page">My claims</PageLink>
+            <PageLink href={pageHref('my-claims')} aria-current="page">My claims</PageLink>
           </nav>
           <div className="ml-auto"><AccountMenu email={user.email ?? ''} roleLabel="Claims Handler" canManageTeam={false} /></div>
         </div>
