@@ -34,6 +34,21 @@ A React + Tailwind + shadcn/ui reviewer screen in `web/`. It runs the shared JSO
 
 Submitted claims, immutable decision snapshots, and reviewer actions persist in Supabase. Reviews use the `record_review` RPC, which derives the actor and decision details on the server and rejects stale decisions or review history. The browser keeps a short-lived, user-and-role-scoped `sessionStorage` cache for reloads; it is not the source of truth. CSV examples are read-only. See [claims storage](docs/claims.md) and [audit history](docs/audit.md).
 
+## Demo logins
+
+Open [Claims Triage](https://hackmuc.vercel.app) and sign in with one of these shared hackathon accounts. Passwords are case-sensitive. These are demo credentials; the Admin account can change policies and team roles.
+
+| Role | Email | Password | Permissions |
+| --- | --- | --- | --- |
+| Claims Handler | `demo.claims-handler@hackmuc.example.com` | `Demo-ndY7kG-cYzVii3CU!7a` | Submit claims; view own submissions |
+| Reviewer | `demo.reviewer@hackmuc.example.com` | `Demo-b6g5TeGZzjSb_CaF!7a` | View all claims; confirm, override, and reject |
+| Policy Manager | `demo.policy-manager@hackmuc.example.com` | `Demo-4YtdQlm-NJjF14ea!7a` | View claims; create, edit, and activate policies |
+| Admin | `demo.admin@hackmuc.example.com` | `Demo-Iyr6Pp4FnccUdvwv!7a` | All app permissions, including team-role management |
+
+For the judging override demonstration, use **Reviewer** and select a submitted claim in **Review queue**. Uploaded CSV examples are read-only; use **Export results** for the judging CSV.
+
+The email addresses are demo identifiers on a reserved example domain, not working inboxes. Sign in directly with the passwords above; email recovery is unavailable. An administrator can reset or disable these accounts through Supabase Auth. Remove or disable the shared accounts after the demonstration.
+
 ## Deploy
 
 `vercel.json` configures the Vercel build (`npm ci`, `npm run build`, output `dist/`, Vite preset). Deployment uses the existing Vercel Git integration; this repository has no GitHub Actions deployment workflow. See [deployment notes](docs/deployment.md) for configuration and access requirements.
