@@ -24,7 +24,7 @@ export function OutcomeBadge({ outcome }: { outcome: keyof typeof outcomeLabels 
 }
 
 const asText = (v: Leaf['value']) => (Array.isArray(v) ? v.join(', ') : String(v ?? ''));
-const OP_PREFIX: Record<string, string> = { eq: 'ist', neq: 'ist nicht', gt: 'ist größer als', gte: 'ist mindestens', lt: 'ist kleiner als', lte: 'ist höchstens', in: 'ist eines von', not_in: 'ist keines von' };
+const OP_PREFIX: Record<string, string> = { eq: 'is', neq: 'is not', gt: 'above', gte: 'at least', lt: 'below', lte: 'at most', in: 'is one of', not_in: 'is none of' };
 
 /** A condition whose value can be changed (numbers, true/false, text, lists). */
 function EditableLeaf({ leaf, fields, onChange }: { leaf: Leaf; fields: Fields; onChange: (value: Scalar | Scalar[]) => void }) {
@@ -38,7 +38,7 @@ function EditableLeaf({ leaf, fields, onChange }: { leaf: Leaf; fields: Fields; 
     return (
       <span className="flex flex-wrap items-center gap-2">{prefix}
         <select aria-label={label} className={nativeSelect} value={String(leaf.value)} onChange={e => onChange(e.target.value === 'true')}>
-          <option value="true">ja</option><option value="false">nein</option>
+          <option value="true">yes</option><option value="false">no</option>
         </select>
       </span>
     );
@@ -61,8 +61,8 @@ function EditableLeaf({ leaf, fields, onChange }: { leaf: Leaf; fields: Fields; 
           setInvalid(parsed === null);
           if (parsed !== null) onChange(parsed);
         }} />
-      {asList && <span className="text-xs text-muted-foreground">Werte mit Komma trennen</span>}
-      {invalid && <span className="text-xs text-destructive">ungültiger Wert</span>}
+      {asList && <span className="text-xs text-muted-foreground">Separate values with commas</span>}
+      {invalid && <span className="text-xs text-destructive">Invalid value</span>}
     </span>
   );
 }
@@ -88,16 +88,16 @@ export function ConditionTree({ cond, fields, path, onLeaf }: { cond: Condition;
 function AskAi({ ruleId, available, busy, onSubmit }: { ruleId: string; available: boolean; busy: boolean; onSubmit: (instruction: string) => void }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
-  if (!open) return <Button size="sm" variant="outline" disabled={!available || busy} title={available ? undefined : 'KI nicht verfügbar, bitte manuell bearbeiten.'} onClick={() => setOpen(true)}><SparklesIcon />Mit KI ändern</Button>;
+  if (!open) return <Button size="sm" variant="outline" disabled={!available || busy} title={available ? undefined : 'AI unavailable. Edit manually instead.'} onClick={() => setOpen(true)}><SparklesIcon />Change with AI</Button>;
   return (
     <div className="mt-3 space-y-2 rounded-md border bg-muted/30 p-3">
-      <label className="block text-sm font-medium" htmlFor={`ai-${ruleId}`}>Anweisung für Regel „{ruleId}“</label>
-      <Textarea id={`ai-${ruleId}`} rows={2} maxLength={1000} placeholder="z. B. Grenze auf 1.200 € senken" value={text} onChange={e => setText(e.target.value)} />
+      <label className="block text-sm font-medium" htmlFor={`ai-${ruleId}`}>Change rule {ruleId}</label>
+      <Textarea id={`ai-${ruleId}`} rows={2} maxLength={1000} placeholder="e.g. Lower the limit to €1,200" value={text} onChange={e => setText(e.target.value)} />
       <div className="flex gap-2">
-        <Button size="sm" disabled={busy || !text.trim()} onClick={() => { onSubmit(text.trim()); setText(''); setOpen(false); }}>Entwurf von Claude erstellen lassen</Button>
-        <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>Abbrechen</Button>
+        <Button size="sm" disabled={busy || !text.trim()} onClick={() => { onSubmit(text.trim()); setText(''); setOpen(false); }}>Create draft</Button>
+        <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
       </div>
-      <p className="text-xs text-muted-foreground">Claude schlägt nur einen Entwurf vor. Du prüfst Diff und Folgen, bevor etwas aktiv wird.</p>
+      <p className="text-xs text-muted-foreground">Creates a draft. Nothing goes live until you activate it.</p>
     </div>
   );
 }
@@ -115,15 +115,15 @@ export function RuleCard({ index, rule, fields, isDefault, onLeaf, ai }: RuleCar
   return (
     <li className="rounded-lg border bg-card p-3">
       <div className="flex flex-wrap items-center gap-2">
-        {index !== null && <span className="flex size-6 items-center justify-center rounded-full bg-muted text-xs font-medium" aria-label={`Priorität ${index + 1}`}>{index + 1}</span>}
+        {index !== null && <span className="flex size-6 items-center justify-center rounded-full bg-muted text-xs font-medium" aria-label={`Priority ${index + 1}`}>{index + 1}</span>}
         <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{rule.id}</code>
-        {isDefault && <Badge variant="secondary">Standard, wenn keine Regel passt</Badge>}
+        {isDefault && <Badge variant="secondary">Default if no rule matches</Badge>}
         <span className="ml-auto"><OutcomeBadge outcome={rule.outcome} /></span>
       </div>
       <p className="mt-2 text-sm">{rule.description}</p>
       {rule.when && (
         <div className="mt-3">
-          <div className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Bedingung</div>
+          <div className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Condition</div>
           <ul><ConditionTree cond={rule.when} fields={fields} path={[]} onLeaf={onLeaf} /></ul>
         </div>
       )}
@@ -143,7 +143,7 @@ export function RuleRow({ index, rule, fields }: { index: number | null; rule: R
       <button type="button" onClick={() => rule.when && setOpenRow(!openRow)} aria-expanded={rule.when ? openRow : undefined}
         className={cn('flex w-full items-center gap-3 px-3 py-2.5 text-left', rule.when && 'hover:bg-muted/40')}>
         <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-medium">{index === null ? '–' : index + 1}</span>
-        <span className="min-w-0 flex-1 truncate text-sm" title={rule.description}>{index === null ? 'Sonst' : rule.description}</span>
+        <span className="min-w-0 flex-1 truncate text-sm" title={rule.description}>{index === null ? 'Otherwise' : rule.description}</span>
         <OutcomeBadge outcome={rule.outcome} />
         {rule.when && <ChevronRightIcon className={cn('size-4 shrink-0 text-muted-foreground transition-transform', openRow && 'rotate-90')} />}
       </button>

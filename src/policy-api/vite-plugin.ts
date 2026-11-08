@@ -24,7 +24,7 @@ export function policyApiPlugin(repoRoot: string): Plugin {
         if (!route) return next();
         const method = req.method ?? 'GET';
         const send = (status: number, body: unknown) => { res.statusCode = status; res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(body)); };
-        if (!route.methods.includes(method)) return send(405, { error: 'Methode nicht erlaubt.' });
+        if (!route.methods.includes(method)) return send(405, { error: 'Method not allowed.' });
         try {
           const chunks: Buffer[] = [];
           if (method !== 'GET') for await (const chunk of req) chunks.push(chunk as Buffer);
@@ -33,7 +33,7 @@ export function policyApiPlugin(repoRoot: string): Plugin {
           const request = new Request(`http://localhost${req.url}`, { method, headers, body: method === 'GET' ? undefined : Buffer.concat(chunks) });
           const mod = await server.ssrLoadModule(resolve(repoRoot, route.file));
           const handler = mod[method] as Handler | undefined;
-          if (!handler) return send(405, { error: 'Methode nicht erlaubt.' });
+          if (!handler) return send(405, { error: 'Method not allowed.' });
           const response = await handler(request);
           res.statusCode = response.status;
           response.headers.forEach((v, k) => res.setHeader(k, v));

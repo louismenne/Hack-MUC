@@ -111,7 +111,7 @@ export async function suggestPolicy(client: AiClient, input: AiInput, options: {
       const result = validatePolicy(candidate);
       if (result.ok) {
         const summary = typeof proposal.change_summary === 'string' ? proposal.change_summary.trim().slice(0, 1000) : '';
-        return { policy: result.policy, changeSummary: summary || 'Von der KI vorgeschlagen (ohne Zusammenfassung).', attempts: attempt };
+        return { policy: result.policy, changeSummary: summary || 'Proposed by AI (no summary).', attempts: attempt };
       }
       errors = result.errors.slice(0, 15);
     }
@@ -121,5 +121,5 @@ export async function suggestPolicy(client: AiClient, input: AiInput, options: {
       { role: 'user', content: `That output was rejected by the validator:\n${errors.map(e => `- ${e}`).join('\n')}\n\nFix these problems and call ${TOOL_NAME} again with the complete rules.` },
     );
   }
-  throw new AiError('Die KI hat zweimal keinen gültigen Regelvorschlag geliefert. Bitte formuliere die Anweisung anders oder bearbeite den Entwurf manuell.', lastErrors);
+  throw new AiError('The AI returned no valid rule proposal twice. Rephrase the request or edit the draft manually.', lastErrors);
 }

@@ -11,17 +11,17 @@ const v1 = load(json);
 const copy = () => structuredClone(json);
 
 describe('plain-language rendering', () => {
-  it('describes leaves in German', () => {
-    expect(describeLeaf({ field: 'quote_eur', op: 'gt', value: 1500 }, v1.fields)).toBe('Repair quote (EUR) ist größer als 1.500');
-    expect(describeLeaf({ field: 'injury_reported', op: 'eq', value: true }, v1.fields)).toBe('Injury reported: ja');
-    expect(describeLeaf({ field: 'claim_type', op: 'neq', value: 'motor_own_damage' }, v1.fields)).toBe('Claim type ist nicht „motor_own_damage“');
-    expect(describeLeaf({ field: 'repair_type', op: 'in', value: ['a', 'b'] }, v1.fields)).toBe('Repair type ist eines von „a“, „b“');
-    expect(describeLeaf({ field: 'repair_type', op: 'is_empty' }, v1.fields)).toBe('Repair type fehlt oder ist unlesbar');
+  it('describes leaves in plain English', () => {
+    expect(describeLeaf({ field: 'quote_eur', op: 'gt', value: 1500 }, v1.fields)).toBe('Repair quote (EUR) above 1,500');
+    expect(describeLeaf({ field: 'injury_reported', op: 'eq', value: true }, v1.fields)).toBe('Injury reported: yes');
+    expect(describeLeaf({ field: 'claim_type', op: 'neq', value: 'motor_own_damage' }, v1.fields)).toBe('Claim type is not “motor_own_damage”');
+    expect(describeLeaf({ field: 'repair_type', op: 'in', value: ['a', 'b'] }, v1.fields)).toBe('Repair type is one of “a”, “b”');
+    expect(describeLeaf({ field: 'repair_type', op: 'is_empty' }, v1.fields)).toBe('Repair type missing or unreadable');
   });
   it('joins conditions and parenthesises nested groups', () => {
     const text = conditionToText({ all: [{ field: 'injury_reported', op: 'eq', value: true }, { any: [{ field: 'quote_eur', op: 'gt', value: 1 }, { field: 'quote_eur', op: 'lt', value: 0 }] }] }, v1.fields);
-    expect(text).toContain(' UND (');
-    expect(text).toContain(' ODER ');
+    expect(text).toContain(' AND (');
+    expect(text).toContain(' OR ');
   });
 });
 
@@ -33,7 +33,7 @@ describe('diff between versions', () => {
     const changes = diffPolicies(v1, load(next));
     expect(changes).toHaveLength(1);
     expect(changes[0]).toMatchObject({ kind: 'changed', ruleId: 'rule1' });
-    expect(changes[0].text).toBe('Regel „rule1“: Repair quote (EUR) größer als: 1.500 → 1.200');
+    expect(changes[0].text).toBe('Rule “rule1”: Repair quote (EUR) above: 1,500 → 1,200');
   });
   it('reports added and removed rules, conditions, outcome, order and default', () => {
     const next = copy();
@@ -44,16 +44,16 @@ describe('diff between versions', () => {
     next.rules.splice(2, 1);
     next.default.outcome = 'request_information';
     const text = diffPolicies(v1, load(next)).map(c => c.text).join('\n');
-    expect(text).toContain('Regel „ev_battery“ hinzugefügt');
-    expect(text).toContain('Regel „missing_input“ entfernt');
-    expect(text).toContain('Bedingung hinzugefügt: Repair type ist „x“');
-    expect(text).toContain('Bedingung entfernt: Claim type ist nicht „motor_own_damage“');
-    expect(text).toContain('Regel „rule2“: Ergebnis Informationen anfordern → Manuelle Prüfung');
-    expect(text).toContain('Standardergebnis: Routinebearbeitung → Informationen anfordern');
+    expect(text).toContain('Rule “ev_battery” added');
+    expect(text).toContain('Rule “missing_input” removed');
+    expect(text).toContain('Condition added: Repair type is “x”');
+    expect(text).toContain('Condition removed: Claim type is not “motor_own_damage”');
+    expect(text).toContain('Rule “rule2”: outcome Request information → Human review');
+    expect(text).toContain('Default outcome: Routine processing → Request information');
   });
   it('reports a changed order (priority)', () => {
     const next = copy(); next.rules.reverse();
-    expect(diffPolicies(v1, load(next)).map(c => c.text).join('\n')).toContain('Reihenfolge (= Priorität) geändert');
+    expect(diffPolicies(v1, load(next)).map(c => c.text).join('\n')).toContain('Order (= priority) changed');
   });
 });
 

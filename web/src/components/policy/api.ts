@@ -10,12 +10,12 @@ export class ApiFailure extends Error {
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
-  try { response = await authenticatedFetch(path, init); } catch { throw new ApiFailure('Die Policy-API ist nicht erreichbar.'); }
+  try { response = await authenticatedFetch(path, init); } catch { throw new ApiFailure('The policy API is not reachable.'); }
   if (!response.headers.get('content-type')?.includes('application/json')) {
-    throw new ApiFailure('Die Policy-API ist nicht erreichbar. Lokal mit „npm run dev“ starten; auf Vercel müssen die Supabase-Variablen gesetzt sein.', [], response.status);
+    throw new ApiFailure('The policy API is not reachable. Start it locally with “npm run dev”; on Vercel the Supabase variables must be set.', [], response.status);
   }
   const data = await response.json();
-  if (!response.ok) throw new ApiFailure(data.error ?? 'Anfrage fehlgeschlagen.', data.details ?? [], response.status);
+  if (!response.ok) throw new ApiFailure(data.error ?? 'Request failed.', data.details ?? [], response.status);
   return data as T;
 }
 const post = <T,>(path: string, body: unknown) => call<T>(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -31,4 +31,4 @@ export const policyApi = {
   aiInstruction: (b: { createdBy: string; versionId: string; ruleId?: string; instruction: string }) => post<{ version: PolicyVersionRecord }>('/api/policy-ai', { mode: 'instruction', ...b }),
 };
 
-export const AI_UNAVAILABLE = 'KI nicht verfügbar, bitte manuell bearbeiten.';
+export const AI_UNAVAILABLE = 'AI unavailable. Edit manually instead.';

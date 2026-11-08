@@ -335,7 +335,7 @@ async function suggestPolicy(client, input, options) {
       const result = validatePolicy(candidate);
       if (result.ok) {
         const summary = typeof proposal.change_summary === "string" ? proposal.change_summary.trim().slice(0, 1e3) : "";
-        return { policy: result.policy, changeSummary: summary || "Von der KI vorgeschlagen (ohne Zusammenfassung).", attempts: attempt };
+        return { policy: result.policy, changeSummary: summary || "Proposed by AI (no summary).", attempts: attempt };
       }
       errors = result.errors.slice(0, 15);
     }
@@ -349,7 +349,7 @@ ${errors.map((e) => `- ${e}`).join("\n")}
 Fix these problems and call ${TOOL_NAME} again with the complete rules.` }
     );
   }
-  throw new AiError("Die KI hat zweimal keinen g\xFCltigen Regelvorschlag geliefert. Bitte formuliere die Anweisung anders oder bearbeite den Entwurf manuell.", lastErrors);
+  throw new AiError("The AI returned no valid rule proposal twice. Rephrase the request or edit the draft manually.", lastErrors);
 }
 
 // src/policy-api/impact.ts
@@ -421,7 +421,7 @@ var ApiError = class extends Error {
   status;
   details;
 };
-var AI_UNAVAILABLE = "KI nicht verf\xFCgbar, bitte manuell bearbeiten.";
+var AI_UNAVAILABLE = "AI unavailable. Edit manually instead.";
 var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var MAX_TEXT_CHARS = 6e4;
 var MAX_PDF_BASE64 = 33e5;
@@ -433,33 +433,33 @@ function str(body, key, { max, required = true }) {
     if (required) throw new ApiError(400, `"${key}" fehlt.`);
     return void 0;
   }
-  if (typeof v !== "string" || v.trim().length === 0 || v.length > max) throw new ApiError(400, `"${key}" muss Text mit h\xF6chstens ${max} Zeichen sein.`);
+  if (typeof v !== "string" || v.trim().length === 0 || v.length > max) throw new ApiError(400, `"${key}" must be text of at most ${max} characters.`);
   return v.trim();
 }
 function uuid(body, key) {
   const v = body[key];
-  if (typeof v !== "string" || !UUID.test(v)) throw new ApiError(400, `"${key}" ist keine g\xFCltige Versions-ID.`);
+  if (typeof v !== "string" || !UUID.test(v)) throw new ApiError(400, `"${key}" is not a valid version ID.`);
   return v;
 }
 function rulesFrom(value) {
   const result = validatePolicy(value);
-  if (!result.ok) throw new ApiError(422, "Das Regel-JSON ist ung\xFCltig.", result.errors);
+  if (!result.ok) throw new ApiError(422, "The rules JSON is invalid.", result.errors);
   return result.policy;
 }
 async function mustGet(repo, id2) {
   const v = await repo.get(id2);
-  if (!v) throw new ApiError(404, "Version nicht gefunden.");
+  if (!v) throw new ApiError(404, "Version not found.");
   return v;
 }
 async function mustActive(repo) {
   const active = (await repo.list()).find((v) => v.status === "active");
-  if (!active) throw new ApiError(409, "Es gibt keine aktive Version.");
+  if (!active) throw new ApiError(409, "There is no active version.");
   return active;
 }
 async function handleGet(deps, url) {
   const id2 = url.searchParams.get("id");
   if (id2 !== null) {
-    if (!UUID.test(id2)) throw new ApiError(400, '"id" ist keine g\xFCltige Versions-ID.');
+    if (!UUID.test(id2)) throw new ApiError(400, '"id" is not a valid version ID.');
     return ok({ version: await mustGet(deps.repo, id2) });
   }
   return ok({ aiAvailable: deps.ai !== null, versions: await deps.repo.list() });
@@ -481,22 +481,22 @@ async function handlePost(deps, raw) {
       const patch = {};
       if (raw.rules !== void 0) patch.rules = rulesFrom(raw.rules);
       if (raw.changeSummary !== void 0) patch.changeSummary = str(raw, "changeSummary", { max: 1e3, required: false }) ?? null;
-      if (!Object.keys(patch).length) throw new ApiError(400, "Nichts zu \xE4ndern.");
+      if (!Object.keys(patch).length) throw new ApiError(400, "Nothing to change.");
       const updated = await repo.updateDraft(id2, patch);
-      if (!updated) throw new ApiError(await repo.get(id2) ? 409 : 404, "Nur Entw\xFCrfe k\xF6nnen bearbeitet werden. Aktive und archivierte Versionen sind unver\xE4nderlich.");
+      if (!updated) throw new ApiError(await repo.get(id2) ? 409 : 404, "Only drafts can be edited. Active and archived versions are read-only.");
       return ok({ version: updated });
     }
     case "discard_draft": {
       const id2 = uuid(raw, "id");
-      if (!await repo.deleteDraft(id2)) throw new ApiError(await repo.get(id2) ? 409 : 404, "Nur Entw\xFCrfe k\xF6nnen verworfen werden.");
+      if (!await repo.deleteDraft(id2)) throw new ApiError(await repo.get(id2) ? 409 : 404, "Only drafts can be discarded.");
       return ok({ discarded: id2 });
     }
     case "impact": {
       const draft = await mustGet(repo, uuid(raw, "id"));
       const versions = await repo.list();
       const active = versions.find((v) => v.status === "active");
-      if (!active) throw new ApiError(409, "Es gibt keine aktive Version.");
-      if (draft.id === active.id) throw new ApiError(400, "Die aktive Version hat keinen Unterschied zu sich selbst.");
+      if (!active) throw new ApiError(409, "There is no active version.");
+      if (draft.id === active.id) throw new ApiError(400, "The active version cannot be compared with itself.");
       const originalLabel = policyHistoryFrom(versions).original.label;
       const original = versions.find((v) => v.versionLabel === originalLabel) ?? active;
       return ok({ impact: deps.storedImpact ? await deps.storedImpact(active, draft) : computeImpact(active, draft, deps.loadCases(), original) });
@@ -504,14 +504,14 @@ async function handlePost(deps, raw) {
     case "activate": {
       const draft = await mustGet(repo, uuid(raw, "id"));
       const expectedActive = uuid(raw, "expectedActiveId");
-      if (draft.status !== "draft") throw new ApiError(409, `Nur ein Entwurf kann freigegeben werden (diese Version ist ${draft.status}).`);
+      if (draft.status !== "draft") throw new ApiError(409, `Only a draft can be activated (this version is ${draft.status}).`);
       rulesFrom(draft.rules);
       const active = await mustActive(repo);
-      if (active.id !== expectedActive) throw new ApiError(409, "Die aktive Version hat sich inzwischen ge\xE4ndert. Bitte Folgenabsch\xE4tzung neu laden und erneut pr\xFCfen.");
+      if (active.id !== expectedActive) throw new ApiError(409, "The active version has changed in the meantime. Reload the impact and check again.");
       return ok({ version: await repo.activate(draft.id, expectedActive) });
     }
     default:
-      throw new ApiError(400, "Unbekannte Aktion.");
+      throw new ApiError(400, "Unknown action.");
   }
 }
 async function handleAi(deps, raw) {
@@ -525,7 +525,7 @@ async function handleAi(deps, raw) {
       const active = await mustActive(repo);
       let document;
       if (typeof raw.pdfBase64 === "string") {
-        if (raw.pdfBase64.length > MAX_PDF_BASE64) throw new ApiError(413, "Das PDF ist zu gro\xDF (h\xF6chstens ca. 2,4 MB).");
+        if (raw.pdfBase64.length > MAX_PDF_BASE64) throw new ApiError(413, "The PDF is too large (max. about 2.4 MB).");
         document = { kind: "pdf", base64: raw.pdfBase64, filename };
       } else {
         const text2 = str(raw, "text", { max: MAX_TEXT_CHARS });
@@ -539,7 +539,7 @@ async function handleAi(deps, raw) {
       const base = await mustGet(repo, uuid(raw, "versionId"));
       const instruction = str(raw, "instruction", { max: 1e3 });
       const ruleId = str(raw, "ruleId", { max: 64, required: false });
-      if (ruleId && !base.rules.rules.some((r) => r.id === ruleId) && base.rules.default.id !== ruleId) throw new ApiError(400, `Regel \u201E${ruleId}\u201C existiert nicht.`);
+      if (ruleId && !base.rules.rules.some((r) => r.id === ruleId) && base.rules.default.id !== ruleId) throw new ApiError(400, `Rule \u201C${ruleId}\u201D does not exist.`);
       const s = await suggestPolicy(deps.ai, { mode: "instruction", current: base.rules, instruction, ruleId }, { model: deps.aiModel });
       if (base.status === "draft") {
         const summary = [base.changeSummary, s.changeSummary].filter(Boolean).join(" ").slice(0, 1e3);
@@ -790,11 +790,11 @@ var MAX_BODY_BYTES = 4e6;
 var json = (result) => new Response(JSON.stringify(result.body), { status: result.status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
 async function readJson(request) {
   const text2 = await request.text();
-  if (text2.length > MAX_BODY_BYTES) throw new ApiError(413, "Anfrage zu gro\xDF.");
+  if (text2.length > MAX_BODY_BYTES) throw new ApiError(413, "Request too large.");
   try {
     return JSON.parse(text2 || "{}");
   } catch {
-    throw new ApiError(400, "Ung\xFCltiges JSON.");
+    throw new ApiError(400, "Invalid JSON.");
   }
 }
 async function handlePolicyRequest(request, kind, makeDeps, authenticate = createAuthenticator()) {
@@ -806,7 +806,7 @@ async function handlePolicyRequest(request, kind, makeDeps, authenticate = creat
       return json(await listTeam());
     }
     if (kind === "policy" && request.method === "GET") return json(await handleGet(makeDeps(user.id), new URL(request.url)));
-    if (request.method !== "POST") throw new ApiError(405, "Methode nicht erlaubt.");
+    if (request.method !== "POST") throw new ApiError(405, "Method not allowed.");
     if (!request.headers.get("content-type")?.includes("application/json")) throw new ApiError(415, "JSON erforderlich.");
     const input = await readJson(request);
     const action = input && typeof input === "object" && "action" in input ? input.action : void 0;
@@ -846,7 +846,7 @@ var DEFAULT_AI_MODEL = "claude-sonnet-5-5";
 function createDeps(env = process.env, actorId) {
   const url = env.SUPABASE_URL;
   const key = env.SUPABASE_SECRET_KEY;
-  if (!url || !key) throw new ApiError(503, "Supabase ist nicht konfiguriert (SUPABASE_URL und SUPABASE_SECRET_KEY fehlen).");
+  if (!url || !key) throw new ApiError(503, "Supabase is not configured (SUPABASE_URL and SUPABASE_SECRET_KEY are missing).");
   return {
     repo: createSupabaseRepo(url, key, actorId),
     storedImpact,

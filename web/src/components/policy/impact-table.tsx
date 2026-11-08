@@ -13,12 +13,12 @@ export function ImpactTable({ impact }: { impact: ImpactReport }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        <Badge variant="outline" className={t.needsRecheck ? 'border-recheck/40 text-recheck' : undefined}>{t.needsRecheck} offen neu prüfen</Badge>
-        <Badge variant="secondary">{t.openUnchanged} offen unverändert</Badge>
-        <Badge variant="outline" title={t.frozenWouldChange ? `Bei ${t.frozenWouldChange} würde sich das Ergebnis ändern, es bleibt aber.` : undefined}>{t.closed} geschlossen, bleiben</Badge>
+        <Badge variant="outline" className={t.needsRecheck ? 'border-recheck/40 text-recheck' : undefined}>{t.needsRecheck} open to recheck</Badge>
+        <Badge variant="secondary">{t.openUnchanged} open unchanged</Badge>
+        <Badge variant="outline" title={t.frozenWouldChange ? `${t.frozenWouldChange} would change, but closed claims keep their decision` : undefined}>{t.closed} closed, kept</Badge>
       </div>
       {rows.length === 0
-        ? <p className="text-sm text-muted-foreground">Keine Ergebnisse ändern sich.</p>
+        ? <p className="text-sm text-muted-foreground">No outcomes change</p>
         : (
           <ul className="max-h-56 divide-y overflow-y-auto rounded-md border">
             {rows.map(r => (
@@ -27,12 +27,12 @@ export function ImpactTable({ impact }: { impact: ImpactReport }) {
                 <OutcomeBadge outcome={r.before.recommendation} />
                 <ArrowRightIcon className="size-3 text-muted-foreground" />
                 <OutcomeBadge outcome={r.after.recommendation} />
-                <span className="ml-auto text-xs text-muted-foreground">{r.needsRecheck ? 'neu prüfen' : r.frozen ? 'bleibt (geschlossen)' : 'unverändert'}</span>
+                <span className="ml-auto text-xs text-muted-foreground">{r.needsRecheck ? 'recheck' : r.frozen ? 'closed, kept' : 'unchanged'}</span>
               </li>
             ))}
           </ul>
         )}
-      <Button size="sm" variant="ghost" onClick={() => setAll(!all)}>{all ? 'Nur betroffene' : `Alle ${t.cases} Fälle`}</Button>
+      <Button size="sm" variant="ghost" onClick={() => setAll(!all)}>{all ? 'Affected only' : `All ${t.cases} claims`}</Button>
     </div>
   );
 }

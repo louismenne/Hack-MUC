@@ -3,12 +3,12 @@ import { cn } from '@/lib/utils';
 import { toneClasses } from '@/components/recommendation-badge';
 
 const KIND: Record<Change['kind'], { label: string; tone: string }> = {
-  added: { label: 'neu', tone: toneClasses.routine_processing },
-  removed: { label: 'entfernt', tone: toneClasses.human_review },
-  changed: { label: 'geändert', tone: toneClasses.request_information },
+  added: { label: 'new', tone: toneClasses.routine_processing },
+  removed: { label: 'removed', tone: toneClasses.human_review },
+  changed: { label: 'changed', tone: toneClasses.request_information },
 };
 
-export function DiffList({ changes, empty = 'Keine Unterschiede.' }: { changes: Change[]; empty?: string }) {
+export function DiffList({ changes, empty = 'No differences' }: { changes: Change[]; empty?: string }) {
   if (!changes.length) return <p className="text-sm text-muted-foreground">{empty}</p>;
   return (
     <ul className="space-y-1.5">

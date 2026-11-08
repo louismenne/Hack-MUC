@@ -154,7 +154,7 @@ describe('policy API: impact and activation', () => {
     const b = body(await post(deps, { action: 'create_draft', createdBy: 'B', rules: limit(1000) })).version;
     await post(deps, { action: 'activate', id: a.id, expectedActiveId: v1rec.id });
     const e = await rejects(post(deps, { action: 'activate', id: b.id, expectedActiveId: v1rec.id }), 409);
-    expect(e.message).toContain('geändert');
+    expect(e.message).toContain('has changed');
     await rejects(post(deps, { action: 'activate', id: a.id, expectedActiveId: a.id }), 409); // already active
     expect((await repo.list()).filter(v => v.status === 'active')).toHaveLength(1);
   });
@@ -165,10 +165,10 @@ describe('policy API: AI actions (mocked, no real Claude call)', () => {
     const calls: Record<string, unknown>[] = [];
     return { calls, client: { messages: { async create(p: Record<string, unknown>) { calls.push(p); return { content: [{ type: 'tool_use', name: 'submit_policy', input: { change_summary: summary, rules: (rules as PolicyDocument).rules, default: (rules as PolicyDocument).default } }] }; } } } };
   };
-  it('answers 503 with the German hint when no API key is configured', async () => {
+  it('answers 503 with a clear hint when no API key is configured', async () => {
     const { deps } = setup(null);
     const e = await rejects(handleAi(deps, { mode: 'instruction', createdBy: 'L', versionId: '00000000-0000-4000-8000-000000000001', instruction: 'x' }), 503);
-    expect(e.message).toBe('KI nicht verfügbar, bitte manuell bearbeiten.');
+    expect(e.message).toBe('AI unavailable. Edit manually instead.');
   });
   it('instruction on the active version creates a DRAFT, never activates', async () => {
     const fake = fakeAi(limit(1200));
@@ -203,7 +203,7 @@ describe('policy API: AI actions (mocked, no real Claude call)', () => {
     const { deps, repo } = setup(fakeAi(bad).client);
     const [active] = await repo.list();
     const e = await rejects(handleAi(deps, { mode: 'instruction', createdBy: 'L', versionId: active.id, instruction: 'x' }), 502);
-    expect(e.message).toContain('keinen gültigen Regelvorschlag');
+    expect(e.message).toContain('no valid rule proposal');
     expect(e.details?.join('\n')).toContain('unknown field "nope"');
     expect(await repo.list()).toHaveLength(1);
   });

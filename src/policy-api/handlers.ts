@@ -18,7 +18,7 @@ export class ApiError extends Error {
   constructor(readonly status: number, message: string, readonly details?: string[]) { super(message); this.name = 'ApiError'; }
 }
 
-export const AI_UNAVAILABLE = 'KI nicht verfügbar, bitte manuell bearbeiten.';
+export const AI_UNAVAILABLE = 'AI unavailable. Edit manually instead.';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_TEXT_CHARS = 60_000;
 const MAX_PDF_BASE64 = 3_300_000;
@@ -32,34 +32,34 @@ function str(body: Record<string, unknown>, key: string, { max, required = true 
     if (required) throw new ApiError(400, `"${key}" fehlt.`);
     return undefined;
   }
-  if (typeof v !== 'string' || v.trim().length === 0 || v.length > max) throw new ApiError(400, `"${key}" muss Text mit höchstens ${max} Zeichen sein.`);
+  if (typeof v !== 'string' || v.trim().length === 0 || v.length > max) throw new ApiError(400, `"${key}" must be text of at most ${max} characters.`);
   return v.trim();
 }
 function uuid(body: Record<string, unknown>, key: string): string {
   const v = body[key];
-  if (typeof v !== 'string' || !UUID.test(v)) throw new ApiError(400, `"${key}" ist keine gültige Versions-ID.`);
+  if (typeof v !== 'string' || !UUID.test(v)) throw new ApiError(400, `"${key}" is not a valid version ID.`);
   return v;
 }
 function rulesFrom(value: unknown): PolicyDocument {
   const result = validatePolicy(value);
-  if (!result.ok) throw new ApiError(422, 'Das Regel-JSON ist ungültig.', result.errors);
+  if (!result.ok) throw new ApiError(422, 'The rules JSON is invalid.', result.errors);
   return result.policy;
 }
 async function mustGet(repo: PolicyRepo, id: string): Promise<PolicyVersionRecord> {
   const v = await repo.get(id);
-  if (!v) throw new ApiError(404, 'Version nicht gefunden.');
+  if (!v) throw new ApiError(404, 'Version not found.');
   return v;
 }
 async function mustActive(repo: PolicyRepo): Promise<PolicyVersionRecord> {
   const active = (await repo.list()).find(v => v.status === 'active');
-  if (!active) throw new ApiError(409, 'Es gibt keine aktive Version.');
+  if (!active) throw new ApiError(409, 'There is no active version.');
   return active;
 }
 
 export async function handleGet(deps: ApiDeps, url: URL): Promise<ApiResult> {
   const id = url.searchParams.get('id');
   if (id !== null) {
-    if (!UUID.test(id)) throw new ApiError(400, '"id" ist keine gültige Versions-ID.');
+    if (!UUID.test(id)) throw new ApiError(400, '"id" is not a valid version ID.');
     return ok({ version: await mustGet(deps.repo, id) });
   }
   return ok({ aiAvailable: deps.ai !== null, versions: await deps.repo.list() });
@@ -82,22 +82,22 @@ export async function handlePost(deps: ApiDeps, raw: unknown): Promise<ApiResult
       const patch: { rules?: PolicyDocument; changeSummary?: string | null } = {};
       if (raw.rules !== undefined) patch.rules = rulesFrom(raw.rules);
       if (raw.changeSummary !== undefined) patch.changeSummary = str(raw, 'changeSummary', { max: 1000, required: false }) ?? null;
-      if (!Object.keys(patch).length) throw new ApiError(400, 'Nichts zu ändern.');
+      if (!Object.keys(patch).length) throw new ApiError(400, 'Nothing to change.');
       const updated = await repo.updateDraft(id, patch);
-      if (!updated) throw new ApiError((await repo.get(id)) ? 409 : 404, 'Nur Entwürfe können bearbeitet werden. Aktive und archivierte Versionen sind unveränderlich.');
+      if (!updated) throw new ApiError((await repo.get(id)) ? 409 : 404, 'Only drafts can be edited. Active and archived versions are read-only.');
       return ok({ version: updated });
     }
     case 'discard_draft': {
       const id = uuid(raw, 'id');
-      if (!(await repo.deleteDraft(id))) throw new ApiError((await repo.get(id)) ? 409 : 404, 'Nur Entwürfe können verworfen werden.');
+      if (!(await repo.deleteDraft(id))) throw new ApiError((await repo.get(id)) ? 409 : 404, 'Only drafts can be discarded.');
       return ok({ discarded: id });
     }
     case 'impact': {
       const draft = await mustGet(repo, uuid(raw, 'id'));
       const versions = await repo.list();
       const active = versions.find(v => v.status === 'active');
-      if (!active) throw new ApiError(409, 'Es gibt keine aktive Version.');
-      if (draft.id === active.id) throw new ApiError(400, 'Die aktive Version hat keinen Unterschied zu sich selbst.');
+      if (!active) throw new ApiError(409, 'There is no active version.');
+      if (draft.id === active.id) throw new ApiError(400, 'The active version cannot be compared with itself.');
       // Closed claims keep the decision of the original version, not of whatever is active now.
       const originalLabel = policyHistoryFrom(versions).original.label;
       const original = versions.find(v => v.versionLabel === originalLabel) ?? active;
@@ -106,14 +106,14 @@ export async function handlePost(deps: ApiDeps, raw: unknown): Promise<ApiResult
     case 'activate': {
       const draft = await mustGet(repo, uuid(raw, 'id'));
       const expectedActive = uuid(raw, 'expectedActiveId');
-      if (draft.status !== 'draft') throw new ApiError(409, `Nur ein Entwurf kann freigegeben werden (diese Version ist ${draft.status}).`);
+      if (draft.status !== 'draft') throw new ApiError(409, `Only a draft can be activated (this version is ${draft.status}).`);
       rulesFrom(draft.rules);
       const active = await mustActive(repo);
-      if (active.id !== expectedActive) throw new ApiError(409, 'Die aktive Version hat sich inzwischen geändert. Bitte Folgenabschätzung neu laden und erneut prüfen.');
+      if (active.id !== expectedActive) throw new ApiError(409, 'The active version has changed in the meantime. Reload the impact and check again.');
       return ok({ version: await repo.activate(draft.id, expectedActive) });
     }
     default:
-      throw new ApiError(400, 'Unbekannte Aktion.');
+      throw new ApiError(400, 'Unknown action.');
   }
 }
 
@@ -129,7 +129,7 @@ export async function handleAi(deps: ApiDeps, raw: unknown): Promise<ApiResult> 
       const active = await mustActive(repo);
       let document: { kind: 'text'; text: string; filename?: string } | { kind: 'pdf'; base64: string; filename?: string };
       if (typeof raw.pdfBase64 === 'string') {
-        if (raw.pdfBase64.length > MAX_PDF_BASE64) throw new ApiError(413, 'Das PDF ist zu groß (höchstens ca. 2,4 MB).');
+        if (raw.pdfBase64.length > MAX_PDF_BASE64) throw new ApiError(413, 'The PDF is too large (max. about 2.4 MB).');
         document = { kind: 'pdf', base64: raw.pdfBase64, filename };
       } else {
         const text = str(raw, 'text', { max: MAX_TEXT_CHARS })!;
@@ -143,7 +143,7 @@ export async function handleAi(deps: ApiDeps, raw: unknown): Promise<ApiResult> 
       const base = await mustGet(repo, uuid(raw, 'versionId'));
       const instruction = str(raw, 'instruction', { max: 1000 })!;
       const ruleId = str(raw, 'ruleId', { max: 64, required: false });
-      if (ruleId && !base.rules.rules.some(r => r.id === ruleId) && base.rules.default.id !== ruleId) throw new ApiError(400, `Regel „${ruleId}“ existiert nicht.`);
+      if (ruleId && !base.rules.rules.some(r => r.id === ruleId) && base.rules.default.id !== ruleId) throw new ApiError(400, `Rule “${ruleId}” does not exist.`);
       const s = await suggestPolicy(deps.ai, { mode: 'instruction', current: base.rules, instruction, ruleId }, { model: deps.aiModel });
       if (base.status === 'draft') {
         const summary = [base.changeSummary, s.changeSummary].filter(Boolean).join(' ').slice(0, 1000);

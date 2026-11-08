@@ -49,18 +49,18 @@ describe('suggestPolicy (mocked client, no real API call)', () => {
     expect(retry).toHaveLength(3);
     expect(retry[2].content).toContain('unknown operator "contains"');
   });
-  it('gives up after two invalid answers with a clear German error and the validator details', async () => {
+  it('gives up after two invalid answers with a clear error and the validator details', async () => {
     const bad = reply(proposal(d => { d.rules[0].outcome = 'reject_claim'; }));
     const { client, calls } = fake(bad, bad);
     const error = await suggestPolicy(client, instruction, opts).catch(e => e);
     expect(error).toBeInstanceOf(AiError);
-    expect(error.message).toContain('keinen gültigen Regelvorschlag');
+    expect(error.message).toContain('no valid rule proposal');
     expect(error.details.join('\n')).toContain('outcome');
     expect(calls).toHaveLength(2); // exactly one retry
   });
   it('treats an answer without the tool call as invalid', async () => {
     const { client } = fake({ content: [{ type: 'text', text: 'Sure, here is some prose' }] });
-    await expect(suggestPolicy(client, instruction, opts)).rejects.toThrow(/keinen gültigen/);
+    await expect(suggestPolicy(client, instruction, opts)).rejects.toThrow(/no valid rule proposal/);
   });
   it('cannot add fields: the field catalog stays the current policy\'s', async () => {
     const sneaky = { ...proposal(d => { d.rules[0].when.any.push({ field: 'iban', op: 'is_not_empty' }); }), fields: { iban: { type: 'string' } } };

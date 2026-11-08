@@ -9,8 +9,8 @@ const json = (result: ApiResult) => new Response(JSON.stringify(result.body), { 
 
 async function readJson(request: Request): Promise<unknown> {
   const text = await request.text();
-  if (text.length > MAX_BODY_BYTES) throw new ApiError(413, 'Anfrage zu groß.');
-  try { return JSON.parse(text || '{}'); } catch { throw new ApiError(400, 'Ungültiges JSON.'); }
+  if (text.length > MAX_BODY_BYTES) throw new ApiError(413, 'Request too large.');
+  try { return JSON.parse(text || '{}'); } catch { throw new ApiError(400, 'Invalid JSON.'); }
 }
 
 /** Shared by the Vercel Functions in /api and by the local Vite dev middleware. */
@@ -23,7 +23,7 @@ export async function handlePolicyRequest(request: Request, kind: 'policy' | 'ai
       return json(await listTeam());
     }
     if (kind === 'policy' && request.method === 'GET') return json(await handleGet(makeDeps(user.id), new URL(request.url)));
-    if (request.method !== 'POST') throw new ApiError(405, 'Methode nicht erlaubt.');
+    if (request.method !== 'POST') throw new ApiError(405, 'Method not allowed.');
     if (!request.headers.get('content-type')?.includes('application/json')) throw new ApiError(415, 'JSON erforderlich.');
     const input = await readJson(request);
     const action = input && typeof input === 'object' && 'action' in input ? input.action : undefined;

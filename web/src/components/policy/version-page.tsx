@@ -18,9 +18,9 @@ import { DiffList } from './diff-list';
 import { ImpactTable } from './impact-table';
 import { RuleCard, RuleRow } from './rule-view';
 
-export const statusLabel = { draft: 'Entwurf', active: 'Aktiv', archived: 'Archiviert' } as const;
-export const sourceLabel = { seed: 'Ausgangs-Policy', edit: 'Bearbeitung', upload: 'Datei-Upload' } as const;
-export const formatDate = (iso: string | null) => (iso ? new Date(iso).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }) : '–');
+export const statusLabel = { draft: 'Draft', active: 'Active', archived: 'Archived' } as const;
+export const sourceLabel = { seed: 'Original', edit: 'Edited', upload: 'Uploaded file' } as const;
+export const formatDate = (iso: string | null) => (iso ? new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '–');
 
 interface Props {
   version: PolicyVersionRecord;
@@ -60,23 +60,23 @@ export function VersionPage({ version, active, aiAvailable, owner, busy, run, on
   const save = () => run(async () => {
     const text = summary.trim() || changes.map(c => c.text).join('; ').slice(0, 1000);
     await policyApi.updateDraft({ id: version.id, rules, changeSummary: text || undefined });
-    toast.success('Entwurf gespeichert.');
+    toast.success('Draft saved');
     await onReload(version.id);
   });
   const askAi = (ruleId: string) => (instruction: string) => run(async () => {
     const r = await policyApi.aiInstruction({ createdBy: owner, versionId: version.id, ruleId, instruction });
-    toast.success(`Claude hat ${r.version.versionLabel} als Entwurf vorgeschlagen. Bitte Diff und Folgen prüfen.`);
+    toast.success(`Draft ${r.version.versionLabel} ready to review`);
     await onReload(r.version.id);
   });
-  const discard = () => run(async () => { await policyApi.discardDraft(version.id); toast.success('Entwurf verworfen.'); await onReload(null); });
+  const discard = () => run(async () => { await policyApi.discardDraft(version.id); toast.success('Draft discarded'); await onReload(null); });
   const activate = () => run(async () => {
     const { version: done } = await policyApi.activate(version.id, active.id);
-    toast.success(`${done.versionLabel} ist jetzt aktiv. ${active.versionLabel} wurde archiviert.`);
+    toast.success(`${done.versionLabel} is now active. ${active.versionLabel} archived.`);
     window.dispatchEvent(new Event(POLICY_CHANGED_EVENT)); // the review queue re-evaluates with the new active version
     await onReload(done.id);
   });
   const copyToDraft = () => run(async () => {
-    if (!owner.trim()) { toast.error('Bitte oben deinen Namen eintragen.'); return; }
+    if (!owner.trim()) { toast.error('Sign in to create a draft'); return; }
     const r = await policyApi.createDraft({ createdBy: owner, parentId: version.id });
     await onReload(r.version.id);
   });
@@ -86,18 +86,18 @@ export function VersionPage({ version, active, aiAvailable, owner, busy, run, on
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeftIcon />Zurück</Button>
+        <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeftIcon />Back</Button>
         <h2 className="text-lg font-semibold tracking-tight">{version.versionLabel}</h2>
         <Badge variant={version.status === 'active' ? 'default' : 'secondary'}>{statusLabel[version.status]}</Badge>
         <span className="text-xs text-muted-foreground">{sourceLabel[version.source]} · {formatDate(version.createdAt)}</span>
-        {!isDraft && canManage && <Button className="ml-auto" variant="outline" size="sm" disabled={busy} onClick={() => void copyToDraft()}>Als Entwurf kopieren</Button>}
+        {!isDraft && canManage && <Button className="ml-auto" variant="outline" size="sm" disabled={busy} onClick={() => void copyToDraft()}>Copy to draft</Button>}
       </div>
 
       <div className={isDraft ? 'grid items-start gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(340px,2fr)]' : ''}>
         <Card className="gap-3">
           <CardHeader>
-            <CardTitle>Regeln</CardTitle>
-            <CardDescription>{isDraft ? 'Werte direkt ändern. Die erste passende Regel entscheidet.' : version.changeSummary ?? 'Die erste passende Regel entscheidet.'}</CardDescription>
+            <CardTitle>Rules</CardTitle>
+            <CardDescription>{isDraft ? 'Edit values inline. The first matching rule decides.' : version.changeSummary ?? 'The first matching rule decides.'}</CardDescription>
           </CardHeader>
           <CardContent>
             {isDraft ? (
@@ -117,22 +117,22 @@ export function VersionPage({ version, active, aiAvailable, owner, busy, run, on
         {isDraft && (
           <Card className="gap-4 lg:sticky lg:top-4">
             <CardHeader>
-              <CardTitle>Vorschau</CardTitle>
-              <CardDescription>Gegenüber {active.versionLabel}</CardDescription>
+              <CardTitle>Preview</CardTitle>
+              <CardDescription>Compared with {active.versionLabel}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <DiffList changes={changes} empty="Noch keine Änderung." />
+              <DiffList changes={changes} empty="No changes yet" />
               <section className="space-y-2 border-t pt-4">
-                <h3 className="text-sm font-medium">Folgen für Fälle {dirty && <span className="font-normal text-muted-foreground">(gespeicherter Stand)</span>}</h3>
-                {impactError ? <Alert variant="destructive"><AlertTitle>Nicht berechenbar</AlertTitle><AlertDescription>{impactError}</AlertDescription></Alert>
-                  : impact ? <ImpactTable impact={impact} /> : <p className="text-sm text-muted-foreground">Wird berechnet …</p>}
+                <h3 className="text-sm font-medium">Impact on claims {dirty && <span className="font-normal text-muted-foreground">(last saved)</span>}</h3>
+                {impactError ? <Alert variant="destructive"><AlertTitle>Impact unavailable</AlertTitle><AlertDescription>{impactError}</AlertDescription></Alert>
+                  : impact ? <ImpactTable impact={impact} /> : <p className="text-sm text-muted-foreground">Calculating…</p>}
               </section>
-              <Textarea aria-label="Änderungstext" rows={2} maxLength={1000} value={summary} onChange={e => setSummary(e.target.value)} placeholder="Warum? (optional)" />
+              <Textarea aria-label="Change note" rows={2} maxLength={1000} value={summary} onChange={e => setSummary(e.target.value)} placeholder="Reason for the change (optional)" />
               <div className="flex flex-wrap items-center gap-2 border-t pt-4">
                 {dirty
-                  ? <Button disabled={busy} onClick={() => void save()}>Speichern</Button>
-                  : <Button disabled={busy || !impact || changes.length === 0} onClick={() => setConfirm(true)}>Freigeben</Button>}
-                <Button variant="ghost" className="text-destructive" disabled={busy} onClick={() => void discard()}>Verwerfen</Button>
+                  ? <Button disabled={busy} onClick={() => void save()}>Save</Button>
+                  : <Button disabled={busy || !impact || changes.length === 0} onClick={() => setConfirm(true)}>Activate</Button>}
+                <Button variant="ghost" className="text-destructive" disabled={busy} onClick={() => void discard()}>Discard</Button>
               </div>
             </CardContent>
           </Card>
@@ -142,14 +142,14 @@ export function VersionPage({ version, active, aiAvailable, owner, busy, run, on
       <AlertDialog open={confirm} onOpenChange={setConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{version.versionLabel} freigeben?</AlertDialogTitle>
+            <AlertDialogTitle>Activate {version.versionLabel}?</AlertDialogTitle>
             <AlertDialogDescription>
-              {version.versionLabel} wird aktiv, {active.versionLabel} wird archiviert.{impact ? ` ${impact.totals.needsRecheck} offene Fälle müssen neu bewertet werden; geschlossene Fälle bleiben unverändert.` : ''} Aktive Versionen können danach nicht mehr bearbeitet werden.
+              {version.versionLabel} replaces {active.versionLabel}.{impact ? ` ${impact.totals.needsRecheck} open claims will be flagged for recheck. Closed claims keep their decision.` : ''} Active versions can't be edited.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void activate()}>Jetzt freigeben</AlertDialogAction>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void activate()}>Activate</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
