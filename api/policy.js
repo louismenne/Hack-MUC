@@ -537,7 +537,8 @@ async function handlePost(deps, raw) {
       return ok({ discarded: id2 });
     }
     case "impact": {
-      const draft = await mustGet(repo, uuid(raw, "id"));
+      const stored = await mustGet(repo, uuid(raw, "id"));
+      const draft = raw.rules === void 0 ? stored : { ...stored, rules: rulesFrom(raw.rules) };
       const versions = await repo.list();
       const active = versions.find((v) => v.status === "active");
       if (!active) throw new ApiError(409, "There is no active version.");
@@ -732,12 +733,12 @@ function checkedDecision(policy, claim) {
   if (!checked.ok) throw new ApiError(503, "The active policy is invalid; processing is disabled.");
   return evaluatePolicyDocument(checked.policy, policy.versionLabel, claim);
 }
-async function evaluateStoredClaims(user, offset, db = serviceClient(), claimId) {
+async function evaluateStoredClaims(user, offset, db = serviceClient(), claimId, ownOnly = false) {
   const role = roleOf(user);
   if (!role) throw new ApiError(403, "A team role is required.");
   let query = db.from("claims").select("*", { count: "exact" }).order("received_at", { ascending: false }).order("id").range(offset, offset + 49);
   if (claimId) query = query.eq("id", claimId);
-  if (role === "claims_handler") query = query.eq("submitted_by", user.id);
+  if (role === "claims_handler" || ownOnly) query = query.eq("submitted_by", user.id);
   const [{ data, error, count }, versions] = await Promise.all([
     query,
     createSupabaseRepo(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY).list()
@@ -907,7 +908,9 @@ async function handlePolicyRequest(request, kind, makeDeps, authenticate = creat
       const claimId = input.claimId;
       if (claimId !== void 0 && (typeof claimId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(claimId)))
         throw new ApiError(400, "Invalid claim ID.");
-      return json(await evaluateStoredClaims(user, offset, void 0, claimId));
+      const ownOnly = input.ownOnly ?? false;
+      if (typeof ownOnly !== "boolean") throw new ApiError(400, "Invalid own-claims filter.");
+      return json(await evaluateStoredClaims(user, offset, void 0, claimId, ownOnly));
     }
     if (kind === "policy" && action === "set_role") {
       if (!access.team) throw new ApiError(403, "Admin role required.");

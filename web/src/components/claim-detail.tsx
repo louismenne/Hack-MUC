@@ -36,18 +36,11 @@ interface ClaimDetailProps {
  */
 const reviewerDecisions: { id: ReviewerDecisionId; title: string; hint: string; action: ReviewAction; next?: Recommendation }[] = [
   { id: 'approve', title: 'Approve', hint: 'Continue in routine processing', action: 'overridden', next: 'routine_processing' },
-  { id: 'contact', title: 'Contact claimant', hint: 'Ask for more detailed information', action: 'overridden', next: 'request_information' },
-  { id: 'return', title: 'Return: missing info', hint: 'Required documents or fields are missing', action: 'overridden', next: 'request_information' },
+  { id: 'contact', title: 'Request info', hint: 'Ask the claimant for missing or clearer information', action: 'overridden', next: 'request_information' },
   { id: 'keep', title: 'Keep in review', hint: 'Needs a specialist or further checks', action: 'confirmed' },
   { id: 'reject', title: 'Reject', hint: 'Decline the claim. You confirm before it is saved.', action: 'rejected' },
 ];
 
-/** Buttons grouped by what happens to the claim, so the choices read at a glance. */
-const decisionGroups: { label: string; ids: ReviewerDecisionId[] }[] = [
-  { label: 'Release', ids: ['approve'] },
-  { label: 'Ask claimant', ids: ['contact', 'return'] },
-  { label: 'Stop', ids: ['keep', 'reject'] },
-];
 
 export function ClaimDetail({ item, state, onAction, canReview, showReviewControls = true, documents }: ClaimDetailProps) {
   const { decision, claim } = item;
@@ -60,6 +53,8 @@ export function ClaimDetail({ item, state, onAction, canReview, showReviewContro
   const lastEvent = state.events.at(-1);
   const guidance = needsHuman ? reviewerGuidance(decision) : null;
   const decided = state.status !== 'pending';
+  // Temporary comparison: ?suggest=below (label under the button) or ?suggest=highlight (outlined button).
+  const suggestStyle = new URLSearchParams(window.location.search).get('suggest') === 'highlight' ? 'highlight' : 'below';
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-4">
@@ -83,6 +78,35 @@ export function ClaimDetail({ item, state, onAction, canReview, showReviewContro
             )}
           </div>
           {closed && <p className="text-xs text-muted-foreground">Closed claim · saved {decision.policyVersion} decision retained · no action required.</p>}
+          {showReviewControls && needsHuman && !closed && !decided && (
+            <CardAction className="flex flex-wrap items-start justify-end gap-2">
+              {reviewerDecisions.map(option => {
+                const recommended = guidance?.decision === option.id || (guidance?.decision === 'return' && option.id === 'contact');
+                return (
+                  <div key={option.id} className="flex flex-col items-center gap-1">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className={cn(
+                            option.id === 'reject' && 'text-destructive hover:bg-destructive/10 hover:text-destructive',
+                            recommended && suggestStyle === 'highlight' && 'border-foreground ring-1 ring-foreground',
+                          )}
+                          disabled={!canReview}
+                          onClick={() => onAction(option.action, option.next, option.id === 'reject' ? undefined : option.title)}
+                        >
+                          {option.title}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{option.hint}</TooltipContent>
+                    </Tooltip>
+                    {suggestStyle === 'below' && <span className={cn('h-4 text-[11px] text-muted-foreground', !recommended && 'invisible')}>Suggested</span>}
+                  </div>
+                );
+              })}
+            </CardAction>
+          )}
           {showReviewControls && (overridden || !needsHuman) && (
             <CardAction className="flex gap-2">
               {overridden && (
@@ -149,41 +173,6 @@ export function ClaimDetail({ item, state, onAction, canReview, showReviewContro
               )}
             </div>
           </div>
-
-          {showReviewControls && needsHuman && !closed && !decided && (
-            <div className="flex flex-col gap-2">
-            <StepLabel n={3}>{showReviewControls ? 'Your decision' : 'Reviewer decision'}</StepLabel>
-            <div className="flex flex-wrap items-stretch gap-x-4 gap-y-3">
-              {decisionGroups.map((group, index) => (
-                <div key={group.label} className={cn('flex flex-col gap-1.5', index > 0 && 'border-l pl-4')}>
-                  <span className="label-mono">{group.label}</span>
-                  <div className="flex flex-wrap gap-2">
-                    {group.ids.map(id => {
-                      const option = reviewerDecisions.find(d => d.id === id)!;
-                      const recommended = guidance?.decision === id;
-                      return (
-                        <Tooltip key={id}>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="outline"
-                              className={cn(id === 'reject' && 'text-destructive hover:bg-destructive/10 hover:text-destructive')}
-                              disabled={!canReview}
-                              onClick={() => onAction(option.action, option.next, id === 'reject' ? undefined : option.title)}
-                            >
-                              {option.title}
-                              {recommended && <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">Suggested</span>}
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>{option.hint}</TooltipContent>
-                        </Tooltip>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-            </div>
-          )}
 
           <FactsSummary item={item} triggered={triggered} />
         </CardContent>

@@ -5,8 +5,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ApiFailure, policyApi, type PolicyVersionRecord } from './api';
-import { VariantB, type OwnerActions } from './layouts';
-import { VersionPage, formatDate } from './version-page';
+import { PolicyOverview, PolicyShell, type OwnerActions } from './layouts';
+import { VersionPage } from './version-page';
 
 const MAX_PDF_BYTES = 2_400_000;
 const MAX_TEXT_CHARS = 60_000;
@@ -93,18 +93,12 @@ export function PolicyWorkspace() {
   if (!versions || !active) return <p className="text-sm text-muted-foreground">{versions ? 'No active policy version' : 'Loading policy versions…'}</p>;
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] space-y-4">
-      {open ? (
-        <VersionPage key={`${open.id}|${open.revision}|${open.changeSummary}|${JSON.stringify(open.rules)}`} version={open} active={active} aiAvailable={aiAvailable && canManage} owner={owner} busy={busy} run={run} onBack={() => setOpenId(null)} onReload={load} />
-      ) : (
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-baseline gap-3">
-            <h2 className="text-3xl font-normal tracking-[-0.03em]">Policy</h2>
-            <span className="text-sm text-muted-foreground">{active.versionLabel} active since {formatDate(active.activatedAt)}</span>
-          </div>
-          <VariantB active={active} versions={versions} actions={actions} openVersion={id => setOpenId(id)} />
-        </div>
-      )}
+    <div className="mx-auto w-full max-w-[1600px]">
+      <PolicyShell active={active} versions={versions} currentId={open?.id ?? null} onNavigate={setOpenId} actions={actions} showComposer={!open || open.id === active.id}>
+        {open
+          ? <VersionPage key={`${open.id}|${open.revision}|${open.changeSummary}|${JSON.stringify(open.rules)}`} version={open} active={active} aiAvailable={aiAvailable && canManage} owner={owner} busy={busy} run={run} onBack={() => setOpenId(null)} onReload={load} />
+          : <PolicyOverview active={active} versions={versions} actions={actions} openVersion={id => setOpenId(id)} />}
+      </PolicyShell>
     </div>
   );
 }

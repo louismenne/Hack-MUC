@@ -125,7 +125,9 @@ export async function handlePost(deps: ApiDeps, raw: unknown): Promise<ApiResult
       return ok({ discarded: id });
     }
     case 'impact': {
-      const draft = await mustGet(repo, uuid(raw, 'id'));
+      const stored = await mustGet(repo, uuid(raw, 'id'));
+      // Optional unsaved rules: lets the editor show the impact live while values change. Nothing is stored.
+      const draft = raw.rules === undefined ? stored : { ...stored, rules: rulesFrom(raw.rules) };
       const versions = await repo.list();
       const active = versions.find((v) => v.status === 'active');
       if (!active) throw new ApiError(409, 'There is no active version.');

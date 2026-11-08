@@ -12,6 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { ApiFailure, policyApi, type ImpactReport, type PolicyDocument, type PolicyVersionRecord } from './api';
 import { DiffList } from './diff-list';
@@ -46,13 +47,21 @@ export function VersionPage({ version, active, aiAvailable, owner, busy, run, on
   const dirty = JSON.stringify(rules) !== JSON.stringify(version.rules) || summary.trim() !== (version.changeSummary ?? '');
   const changes = useMemo(() => diffPolicies(active.rules, rules), [active.rules, rules]);
 
+  // Live impact: recomputed shortly after every edit, from the rules on screen (saved or not).
+  const [impactLoading, setImpactLoading] = useState(false);
+  const rulesKey = JSON.stringify(rules);
   useEffect(() => {
     if (!isDraft) return;
     let cancelled = false;
-    setImpact(null); setImpactError(null);
-    policyApi.impact(version.id).then(r => { if (!cancelled) setImpact(r.impact); }, (e: ApiFailure) => { if (!cancelled) setImpactError(e.message); });
-    return () => { cancelled = true; };
-  }, [isDraft, version.id, version.revision, active.id]);
+    setImpactLoading(true); setImpactError(null);
+    const timer = setTimeout(() => {
+      policyApi.impact(version.id, rules)
+        .then(r => { if (!cancelled) setImpact(r.impact); }, (e: ApiFailure) => { if (!cancelled) setImpactError(e.message); })
+        .finally(() => { if (!cancelled) setImpactLoading(false); });
+    }, 400);
+    return () => { cancelled = true; clearTimeout(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDraft, version.id, version.revision, active.id, rulesKey]);
 
   const onLeaf = (ruleIndex: number) => (path: LeafPath, value: Scalar | Scalar[]) => {
     try { setRules(current => setLeafValue(current, ruleIndex, path, value)); } catch (e) { toast.error(e instanceof Error ? e.message : String(e)); }
@@ -126,7 +135,12 @@ export function VersionPage({ version, active, aiAvailable, owner, busy, run, on
             <CardContent className="space-y-4">
               <DiffList changes={changes} empty="No changes yet" />
               <section className="space-y-2 border-t pt-4">
-                <h3 className="text-sm font-medium">Impact on claims {dirty && <span className="font-normal text-muted-foreground">(last saved)</span>}</h3>
+                <h3 className="flex items-center gap-2 text-sm font-medium">Impact on claims {impactLoading && <Spinner className="size-3" />}</h3>
+                {impact && (
+                  <p className="text-3xl font-light tracking-[-0.03em] tabular-nums">
+                    {impact.totals.needsRecheck} <span className="text-base text-muted-foreground">open {impact.totals.needsRecheck === 1 ? 'claim changes' : 'claims change'} outcome</span>
+                  </p>
+                )}
                 {impactError ? <Alert variant="destructive"><AlertTitle>Impact unavailable</AlertTitle><AlertDescription>{impactError}</AlertDescription></Alert>
                   : impact ? <ImpactTable impact={impact} /> : <p className="text-sm text-muted-foreground">Calculating…</p>}
               </section>
