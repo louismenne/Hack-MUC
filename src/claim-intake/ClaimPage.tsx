@@ -51,7 +51,6 @@ function Shell({ children }: { children: ReactNode }) {
           <div className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
             <CarIcon className="size-4" aria-hidden />
           </div>
-          <span className="text-sm font-medium">Motor claims</span>
           <div className="ml-auto flex items-center gap-2">
             {isDryRun() && (
               <Badge variant="outline">
@@ -65,11 +64,10 @@ function Shell({ children }: { children: ReactNode }) {
       </header>
       <section className="claim-welcome" aria-label="Motor claims introduction">
         <ClaimHeroMedia />
-        <div className="claim-welcome-content"><p className="editorial-label">MOTOR CLAIMS / A CLEARER WAY FORWARD</p><h2>A clear start.<br /><span>At every turn.</span></h2><p>Tell us what happened. We’ll help you take the next step.</p><a href="#claim-details" className="claim-start-link">Your claim starts below <span>↓</span></a></div>
+        <div className="claim-welcome-content"><h2>A clear start.<br /><span>At every turn.</span></h2><p>Tell us what happened. We’ll help you take the next step.</p><a href="#claim-details" className="claim-start-link">Your claim starts below <span>↓</span></a></div>
         <div className="claim-welcome-ruler"><ClaimRuler /></div>
       </section>
       <main id="claim-details" className="mx-auto max-w-2xl px-4 pt-8 pb-4">{children}</main>
-      <footer className="claim-design-footer"><p className="editorial-label">CLEAR STEPS. PEOPLE IN CONTROL.</p><span>Motor claims · Team LLM</span></footer>
     </div>
   );
 }
