@@ -158,7 +158,8 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
         </div>
         <div className="flex items-center gap-2">
           {refreshButton}
-          {isClaimant && (
+          {/* While the list is empty, the empty state carries the only "File a claim" call to action. */}
+          {isClaimant && items.length > 0 && (
             <Button asChild>
               <a href="/claim">
                 <PlusIcon data-icon="inline-start" /> File a claim
