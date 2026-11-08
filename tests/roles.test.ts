@@ -54,7 +54,7 @@ describe('role-specific navigation and direct-route access', () => {
   it.each([
     ['claims_handler', ['my-claims']],
     ['reviewer', ['queue', 'overview']],
-    ['policy_manager', ['queue', 'overview', 'quality', 'policy', 'examples', 'example-quality']],
+    ['policy_manager', ['queue', 'overview', 'quality', 'policy', 'examples', 'example-quality', 'business']],
     ['admin', [...appPages]],
     [null, []],
   ] as const)('%s can only open its permitted pages', (role, expected) => {

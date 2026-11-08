@@ -1,3 +1,4 @@
+import { ClaimHeroMedia, ClaimRuler } from '@/components/claim-design';
 import { authenticatedFetch } from '@/lib/supabase';
 import type { StoredQueueItem } from '../policy-api/stored-claims';
 import { clearReloadCache } from '../../web/src/lib/reload-cache';
@@ -44,7 +45,7 @@ const dividedSections = new Set(['facts']);
 function Shell({ children }: { children: ReactNode }) {
   const user = useAuthUser();
   return (
-    <div className="min-h-svh">
+    <div className="claim-theme claim-editorial min-h-svh">
       <header className="sticky top-0 z-20 border-b bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/60">
         <div className="mx-auto flex h-14 max-w-2xl items-center gap-2.5 px-4">
           <div className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
@@ -62,7 +63,13 @@ function Shell({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-2xl px-4 pt-8 pb-4">{children}</main>
+      <section className="claim-welcome" aria-label="Motor claims introduction">
+        <ClaimHeroMedia />
+        <div className="claim-welcome-content"><p className="editorial-label">MOTOR CLAIMS / A CLEARER WAY FORWARD</p><h2>A clear start.<br /><span>At every turn.</span></h2><p>Tell us what happened. We’ll help you take the next step.</p><a href="#claim-details" className="claim-start-link">Your claim starts below <span>↓</span></a></div>
+        <div className="claim-welcome-ruler"><ClaimRuler /></div>
+      </section>
+      <main id="claim-details" className="mx-auto max-w-2xl px-4 pt-8 pb-4">{children}</main>
+      <footer className="claim-design-footer"><p className="editorial-label">CLEAR STEPS. PEOPLE IN CONTROL.</p><span>Motor claims · Team LLM</span></footer>
     </div>
   );
 }

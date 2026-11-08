@@ -111,9 +111,7 @@ export function PolicyWorkspace() {
   }
   if (!versions || !active) return <p className="text-sm text-muted-foreground">{versions ? 'No active policy version' : 'Loading policy versions…'}</p>;
 
-  return (
-    <div className="mx-auto w-full max-w-[1600px] space-y-3">
-      {canManage && <VoiceAssistant purpose="policy" title="Discuss policy and prepare changes" tools={{
+  const voice = canManage ? <VoiceAssistant purpose="policy" title="Use voice to describe a change" description="Discuss the rules or describe a change in English. A policy draft is prepared for you to review." tools={{
         get_policy_context: async () => {
           const data = await policyApi.overview();
           const selectedId = new URLSearchParams(window.location.search).get('version');
@@ -157,9 +155,13 @@ export function PolicyWorkspace() {
               result.impact.base.id !== base.id || result.impact.draft.revision !== draft.revision) return voiceError('Impact became stale. Request it again.');
           return voiceResult({ impact: result.impact, differences: diffPolicies(base.rules, rules), unsaved_changes: snapshot?.dirty ?? false });
         },
-      }} />}
+      }} /> : null;
 
-      <PolicyShell active={active} versions={versions} currentId={open?.id ?? null} onNavigate={setOpenId} actions={actions} showComposer={!open || open.id === active.id}>
+  return (
+    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-3 lg:h-[calc(100dvh-5.5rem)]">
+
+
+      <PolicyShell active={active} versions={versions} currentId={open?.id ?? null} onNavigate={setOpenId} actions={{ ...actions, voice }} showComposer>
         {open
           ? <VersionPage bindVoiceEditor={bindVoiceEditor} key={`${open.id}|${open.revision}|${open.changeSummary}|${JSON.stringify(open.rules)}`} version={open} active={active} aiAvailable={aiAvailable && canManage} owner={owner} busy={busy} run={run} onBack={() => setOpenId(null)} onReload={load} />
           : <PolicyOverview active={active} versions={versions} actions={actions} openVersion={id => setOpenId(id)} />}

@@ -3,6 +3,7 @@ import { StoredClaims } from '@/components/stored-claims';
 import { permissions, roleOf, roleLabels, canAccessPage, type AppPage } from '../../src/roles';
 import { Team } from '@/components/team';
 import { useAuthUser, signOut } from '@/lib/auth';
+import { BusinessCase } from '@/components/business-case';
 import { PolicyManager } from '@/components/policy-manager';
 import { Overview } from '@/components/overview';
 import { TaktileLogo } from '@/components/taktile-logo';
@@ -238,7 +239,7 @@ function AppContent() {
           <div className="mx-auto flex w-full max-w-[1600px] flex-wrap items-end justify-between gap-3">
             <div>
               <h2 className="text-3xl font-normal tracking-[-0.03em]">Test cases</h2>
-              <p className="text-sm text-muted-foreground">{dataset.description} · for testing, not live claims</p>
+              <p className="text-sm text-muted-foreground">{dataset.description}</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Select value={dataset.id} onValueChange={value => { setDatasetId(value); setFilters(defaultFilters); }}>
@@ -320,11 +321,9 @@ function AppContent() {
         {tab === 'overview' && <Overview canOpen={page => canAccessPage(role, page as AppPage)} />}
 
         {tab === 'quality' && <StoredClaims dashboard />}
+        {tab === 'business' && <BusinessCase />}
       </main>
 
-      <footer className="mx-auto max-w-[1600px] px-4 pb-6 text-xs text-muted-foreground">
-        Recommends a handling step; never approves or pays a claim.
-      </footer>
       </div>
     </div>
   );

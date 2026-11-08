@@ -115,7 +115,7 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
   });
   const noteAccess = useRef<ReviewNoteAccess | null>(null);
   const bindVoiceNote = useCallback((value: ReviewNoteAccess | null) => { noteAccess.current = value; }, []);
-  const reviewVoice = selected && stored && canReview ? <VoiceAssistant key={`${stored.claim.id}:${action ?? 'case'}`} purpose="review" title="Discuss this claim" tools={{
+  const reviewVoice = selected && stored && canReview ? <VoiceAssistant key={`${stored.claim.id}:${action ?? 'case'}`} purpose="review" title={action ? "Use voice to draft a review note" : "Use voice to review this claim"} description={action ? "Explain your reasoning in English. The assistant drafts a note for you to check and save." : "Get a short explanation of this claim, its policy rule and any missing information."} tools={{
     get_selected_claim_context: async () => {
       if (!canReview || loading || !stored || !selected) return voiceError('Claim context unavailable or refreshing.');
       const id = stored.claim.id;
@@ -339,7 +339,7 @@ export function StoredClaims({ dashboard = false }: { dashboard?: boolean }) {
                     <a href={followupHref(stored.claim.id)}>Add information or documents</a>
                   </Button>
                 )}
-                {!action && reviewVoice}
+                {!action && <div className="flex justify-end">{reviewVoice}</div>}
                 <ClaimDetail
                   item={selected}
                   state={state}

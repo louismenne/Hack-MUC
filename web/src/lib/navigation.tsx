@@ -9,6 +9,8 @@ export const pages = [
   { id: 'overview', path: '/overview', label: 'Overview', menuOnly: true },
   // Jury test area: the labelled CSV cases, their quality report, upload and results export in one page.
   { id: 'examples', path: '/examples', label: 'Test cases' },
+  // Opened from Overview → Business case, not the main navigation.
+  { id: 'business', path: '/business-case', label: 'Business case', menuOnly: true },
   { id: 'example-quality', path: '/example-quality', label: 'Test cases', menuOnly: true },
   // Opened from the account menu (admins only), not the main navigation.
   { id: 'team', path: '/team', label: 'Team', menuOnly: true },

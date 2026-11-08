@@ -100,7 +100,6 @@ export function ReviewDialog({ action, onOpenChange, datasetId, decision, curren
             <span className="tabular-nums">{decision.ruleId}</span>
             {current !== decision.recommendation && <>· Current <RecommendationBadge value={current} short /></>}
           </div>
-          {voice}
           <FieldGroup>
             {shown === 'overridden' && (
               <Field data-invalid={!!errors.next}>
@@ -120,7 +119,7 @@ export function ReviewDialog({ action, onOpenChange, datasetId, decision, curren
             )}
             {shown === 'reverted' && errors.next && <FieldError>{errors.next}</FieldError>}
             <Field data-invalid={!!errors.reason}>
-              <FieldLabel htmlFor="review-reason">{text.reasonLabel}</FieldLabel>
+              <div className="flex flex-wrap items-center justify-between gap-2"><FieldLabel htmlFor="review-reason">{text.reasonLabel}</FieldLabel>{voice}</div>
               <Textarea
                 id="review-reason"
                 value={reason}

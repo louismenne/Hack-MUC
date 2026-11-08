@@ -25,9 +25,9 @@ interface Topic {
 
 const Row = ({ id, rule, value }: { id: string; rule: string; value: Recommendation }) => (
   <div className="flex items-center gap-3 border-b px-3 py-2.5 last:border-b-0">
-    <span className="w-20 font-mono text-xs text-muted-foreground">{id}</span>
+    <span className="w-20 text-xs tabular-nums text-muted-foreground">{id}</span>
     <RecommendationBadge value={value} />
-    <span className="ml-auto truncate font-mono text-xs text-muted-foreground">{rule}</span>
+    <span className="ml-auto truncate text-xs tabular-nums text-muted-foreground">{rule}</span>
   </div>
 );
 
@@ -109,10 +109,10 @@ const topics: Topic[] = [
   {
     id: 'business',
     tab: 'Business case',
-    title: 'Estimated triage time and staff-cost savings',
-    text: 'Compare estimated manual triage time with time using the system for claims in the selected period. Minutes per route and hourly staff cost are editable assumptions. Annual costs, payback, error costs and policy-change costs are not yet modeled.',
-    facts: [['Time', 'estimated hours saved'], ['Staff cost', 'estimated savings'], ['Inputs', 'editable time and hourly cost']],
-    page: 'quality', cta: 'Open dashboard',
+    title: 'What triage costs today, and with the system',
+    text: 'Annual triage cost before and after, payback time, the cost of errors and the cost of a policy change. All assumptions are editable, so the jury can try their own numbers.',
+    facts: [['Today', 'vs. with the system'], ['Payback', 'time in months'], ['Errors', 'and policy changes priced']],
+    page: 'business', cta: 'Open business case',
     mock: (
       <div className="space-y-4 rounded-lg border bg-card p-4">
         <Bar label="Estimated manual triage time" width="100%" tone="bg-muted-foreground/60" />
@@ -124,12 +124,15 @@ const topics: Topic[] = [
 ];
 
 export function Overview({ canOpen }: { canOpen: (page: string) => boolean }) {
-  const [selected, setSelected] = useState(topics[0].id);
+  // ?topic=business reopens a tab, e.g. when closing the Business case page.
+  const [selected, setSelected] = useState(() => {
+    const wanted = new URLSearchParams(window.location.search).get('topic');
+    return topics.some(t => t.id === wanted) ? wanted! : topics[0].id;
+  });
   const topic = topics.find(t => t.id === selected) ?? topics[0];
   return (
     <div className="mx-auto w-full max-w-6xl space-y-10 py-6">
       <section className="space-y-3">
-        <p className="font-mono text-xs tracking-wide text-muted-foreground uppercase">Team LLM · Taktile case</p>
         <h1 className="max-w-3xl text-4xl leading-tight font-medium tracking-tight md:text-5xl">Better decisions on every motor claim</h1>
         <p className="max-w-2xl text-muted-foreground">Rules decide, people stay in control, and every change is traceable. Pick an area to see what it does.</p>
       </section>
@@ -171,7 +174,6 @@ export function Overview({ canOpen }: { canOpen: (page: string) => boolean }) {
           </div>
           <div className="flex items-center rounded-lg bg-muted/40 p-4 md:p-6"><div className="w-full">{topic.mock}</div></div>
         </div>
-        <p className="text-xs text-muted-foreground">Panels show sample data for illustration.</p>
       </section>
     </div>
   );

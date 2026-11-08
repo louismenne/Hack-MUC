@@ -13,6 +13,7 @@ import { splitColumns, useClaimListResize } from '../stored/use-claim-list-resiz
 
 /** Shared actions every layout variant offers the policy owner. */
 export interface OwnerActions {
+  voice?: ReactNode;
   canManage: boolean;
   aiAvailable: boolean;
   busy: boolean;
@@ -29,7 +30,7 @@ export interface OwnerActions {
 const ACCEPT = '.txt,.md,.markdown,.pdf,text/plain,text/markdown,application/pdf';
 
 /** One input like a chat box: type a change, or drop / attach a new policy file. */
-export function Composer({ aiAvailable, busy, onFile, onInstruction }: Pick<OwnerActions, 'aiAvailable' | 'busy' | 'onFile' | 'onInstruction'>) {
+export function Composer({ aiAvailable, busy, onFile, onInstruction, voice }: Pick<OwnerActions, 'aiAvailable' | 'busy' | 'onFile' | 'onInstruction' | 'voice'>) {
   const [text, setText] = useState('');
   const [dragging, setDragging] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -37,6 +38,7 @@ export function Composer({ aiAvailable, busy, onFile, onInstruction }: Pick<Owne
   const send = () => { if (!text.trim() || disabled) return; onInstruction(text.trim()); setText(''); };
   return (
     <div className="space-y-1.5">
+      {voice && <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-xs text-muted-foreground">Ask about rules or describe a change</span>{voice}</div>}
       <div
         data-dragging={dragging || undefined}
         onDragOver={e => { e.preventDefault(); if (!disabled) setDragging(true); }}
@@ -104,7 +106,7 @@ export function PolicyShell({ active, versions, currentId, onNavigate, actions, 
   const previous = versions.filter(v => v.status === 'archived').sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const label = (text: string) => <div className="px-3 pt-4 pb-1 text-xs text-muted-foreground">{text}</div>;
   return (
-    <div ref={resize.splitRef} className="grid h-[calc(100dvh-7.5rem)] min-h-[420px] gap-5 lg:grid-cols-(--split)" style={{ '--split': splitColumns(resize.listWidth) } as React.CSSProperties}>
+    <div ref={resize.splitRef} className="grid min-h-[420px] flex-1 gap-5 lg:min-h-0 lg:grid-cols-(--split)" style={{ '--split': splitColumns(resize.listWidth) } as React.CSSProperties}>
       {/* The handle sits outside the scrolling nav, so it is not clipped (same as the review inbox). */}
       <div className="relative flex min-h-0 flex-col">
       <SplitHandle resize={resize} label="Resize policy navigation" />
