@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { CalendarClockIcon, FlaskConicalIcon } from 'lucide-react';
+import { CalendarClockIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fieldLabels } from '@/lib/policy';
 import { officialComparison, type CaseItem, type Dataset } from '@/lib/datasets';
@@ -336,10 +336,7 @@ export function QualityView({ dataset, states, events, renderLog, qualityOnly = 
         <Card>
           <CardHeader>
             <CardTitle>Official policy change · before and after</CardTitle>
-            <CardDescription>
-              V1 labels are supplied by the organizer. Built-in v2 expectations are team-derived from the official
-              notice; they are not independent hidden-set validation. Closed claims are excluded from every v2 score.
-            </CardDescription>
+            <CardDescription>v1 labels from Taktile, v2 expectations derived by us.</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -378,10 +375,6 @@ export function QualityView({ dataset, states, events, renderLog, qualityOnly = 
                 ))}
               </TableBody>
             </Table>
-            <p className="mt-3 text-xs text-muted-foreground">
-              Error-rate denominator: all labelled claims in that row. {dataset.cases.filter((c) => c.frozen).length}{' '}
-              closed claims retain their v1 recommendation and are historical, not pending work.
-            </p>
           </CardContent>
         </Card>
       )}
@@ -389,10 +382,7 @@ export function QualityView({ dataset, states, events, renderLog, qualityOnly = 
         <>
           <div className="mt-2">
             <h2 className="text-3xl font-normal tracking-[-0.03em]">Decision quality</h2>
-            <p className="text-sm text-muted-foreground">
-              All {engine.labelled} labelled development cases, independent of the time filter. Labels are for
-              measurement only, never decision inputs.
-            </p>
+            <p className="text-sm text-muted-foreground">{engine.labelled} labelled cases</p>
           </div>
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <Stat
@@ -423,9 +413,6 @@ export function QualityView({ dataset, states, events, renderLog, qualityOnly = 
             <Card>
               <CardHeader>
                 <CardTitle>Confusion matrix</CardTitle>
-                <CardDescription>
-                  Active policy recommendation against its matching official expectations, {engine.labelled} cases.
-                </CardDescription>
               </CardHeader>
               <CardContent>
                 <ConfusionTable report={engine} />
@@ -434,7 +421,6 @@ export function QualityView({ dataset, states, events, renderLog, qualityOnly = 
             <Card>
               <CardHeader>
                 <CardTitle>Engine versus after review</CardTitle>
-                <CardDescription>Read-only comparison on labelled example cases.</CardDescription>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -469,25 +455,8 @@ export function QualityView({ dataset, states, events, renderLog, qualityOnly = 
             </Card>
           </div>
         </>
-      ) : (
-        <Card>
-          <Empty>
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <FlaskConicalIcon />
-              </EmptyMedia>
-              <EmptyTitle>
-                {dataset.source === 'stored'
-                  ? 'Submitted claims have no ground-truth labels'
-                  : 'No matching labels for the active policy'}
-              </EmptyTitle>
-              <EmptyDescription>
-                Active-policy accuracy requires matching official policy rules and corresponding expected labels. Custom
-                policies are not scored against a different policy’s labels. Built-in v2 expectations are team-derived.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        </Card>
+      ) : dataset.source === 'stored' ? null : (
+        <p className="text-sm text-muted-foreground">No labels match the active policy.</p>
       )}
     </div>
   );

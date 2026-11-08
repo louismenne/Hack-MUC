@@ -215,7 +215,7 @@ export function BusinessCase() {
         </div>
 
         <Card>
-          <CardHeader><CardTitle>1 · Triage cost per year</CardTitle><CardDescription>Staff time for triage, plus the system's running cost.</CardDescription></CardHeader>
+          <CardHeader><CardTitle>1 · Triage cost per year</CardTitle></CardHeader>
           <CardContent>
             <Compare today={triage.todayEur} withSystem={triage.withSystemEur}
               todayNote={`${num.format(a.claimsPerYear)} claims × ${a.manualMinutes} min`}
@@ -224,7 +224,7 @@ export function BusinessCase() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>2 · Cost of errors per year</CardTitle><CardDescription>Measured error rates on the {measured.v2.cases} labelled test cases, applied to the yearly volume.</CardDescription></CardHeader>
+          <CardHeader><CardTitle>2 · Cost of errors per year</CardTitle><CardDescription>Measured on {measured.v2.cases} test cases</CardDescription></CardHeader>
           <CardContent className="space-y-5">
             <Compare today={manual.totalEur} withSystem={errorCost(a, rates).totalEur}
               todayNote={`${pct(a.manualWrongRoutineRate)} wrongly waved through × ${eur.format(a.wrongPaymentCostEur)}`}
@@ -249,7 +249,7 @@ export function BusinessCase() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>3 · Cost of one policy change</CardTitle><CardDescription>The v2 change as the example: {pct(measured.changedShare)} of open test cases changed outcome. Counted {a.policyChangesPerYear}× per year in the net benefit.</CardDescription></CardHeader>
+          <CardHeader><CardTitle>3 · Cost of one policy change</CardTitle><CardDescription>v2 as the example · counted {a.policyChangesPerYear}× per year</CardDescription></CardHeader>
           <CardContent>
             <Compare today={change.todayEur} withSystem={change.withSystemEur}
               todayNote={`Retrain ${a.reviewers} reviewers × ${a.trainingHours} h, recheck all ${num.format(change.claimsToRecheckToday)} open claims by hand`}

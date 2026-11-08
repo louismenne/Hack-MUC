@@ -219,7 +219,7 @@ function AppContent() {
           <div className="mx-auto flex w-full max-w-[1600px] flex-wrap items-end justify-between gap-3">
             <div>
               <h2 className="text-3xl font-normal tracking-[-0.03em]">Test cases</h2>
-              <p className="text-sm text-muted-foreground">{dataset.description} · for testing, not live claims</p>
+              <p className="text-sm text-muted-foreground">{dataset.description}</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Select value={dataset.id} onValueChange={value => { setDatasetId(value); setFilters(defaultFilters); }}>
@@ -304,11 +304,6 @@ function AppContent() {
         {tab === 'business' && <BusinessCase />}
       </main>
 
-      {tab !== 'business' && tab !== 'policy' && (
-        <footer className="mx-auto max-w-[1600px] px-4 pb-6 text-xs text-muted-foreground">
-          Recommends a handling step; never approves or pays a claim.
-        </footer>
-      )}
     </div>
   );
 }

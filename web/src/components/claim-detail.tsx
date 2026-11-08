@@ -157,7 +157,7 @@ export function ClaimDetail({ item, state, onAction, canReview, showReviewContro
                 <>
                   <StepLabel n={2}>Next step</StepLabel>
                   <div className="mt-1.5 text-base font-semibold">Handled automatically</div>
-                  <div className="mt-0.5 text-sm text-muted-foreground">No reviewer action needed.{showReviewControls && ' You can still override.'}</div>
+                  <div className="mt-0.5 text-sm text-muted-foreground">No action needed.</div>
                 </>
               )}
             </div>

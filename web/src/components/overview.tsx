@@ -25,9 +25,9 @@ interface Topic {
 
 const Row = ({ id, rule, value }: { id: string; rule: string; value: Recommendation }) => (
   <div className="flex items-center gap-3 border-b px-3 py-2.5 last:border-b-0">
-    <span className="w-20 font-mono text-xs text-muted-foreground">{id}</span>
+    <span className="w-20 text-xs tabular-nums text-muted-foreground">{id}</span>
     <RecommendationBadge value={value} />
-    <span className="ml-auto truncate font-mono text-xs text-muted-foreground">{rule}</span>
+    <span className="ml-auto truncate text-xs tabular-nums text-muted-foreground">{rule}</span>
   </div>
 );
 
@@ -133,7 +133,6 @@ export function Overview({ canOpen }: { canOpen: (page: string) => boolean }) {
   return (
     <div className="mx-auto w-full max-w-6xl space-y-10 py-6">
       <section className="space-y-3">
-        <p className="font-mono text-xs tracking-wide text-muted-foreground uppercase">Team LLM · Taktile case</p>
         <h1 className="max-w-3xl text-4xl leading-tight font-medium tracking-tight md:text-5xl">Better decisions on every motor claim</h1>
         <p className="max-w-2xl text-muted-foreground">Rules decide, people stay in control, and every change is traceable. Pick an area to see what it does.</p>
       </section>
@@ -175,7 +174,6 @@ export function Overview({ canOpen }: { canOpen: (page: string) => boolean }) {
           </div>
           <div className="flex items-center rounded-lg bg-muted/40 p-4 md:p-6"><div className="w-full">{topic.mock}</div></div>
         </div>
-        <p className="text-xs text-muted-foreground">Panels show sample data for illustration.</p>
       </section>
     </div>
   );
