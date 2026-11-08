@@ -319,8 +319,10 @@ async function suggestPolicy(client, input, options) {
         model: options.model,
         max_tokens: options.maxTokens ?? 8e3,
         system: SYSTEM,
+        // Newer models reject forced tool use (400), so use "auto"; the system prompt requires the tool call
+        // and a missing/invalid call is caught below and retried once.
         tools: [TOOL],
-        tool_choice: { type: "tool", name: TOOL_NAME },
+        tool_choice: { type: "auto" },
         messages
       });
     } catch (error) {

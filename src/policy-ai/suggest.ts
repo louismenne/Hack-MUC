@@ -96,7 +96,9 @@ export async function suggestPolicy(client: AiClient, input: AiInput, options: {
     try {
       response = await client.messages.create({
         model: options.model, max_tokens: options.maxTokens ?? 8000, system: SYSTEM,
-        tools: [TOOL], tool_choice: { type: 'tool', name: TOOL_NAME }, messages,
+        // Newer models reject forced tool use (400), so use "auto"; the system prompt requires the tool call
+        // and a missing/invalid call is caught below and retried once.
+        tools: [TOOL], tool_choice: { type: 'auto' }, messages,
       });
     } catch (error) {
       throw new AiError(`Die KI-Anfrage ist fehlgeschlagen: ${error instanceof Error ? error.message : String(error)}`);
